@@ -28,7 +28,7 @@ function buildSystemPrompt(ctx: SessionContext, currentTurn: number): string {
 ${ctx.material.summary}
 
 [발표자가 취약한 영역]
-${ctx.material.weak_areas.join(', ')}
+${ctx.material.weak_areas.length ? ctx.material.weak_areas.join(', ') : '(사전 퀴즈에서 특별히 지적된 약점 없음)'}
 
 [발표 중 주제를 이탈한 부분]
 ${off || '(없음)'}

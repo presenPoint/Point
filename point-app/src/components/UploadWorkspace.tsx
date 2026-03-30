@@ -1,7 +1,8 @@
-import { useCallback, useRef, useState } from 'react';
 import { hasOpenAI } from '../lib/openai';
 import { hasSupabase } from '../lib/supabase';
 import { useSessionStore } from '../store/sessionStore';
+import { PRE_QUIZ_PASS_SCORE } from '../types/session';
+import { FileSubmissionPanel } from './FileSubmissionPanel';
 
 function StepBar({ activeStep }: { activeStep: 1 | 2 | 3 | 4 }) {
   const dot = (n: number) => {
@@ -32,34 +33,18 @@ export function UploadWorkspace() {
   const setPresentationTopic = useSessionStore((s) => s.setPresentationTopic);
   const setAppStarted = useSessionStore((s) => s.setAppStarted);
   const setPreQuizAnswer = useSessionStore((s) => s.setPreQuizAnswer);
-  const setMaterialText = useSessionStore((s) => s.setMaterialText);
   const runMaterialAnalysis = useSessionStore((s) => s.runMaterialAnalysis);
   const submitPreQuiz = useSessionStore((s) => s.submitPreQuiz);
   const transition = useSessionStore((s) => s.transition);
 
-  const fileRef = useRef<HTMLInputElement>(null);
-  const [dragOver, setDragOver] = useState(false);
-
   const activeStep: 1 | 2 | 3 | 4 = session.status === 'PRE_QUIZ' ? 2 : 1;
 
-  const onFile = useCallback(
-    (file: File) => {
-      if (!file.name.match(/\.(txt|md)$/i)) {
-        useSessionStore.setState({ error: 'TXT 또는 MD 파일만 지원합니다 (MVP).' });
-        return;
-      }
-      const reader = new FileReader();
-      reader.onload = () => {
-        const t = String(reader.result ?? '');
-        setMaterialText(t);
-        useSessionStore.setState({ error: null });
-      };
-      reader.readAsText(file, 'UTF-8');
-    },
-    [setMaterialText]
-  );
+  const canStartPresenting =
+    session.status === 'PRE_QUIZ' &&
+    Boolean(session.material.summary?.trim()) &&
+    !busy;
 
-  const dropZoneClass = dragOver ? 'drop-zone dragover' : 'drop-zone';
+  const isPreQuizGrading = busy === '채점 중…';
 
   return (
     <div id="screen-upload" className="point-screen">
@@ -74,7 +59,7 @@ export function UploadWorkspace() {
             <button
               type="button"
               className="btn-primary"
-              disabled={session.material.pre_quiz_score <= 0 || !!busy}
+              disabled={!canStartPresenting}
               onClick={() => transition('PRESENTING')}
             >
               발표 시작 →
@@ -86,9 +71,11 @@ export function UploadWorkspace() {
           <div className="upload-main">
             <h2>발표 자료를 업로드하세요</h2>
             <p>
-              AI가 발표 내용을 학습해 사전 질문과 발표 후 질의응답을 준비합니다.
+              AI가 업로드한 자료를 분석해 요약·키워드를 만들고, 내용 숙지 확인용 서술형 퀴즈(Agent 1)를 냅니다.
               <br />
-              MVP에서는 텍스트 파일 또는 아래 입력란에 직접 붙여넣기를 지원합니다.
+              발표 후 Q&A(Agent 4)는 이 요약과 사전 퀴즈에서 드러난 약점을 반영하고, 세션 종료 시 리포트(Agent 5)에 반영됩니다.
+              <br />
+              <span style={{ color: 'var(--muted)' }}>파일을 추가한 뒤 「저장」으로 세션에 반영한 다음, 「AI 분석 · 퀴즈 생성」을 누르세요.</span>
             </p>
 
             <label className="input-label">발표 주제</label>
@@ -100,50 +87,7 @@ export function UploadWorkspace() {
               onChange={(e) => setPresentationTopic(e.target.value)}
             />
 
-            <input
-              ref={fileRef}
-              type="file"
-              accept=".txt,.md,text/plain"
-              className="hidden"
-              style={{ display: 'none' }}
-              onChange={(e) => {
-                const f = e.target.files?.[0];
-                if (f) onFile(f);
-                e.target.value = '';
-              }}
-            />
-
-            <div
-              role="button"
-              tabIndex={0}
-              className={dropZoneClass}
-              onClick={() => fileRef.current?.click()}
-              onKeyDown={(e) => e.key === 'Enter' && fileRef.current?.click()}
-              onDragOver={(e) => {
-                e.preventDefault();
-                setDragOver(true);
-              }}
-              onDragLeave={() => setDragOver(false)}
-              onDrop={(e) => {
-                e.preventDefault();
-                setDragOver(false);
-                const f = e.dataTransfer.files[0];
-                if (f) onFile(f);
-              }}
-            >
-              <div className="drop-icon">📂</div>
-              <div className="drop-text">파일을 드래그하거나 클릭해 업로드</div>
-              <div className="drop-sub">TXT · MD (직접 입력은 아래)</div>
-            </div>
-
-            <label className="input-label">발표 원문 (텍스트)</label>
-            <textarea
-              className="topic-input"
-              style={{ minHeight: 160, resize: 'vertical' }}
-              placeholder="여기에 자료 전문을 붙여넣거나, 위에서 파일을 선택하세요."
-              value={session.material.raw_text}
-              onChange={(e) => setMaterialText(e.target.value)}
-            />
+            <FileSubmissionPanel globalBusy={!!busy} />
 
             {error && (
               <div
@@ -208,14 +152,33 @@ export function UploadWorkspace() {
               <div className="quiz-title">내용 숙지 확인</div>
               <div className="quiz-sub">
                 발표 전, AI가 핵심 내용을 질문합니다. 답변하면서 발표 준비도를 점검하세요.
+                <br />
+                전체 제출 후 문항별로 맞음·틀림(70점 기준)과 피드백이 표시됩니다. 퀴즈는 선택 사항이며, 채점 없이도 상단 「발표 시작」으로 진행할 수 있습니다.
               </div>
             </div>
+
+            {isPreQuizGrading && (
+              <div className="quiz-grading-overlay" role="status" aria-live="polite" aria-busy="true">
+                <div className="quiz-grading-card">
+                  <div className="quiz-grading-spinner" aria-hidden />
+                  <p className="quiz-grading-title">채점 중입니다</p>
+                  <p className="quiz-grading-sub">AI가 답변을 평가하고 있습니다. 잠시만 기다려 주세요.</p>
+                </div>
+              </div>
+            )}
 
             {session.status === 'PRE_QUIZ' && session.material.quiz.length > 0 ? (
               session.material.quiz.map((q, idx) => {
                 const answered = Boolean(preQuizAnswers[q.id]?.trim());
+                const gradeRow = session.material.pre_quiz_grades.find((g) => g.id === q.id);
+                const passed = gradeRow != null && gradeRow.score >= PRE_QUIZ_PASS_SCORE;
+                const gradedCls =
+                  gradeRow != null ? (passed ? 'qc-graded-pass' : 'qc-graded-fail') : '';
                 return (
-                  <div key={q.id} className={`quiz-card ${answered ? 'answered' : ''}`}>
+                  <div
+                    key={q.id}
+                    className={`quiz-card ${answered ? 'answered' : ''} ${gradedCls}`.trim()}
+                  >
                     <div className="qc-num">
                       Q {String(idx + 1).padStart(2, '0')} / 03
                     </div>
@@ -226,6 +189,15 @@ export function UploadWorkspace() {
                       value={preQuizAnswers[q.id] ?? ''}
                       onChange={(e) => setPreQuizAnswer(q.id, e.target.value)}
                     />
+                    {gradeRow != null && (
+                      <div className={`qc-grade ${passed ? 'qc-grade-pass' : 'qc-grade-fail'}`}>
+                        <div className="qc-grade-head">
+                          <strong>{passed ? '맞음' : '틀림'}</strong>
+                          <span className="qc-grade-score">{gradeRow.score}점</span>
+                        </div>
+                        <p className="qc-grade-feedback">{gradeRow.feedback}</p>
+                      </div>
+                    )}
                   </div>
                 );
               })
@@ -243,7 +215,7 @@ export function UploadWorkspace() {
                   disabled={!!busy}
                   onClick={() => void submitPreQuiz()}
                 >
-                  전체 제출 · 채점 →
+                  {isPreQuizGrading ? '채점 중…' : '전체 제출 · 채점 →'}
                 </button>
               </div>
             )}
@@ -260,6 +232,21 @@ export function UploadWorkspace() {
                 </div>
               </div>
             )}
+
+            {session.status === 'PRE_QUIZ' &&
+              session.material.summary &&
+              session.material.pre_quiz_score <= 0 && (
+                <p
+                  style={{
+                    marginTop: 14,
+                    fontSize: 12,
+                    color: 'var(--muted2)',
+                    lineHeight: 1.6,
+                  }}
+                >
+                  퀴즈를 풀지 않아도 자료 분석이 끝났다면 「발표 시작」으로 바로 진행할 수 있습니다.
+                </p>
+              )}
           </div>
         </div>
       </div>

@@ -12,6 +12,16 @@ export interface QuizItem {
   key_points: string[];
 }
 
+/** 사전 퀴즈 문항별 채점 결과 (제출 후 표시) */
+export interface PreQuizQuestionGrade {
+  id: number;
+  score: number;
+  feedback: string;
+}
+
+/** 서술형 문항: 이 점수 이상이면 UI에서 「적절」로 표시 */
+export const PRE_QUIZ_PASS_SCORE = 70;
+
 export interface WpmEntry {
   timestamp: number;
   wpm: number;
@@ -59,6 +69,8 @@ export interface SessionContext {
     keywords: string[];
     quiz: QuizItem[];
     pre_quiz_score: number;
+    /** 문항별 점수·피드백 (전체 제출 채점 후) */
+    pre_quiz_grades: PreQuizQuestionGrade[];
     weak_areas: string[];
   };
 
