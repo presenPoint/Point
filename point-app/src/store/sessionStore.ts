@@ -18,6 +18,7 @@ function emptyMaterial() {
     keywords: [] as string[],
     quiz: [] as SessionContext['material']['quiz'],
     pre_quiz_score: 0,
+    pre_quiz_grades: [] as SessionContext['material']['pre_quiz_grades'],
     weak_areas: [] as string[],
   };
 }
@@ -132,9 +133,24 @@ export const useSessionStore = create<State>((set, get) => ({
     })),
 
   setPreQuizAnswer: (id, text) =>
-    set((s) => ({
-      preQuizAnswers: { ...s.preQuizAnswers, [id]: text },
-    })),
+    set((s) => {
+      const next = { ...s.preQuizAnswers, [id]: text };
+      if (s.session.material.pre_quiz_grades.length === 0) {
+        return { preQuizAnswers: next };
+      }
+      return {
+        preQuizAnswers: next,
+        session: {
+          ...s.session,
+          material: {
+            ...s.session.material,
+            pre_quiz_score: 0,
+            pre_quiz_grades: [],
+            weak_areas: [],
+          },
+        },
+      };
+    }),
 
   setMaterialText: (text) =>
     set((s) => ({
@@ -147,7 +163,10 @@ export const useSessionStore = create<State>((set, get) => ({
   runMaterialAnalysis: async () => {
     const raw = get().session.material.raw_text.trim();
     if (raw.length < 20) {
-      set({ error: '자료를 20자 이상 입력하세요.' });
+      set({
+        error:
+          '파일 제출 영역에서 자료를 추가한 뒤 「저장」으로 반영한 다음 분석하세요. (반영된 텍스트가 20자 이상이어야 합니다.)',
+      });
       return;
     }
     set({ busy: '자료 분석 중…', error: null });
@@ -162,6 +181,9 @@ export const useSessionStore = create<State>((set, get) => ({
             summary: result.summary,
             keywords: result.keywords,
             quiz: result.quiz,
+            pre_quiz_score: 0,
+            pre_quiz_grades: [],
+            weak_areas: [],
           },
         },
         busy: null,
@@ -181,14 +203,15 @@ export const useSessionStore = create<State>((set, get) => ({
     }
     set({ busy: '채점 중…', error: null });
     try {
-      const { score, weak_areas } = await gradePreQuiz(session, preQuizAnswers);
+      const graded = await gradePreQuiz(session, preQuizAnswers);
       set((s) => ({
         session: {
           ...s.session,
           material: {
             ...s.session.material,
-            pre_quiz_score: score,
-            weak_areas,
+            pre_quiz_score: graded.score,
+            weak_areas: graded.weak_areas,
+            pre_quiz_grades: graded.per_question,
           },
         },
         busy: null,

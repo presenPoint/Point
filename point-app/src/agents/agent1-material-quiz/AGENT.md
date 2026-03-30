@@ -6,7 +6,7 @@
 
 ## 입력
 
-- PDF/TXT에서 추출한 **원문 텍스트** (`SessionContext.material.raw_text`)
+- PDF(텍스트 레이어)·PPTX(슬라이드·노트)·TXT·MD에서 추출한 **원문 텍스트** (`SessionContext.material.raw_text`). 스캔 전용 PDF는 브라우저 OCR 없음. 레거시 `.ppt`는 클라이언트 미지원 → PPTX로 저장 후 업로드.
 
 ## 처리 흐름
 
