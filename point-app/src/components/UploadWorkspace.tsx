@@ -1,8 +1,86 @@
+import { useState } from 'react';
 import { hasOpenAI } from '../lib/openai';
 import { hasSupabase } from '../lib/supabase';
+import { useSpeechToText } from '../hooks/useSpeechToText';
 import { useSessionStore } from '../store/sessionStore';
 import { PRE_QUIZ_PASS_SCORE } from '../types/session';
 import { FileSubmissionPanel } from './FileSubmissionPanel';
+
+function VoiceQuizInput({ value, onChange, disabled }: {
+  value: string;
+  onChange: (val: string) => void;
+  disabled?: boolean;
+}) {
+  const { transcript, listening, transcribing, error, start, stop, reset } = useSpeechToText();
+  const [useTextFallback, setUseTextFallback] = useState(false);
+
+  const toggleMic = () => {
+    if (listening) {
+      stop();
+    } else {
+      reset();
+      void start();
+    }
+  };
+
+  if (transcript && !listening && !transcribing && transcript !== value) {
+    onChange(transcript);
+  }
+
+  const displayText = listening ? '녹음 중...' : transcribing ? '변환 중...' : (transcript || value);
+
+  if (useTextFallback) {
+    return (
+      <div className="voice-quiz-input">
+        <textarea
+          className="qc-textarea"
+          placeholder="답변을 입력하세요..."
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          disabled={disabled}
+        />
+        <button
+          type="button"
+          className="btn-mic-sm"
+          onClick={() => setUseTextFallback(false)}
+        >
+          🎙 음성 입력으로 전환
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="voice-quiz-input">
+      <div className="voice-quiz-display">
+        {displayText ? (
+          <span className={`voice-transcript-text${transcribing ? ' transcribing' : ''}`}>{displayText}</span>
+        ) : (
+          <span className="voice-placeholder">🎙 마이크를 눌러 음성으로 답변하세요</span>
+        )}
+        {listening && <span className="voice-pulse" />}
+        {transcribing && <span className="voice-spinner" />}
+      </div>
+      {error && (
+        <div className="voice-error">
+          {error}
+          <button type="button" className="voice-fallback-btn" onClick={() => setUseTextFallback(true)}>
+            ⌨ 텍스트로 입력하기
+          </button>
+        </div>
+      )}
+      <button
+        type="button"
+        className={`btn-mic-sm${listening ? ' recording' : ''}`}
+        disabled={disabled || transcribing}
+        onClick={toggleMic}
+        aria-label={listening ? '녹음 중지' : '음성 녹음'}
+      >
+        {listening ? '⏹ 완료' : transcribing ? '변환 중...' : '🎙 답변하기'}
+      </button>
+    </div>
+  );
+}
 
 function StepBar({ activeStep }: { activeStep: 1 | 2 | 3 | 4 }) {
   const dot = (n: number) => {
@@ -156,11 +234,10 @@ export function UploadWorkspace() {
                       Q {String(idx + 1).padStart(2, '0')} / 03
                     </div>
                     <div className="qc-question">{q.question}</div>
-                    <textarea
-                      className="qc-textarea"
-                      placeholder="답변을 입력하세요..."
+                    <VoiceQuizInput
                       value={preQuizAnswers[q.id] ?? ''}
-                      onChange={(e) => setPreQuizAnswer(q.id, e.target.value)}
+                      onChange={(val) => setPreQuizAnswer(q.id, val)}
+                      disabled={!!busy || isPreQuizGrading}
                     />
                     {gradeRow != null && (
                       <div className={`qc-grade ${passed ? 'qc-grade-pass' : 'qc-grade-fail'}`}>

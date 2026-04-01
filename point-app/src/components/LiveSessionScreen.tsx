@@ -22,7 +22,7 @@ function sourceToCat(source: FeedbackItem['source']): { cls: string; label: stri
 }
 
 export function LiveSessionScreen() {
-  const { presentingStartRef } = useLivePresenting();
+  const { presentingStartRef, startPoseTracking, stopPoseTracking } = useLivePresenting();
   const transition = useSessionStore((s) => s.transition);
   const session = useSessionStore((s) => s.session);
   const live = useSessionStore((s) => s.livePresentation);
@@ -101,6 +101,7 @@ export function LiveSessionScreen() {
       const v = videoRef.current;
       if (v) {
         v.srcObject = stream;
+        v.onloadeddata = () => startPoseTracking(v);
         setCamOn(true);
       }
     } catch {
@@ -109,6 +110,7 @@ export function LiveSessionScreen() {
   };
 
   const endSession = () => {
+    stopPoseTracking();
     const s = Math.round((Date.now() - presentingStartRef.current) / 1000);
     useSessionStore.setState((st) => ({
       session: {

@@ -1,24 +1,13 @@
 import { useEffect, useRef } from 'react';
 import { feedbackQueue, runSemanticAnalysis, calcWpm, onTranscriptChunk } from '../agents';
+import { PoseTracker } from '../agents/agent3-live-nonverbal/poseTracker';
 import { SEMANTIC_INTERVAL_MS, SILENCE_THRESHOLD_MS } from '../lib/speechUtils';
 import { useSessionStore } from '../store/sessionStore';
 import type { FillerEntry, TranscriptEntry } from '../types/session';
 
-type WorkerFrame = {
-  type: 'FRAME';
-  gaze: { isGazing: boolean; timestamp: number };
-  posture: {
-    angle: number;
-    isStraight: boolean;
-    isTooFar: boolean;
-    isTooClose: boolean;
-    timestamp: number;
-  };
-  gesture: { excess: boolean; lack: boolean };
-};
-
 export function useLivePresenting() {
   const presentingStartRef = useRef(Date.now());
+  const poseTrackerRef = useRef<PoseTracker | null>(null);
 
   useEffect(() => {
     presentingStartRef.current = Date.now();
@@ -29,7 +18,6 @@ export function useLivePresenting() {
     const fillerRef: FillerEntry[] = [];
     const lastWpmWarnRef = { current: 0 };
     const silenceTimerRef: { current: ReturnType<typeof setTimeout> | null } = { current: null };
-    const gazeWindowRef: boolean[] = [];
 
     const transcriptForSemantic = (): string => {
       const since = Date.now() - SEMANTIC_INTERVAL_MS;
@@ -136,96 +124,9 @@ export function useLivePresenting() {
       }
     }
 
-    const worker = new Worker(
-      new URL('../agents/agent3-live-nonverbal/nonverbal.worker.ts', import.meta.url),
-      {
-        type: 'module',
-      }
-    );
-    worker.postMessage({ type: 'START' });
-
-    worker.onmessage = (ev: MessageEvent<WorkerFrame>) => {
-      if (ev.data.type !== 'FRAME') return;
-      const { gaze, posture, gesture } = ev.data;
-      const gw = gazeWindowRef;
-      gw.push(gaze.isGazing);
-      if (gw.length > 50) gw.splice(0, gw.length - 50);
-      const gaze_rate = gw.filter(Boolean).length / gw.length;
-
-      useSessionStore.setState((st) => {
-        const nv = st.session.nonverbal_coaching;
-        const gazeEntry = { timestamp: gaze.timestamp, is_gazing: gaze.isGazing };
-        const gesture_log = gesture.excess
-          ? [...nv.gesture_log, { timestamp: posture.timestamp, type: 'excess' as const }].slice(-200)
-          : nv.gesture_log;
-        return {
-          session: {
-            ...st.session,
-            nonverbal_coaching: {
-              gaze_rate,
-              gaze_log: [...nv.gaze_log, gazeEntry].slice(-500),
-              posture_log: [
-                ...nv.posture_log,
-                {
-                  timestamp: posture.timestamp,
-                  angle: posture.angle,
-                  is_ok: posture.isStraight && !posture.isTooFar && !posture.isTooClose,
-                },
-              ].slice(-500),
-              gesture_log,
-            },
-          },
-        };
-      });
-
-      if (!gaze.isGazing && gaze_rate < 0.4) {
-        feedbackQueue.push({
-          level: 'CRITICAL',
-          msg: '시선이 카메라에서 많이 벗어났습니다',
-          source: 'NONVERBAL',
-          cooldown: 60_000,
-        });
-      } else if (!gaze.isGazing && gaze_rate < 0.6) {
-        feedbackQueue.push({
-          level: 'WARN',
-          msg: '청중을 좀 더 바라보세요',
-          source: 'NONVERBAL',
-          cooldown: 30_000,
-        });
-      }
-      if (!posture.isStraight) {
-        feedbackQueue.push({
-          level: 'WARN',
-          msg: '자세를 바르게 해주세요',
-          source: 'NONVERBAL',
-          cooldown: 15_000,
-        });
-      }
-      if (posture.isTooFar) {
-        feedbackQueue.push({
-          level: 'INFO',
-          msg: '카메라에 조금 더 가까이 앉으세요',
-          source: 'NONVERBAL',
-          cooldown: 30_000,
-        });
-      }
-      if (posture.isTooClose) {
-        feedbackQueue.push({
-          level: 'INFO',
-          msg: '카메라와 거리를 조금 두세요',
-          source: 'NONVERBAL',
-          cooldown: 30_000,
-        });
-      }
-      if (gesture.excess) {
-        feedbackQueue.push({
-          level: 'WARN',
-          msg: '제스처가 너무 많아요',
-          source: 'NONVERBAL',
-          cooldown: 60_000,
-        });
-      }
-    };
+    const tracker = new PoseTracker();
+    poseTrackerRef.current = tracker;
+    tracker.init().catch(() => {});
 
     return () => {
       clearInterval(uiTick);
@@ -233,8 +134,8 @@ export function useLivePresenting() {
       clearInterval(wpmLogId);
       if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
       recognition?.stop();
-      worker.postMessage({ type: 'STOP' });
-      worker.terminate();
+      tracker.destroy();
+      poseTrackerRef.current = null;
       const sec = Math.round((Date.now() - presentingStartRef.current) / 1000);
       useSessionStore.setState((st) => ({
         session: {
@@ -246,5 +147,54 @@ export function useLivePresenting() {
     };
   }, []);
 
-  return { presentingStartRef };
+  const startPoseTracking = (video: HTMLVideoElement) => {
+    const tracker = poseTrackerRef.current;
+    if (!tracker) return;
+    tracker.start(video, (frame) => {
+      useSessionStore.setState((st) => {
+        const nv = st.session.nonverbal_coaching;
+        const { gaze, posture, gesture } = frame;
+
+        const gazeWindow: boolean[] = [];
+        for (const entry of nv.gaze_log.slice(-49)) gazeWindow.push(entry.is_gazing);
+        gazeWindow.push(gaze.isGazing);
+        const gaze_rate = gazeWindow.filter(Boolean).length / gazeWindow.length;
+
+        const gesture_log = gesture.excess
+          ? [...nv.gesture_log, { timestamp: posture.timestamp, type: 'excess' as const }].slice(-200)
+          : nv.gesture_log;
+
+        return {
+          session: {
+            ...st.session,
+            nonverbal_coaching: {
+              gaze_rate,
+              gaze_log: [...nv.gaze_log, { timestamp: gaze.timestamp, is_gazing: gaze.isGazing }].slice(-500),
+              posture_log: [
+                ...nv.posture_log,
+                { timestamp: posture.timestamp, angle: posture.angle, is_ok: posture.isStraight && !posture.isTooFar && !posture.isTooClose },
+              ].slice(-500),
+              gesture_log,
+            },
+          },
+        };
+      });
+
+      if (!frame.gaze.isGazing) {
+        feedbackQueue.push({ level: 'WARN', msg: '청중을 좀 더 바라보세요', source: 'NONVERBAL', cooldown: 30_000 });
+      }
+      if (!frame.posture.isStraight) {
+        feedbackQueue.push({ level: 'WARN', msg: '자세를 바르게 해주세요', source: 'NONVERBAL', cooldown: 15_000 });
+      }
+      if (frame.gesture.excess) {
+        feedbackQueue.push({ level: 'WARN', msg: '제스처가 너무 많아요', source: 'NONVERBAL', cooldown: 60_000 });
+      }
+    });
+  };
+
+  const stopPoseTracking = () => {
+    poseTrackerRef.current?.stop();
+  };
+
+  return { presentingStartRef, startPoseTracking, stopPoseTracking };
 }

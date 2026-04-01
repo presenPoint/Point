@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useSpeechToText } from '../hooks/useSpeechToText';
 import { useSessionStore } from '../store/sessionStore';
 import { ScoreRing } from './ScoreRing';
 
@@ -52,7 +53,9 @@ export function QaReportScreen() {
   const busy = useSessionStore((s) => s.busy);
   const startQa = useSessionStore((s) => s.startQa);
   const submitQaAnswer = useSessionStore((s) => s.submitQaAnswer);
-  const [answer, setAnswer] = useState('');
+  const { transcript, listening, transcribing, error: sttError, start: startSTT, stop: stopSTT, reset: resetSTT } = useSpeechToText();
+  const [textFallback, setTextFallback] = useState(false);
+  const [textAnswer, setTextAnswer] = useState('');
   const qaInit = useRef(false);
 
   const done = session.status === 'DONE';
@@ -70,8 +73,18 @@ export function QaReportScreen() {
   }, [startQa, done, reporting]);
 
   const onSend = () => {
-    if (!answer.trim() || busy || !qaCurrentQuestion) return;
-    void submitQaAnswer(answer.trim()).then(() => setAnswer(''));
+    const text = textFallback ? textAnswer.trim() : transcript.trim();
+    if (!text || busy || !qaCurrentQuestion) return;
+    if (listening) stopSTT();
+    void submitQaAnswer(text).then(() => {
+      resetSTT();
+      setTextAnswer('');
+    });
+  };
+
+  const toggleMic = () => {
+    if (listening) stopSTT();
+    else void startSTT();
   };
 
   const onKeyDown = (e: React.KeyboardEvent) => {
@@ -230,25 +243,78 @@ export function QaReportScreen() {
               )}
             </div>
 
-            <div className="chat-input-area">
-              <textarea
-                className="chat-input"
-                placeholder={done ? 'Q&A가 종료되었습니다.' : '답변을 입력하세요...'}
-                rows={1}
-                value={answer}
-                disabled={done || reporting || !qaCurrentQuestion || !!busy}
-                onChange={(e) => setAnswer(e.target.value)}
-                onKeyDown={onKeyDown}
-              />
-              <button
-                type="button"
-                className="btn-send"
-                disabled={done || reporting || !qaCurrentQuestion || !!busy}
-                onClick={onSend}
-                aria-label="전송"
-              >
-                ↑
-              </button>
+            <div className="chat-input-area voice-input-area">
+              {done ? (
+                <div className="voice-done-msg">Q&A가 종료되었습니다.</div>
+              ) : textFallback ? (
+                <>
+                  <div className="text-input-row">
+                    <textarea
+                      className="chat-input"
+                      placeholder="답변을 입력하세요..."
+                      rows={2}
+                      value={textAnswer}
+                      disabled={reporting || !qaCurrentQuestion || !!busy}
+                      onChange={(e) => setTextAnswer(e.target.value)}
+                      onKeyDown={onKeyDown}
+                    />
+                    <button
+                      type="button"
+                      className="btn-send"
+                      disabled={!textAnswer.trim() || reporting || !qaCurrentQuestion || !!busy}
+                      onClick={onSend}
+                      aria-label="전송"
+                    >
+                      전송 ↑
+                    </button>
+                  </div>
+                  <button type="button" className="voice-mode-toggle" onClick={() => setTextFallback(false)}>
+                    🎙 음성 입력으로 전환
+                  </button>
+                </>
+              ) : (
+                <>
+                  <div className="voice-transcript-box">
+                    {transcript ? (
+                      <span className="voice-transcript-text">{transcript}</span>
+                    ) : (
+                      <span className="voice-placeholder">
+                        {listening ? '녹음 중...' : transcribing ? '변환 중...' : '🎙 마이크를 눌러 음성으로 답변하세요'}
+                      </span>
+                    )}
+                    {listening && <span className="voice-pulse" />}
+                    {transcribing && <span className="voice-spinner" />}
+                  </div>
+                  {sttError && (
+                    <div className="voice-error">
+                      {sttError}
+                      <button type="button" className="voice-fallback-btn" onClick={() => setTextFallback(true)}>
+                        ⌨ 텍스트로 입력하기
+                      </button>
+                    </div>
+                  )}
+                  <div className="voice-actions">
+                    <button
+                      type="button"
+                      className={`btn-mic${listening ? ' recording' : ''}`}
+                      disabled={reporting || !qaCurrentQuestion || !!busy || transcribing}
+                      onClick={toggleMic}
+                      aria-label={listening ? '녹음 중지' : '음성 녹음'}
+                    >
+                      {listening ? '⏹' : transcribing ? '...' : '🎙'}
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-send"
+                      disabled={!transcript.trim() || reporting || !qaCurrentQuestion || !!busy || transcribing}
+                      onClick={onSend}
+                      aria-label="전송"
+                    >
+                      전송 ↑
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </div>
