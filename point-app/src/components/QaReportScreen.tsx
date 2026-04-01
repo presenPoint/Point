@@ -160,8 +160,8 @@ export function QaReportScreen() {
               </>
             ) : (
               <div className="insight-list">
-                <div className="insight-item" style={{ borderLeft: '3px solid var(--cyan)' }}>
-                  <div className="insight-icon">⏳</div>
+                <div className="insight-item insight-item-pending">
+                  <div className="insight-icon" aria-hidden="true">⏳</div>
                   <div className="insight-content">
                     <div className="insight-title">Q&A 완료 후 생성됩니다</div>
                     <div className="insight-desc">
@@ -170,8 +170,8 @@ export function QaReportScreen() {
                   </div>
                 </div>
                 {reporting && (
-                  <div className="insight-item" style={{ borderLeft: '3px solid var(--violet)' }}>
-                    <div className="insight-icon">✨</div>
+                  <div className="insight-item insight-item-reporting">
+                    <div className="insight-icon" aria-hidden="true">✨</div>
                     <div className="insight-content">
                       <div className="insight-title">리포트 생성 중…</div>
                       <div className="insight-desc">{busy || '잠시만 기다려 주세요.'}</div>

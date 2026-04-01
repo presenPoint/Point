@@ -4,35 +4,35 @@ export function HomeScreen() {
   const setAppStarted = useSessionStore((s) => s.setAppStarted);
 
   return (
-    <div id="screen-home" className="point-screen screen-home">
+    <main id="screen-home" className="point-screen screen-home" role="main">
       <div className="home-content">
-        <div className="home-logo">Point</div>
-        <div className="home-tagline">발표의 두려움을 AI가 해결합니다</div>
+        <h1 className="home-logo">Point</h1>
+        <p className="home-tagline">발표의 두려움을 AI가 해결합니다</p>
         <p className="home-sub">
           실시간 음성·비언어 코칭 · 발표 내용 사전 학습 · AI 질의응답
           <br />
           영상을 다시 볼 필요 없이, 발표하는 그 순간 피드백이 전달됩니다.
         </p>
 
-        <div className="home-features">
-          <div className="hf-chip">
-            <span className="dot" style={{ background: 'var(--cyan)' }} />
+        <ul className="home-features" aria-label="주요 기능">
+          <li className="hf-chip">
+            <span className="dot dot-cyan" aria-hidden="true" />
             실시간 비언어 코칭
-          </div>
-          <div className="hf-chip">
-            <span className="dot" style={{ background: 'var(--violet)' }} />
+          </li>
+          <li className="hf-chip">
+            <span className="dot dot-violet" aria-hidden="true" />
             발표 내용 사전 학습
-          </div>
-          <div className="hf-chip">
-            <span className="dot" style={{ background: 'var(--green)' }} />
+          </li>
+          <li className="hf-chip">
+            <span className="dot dot-green" aria-hidden="true" />
             AI 질의응답
-          </div>
-        </div>
+          </li>
+        </ul>
 
         <button type="button" className="btn-start" onClick={() => setAppStarted(true)}>
           발표 시작하기 →
         </button>
       </div>
-    </div>
+    </main>
   );
 }

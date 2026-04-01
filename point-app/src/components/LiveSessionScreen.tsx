@@ -164,18 +164,17 @@ export function LiveSessionScreen() {
           <div className="camera-area">
             <video
               ref={videoRef}
-              className="camera-feed"
-              style={{ display: camOn ? 'block' : 'none' }}
+              className={`camera-feed${camOn ? '' : ' hidden'}`}
               autoPlay
               muted
               playsInline
             />
             {!camOn && (
               <div className="cam-placeholder">
-                <div className="cam-icon">📹</div>
+                <div className="cam-icon" aria-hidden="true">📹</div>
                 <div className="cam-label">카메라는 선택입니다 · 음성 코칭은 마이크만으로 동작</div>
-                <div style={{ marginTop: 16 }}>
-                  <button type="button" className="btn-primary" style={{ fontSize: 12, padding: '8px 20px' }} onClick={startCamera}>
+                <div className="cam-action">
+                  <button type="button" className="btn-primary btn-cam" onClick={startCamera}>
                     카메라 켜기
                   </button>
                 </div>
@@ -186,15 +185,15 @@ export function LiveSessionScreen() {
             <div className="corner-tr" />
             <div className="corner-bl" />
             <div className="corner-br" />
-            <div className="tracking-dot" style={{ top: '32%', left: '44%' }} />
-            <div className="tracking-dot" style={{ top: '32%', left: '56%' }} />
+            <div className="tracking-dot tracking-dot-left" />
+            <div className="tracking-dot tracking-dot-right" />
 
             <div className="cam-overlays">
               <div className="cam-metric">
                 <div className="cm-label">말 속도</div>
                 <div className={`cm-value ${wpmOk || wpm === 0 ? 'good' : 'warn'}`}>
                   {wpm || '—'}{' '}
-                  <span style={{ fontSize: 10, opacity: 0.7 }}>음절/분</span>
+                  <span className="cm-unit">음절/분</span>
                 </div>
               </div>
               <div className="cam-metric">
@@ -318,44 +317,31 @@ export function LiveSessionScreen() {
               })}
             </div>
 
-            <div className="nonverbal-panel">
+            <div className="nonverbal-panel" aria-label="비언어 종합 지표">
               <div className="nv-title">비언어 종합</div>
               <div className="nv-row">
                 <span className="nv-label">시선 응시</span>
                 <div className="nv-bar-wrap">
-                  <div
-                    className="nv-bar-fill"
-                    style={{ width: `${gazePct}%`, background: 'var(--green)' }}
-                  />
+                  <div className="nv-bar-fill nv-fill-green" style={{ width: `${gazePct}%` }} />
                 </div>
-                <span className="nv-score" style={{ color: 'var(--green)' }}>
-                  {gazePct}
-                </span>
+                <span className="nv-score nv-score-green">{gazePct}</span>
               </div>
               <div className="nv-row">
                 <span className="nv-label">자세 안정</span>
                 <div className="nv-bar-wrap">
-                  <div
-                    className="nv-bar-fill"
-                    style={{ width: `${posturePct}%`, background: 'var(--amber)' }}
-                  />
+                  <div className="nv-bar-fill nv-fill-amber" style={{ width: `${posturePct}%` }} />
                 </div>
-                <span className="nv-score" style={{ color: 'var(--amber)' }}>
-                  {posturePct}
-                </span>
+                <span className="nv-score nv-score-amber">{posturePct}</span>
               </div>
               <div className="nv-row">
                 <span className="nv-label">제스처(과다 이벤트)</span>
                 <div className="nv-bar-wrap">
                   <div
-                    className="nv-bar-fill"
-                    style={{
-                      width: `${Math.min(100, session.nonverbal_coaching.gesture_log.length * 5)}%`,
-                      background: 'var(--violet)',
-                    }}
+                    className="nv-bar-fill nv-fill-violet"
+                    style={{ width: `${Math.min(100, session.nonverbal_coaching.gesture_log.length * 5)}%` }}
                   />
                 </div>
-                <span className="nv-score" style={{ color: 'var(--violet)' }}>
+                <span className="nv-score nv-score-violet">
                   {session.nonverbal_coaching.gesture_log.length}
                 </span>
               </div>

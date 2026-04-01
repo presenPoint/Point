@@ -90,25 +90,14 @@ export function UploadWorkspace() {
             <FileSubmissionPanel globalBusy={!!busy} />
 
             {error && (
-              <div
-                style={{
-                  marginBottom: 16,
-                  padding: 12,
-                  borderRadius: 12,
-                  border: '1px solid rgba(255,79,106,0.35)',
-                  background: 'var(--red-dim)',
-                  color: 'var(--red)',
-                  fontSize: 13,
-                }}
-              >
+              <div className="error-box" role="alert">
                 {error}
               </div>
             )}
 
             <button
               type="button"
-              className="btn-primary"
-              style={{ padding: '12px 24px', fontSize: 14, marginBottom: 24 }}
+              className="btn-primary btn-analyze"
               disabled={!!busy}
               onClick={() => void runMaterialAnalysis()}
             >
@@ -116,29 +105,13 @@ export function UploadWorkspace() {
             </button>
 
             {session.status === 'PRE_QUIZ' && session.material.summary && (
-              <div
-                style={{
-                  background: 'var(--surface)',
-                  border: '1px solid var(--border)',
-                  borderRadius: 12,
-                  padding: 18,
-                  marginTop: 8,
-                }}
-              >
-                <div
-                  style={{
-                    fontFamily: "'JetBrains Mono',monospace",
-                    fontSize: 9,
-                    letterSpacing: '0.15em',
-                    color: 'var(--violet)',
-                    marginBottom: 10,
-                  }}
-                >
+              <div className="analysis-complete-card">
+                <div className="analysis-badge" aria-label="분석 완료">
                   🤖 AI ANALYSIS COMPLETE
                 </div>
-                <div style={{ fontSize: 12.5, color: 'var(--muted2)', lineHeight: 1.7 }}>
-                  키워드 <strong style={{ color: 'var(--text)' }}>{session.material.keywords.length}개</strong>{' '}
-                  추출 · 사전 퀴즈 <strong style={{ color: 'var(--text)' }}>3문항</strong> 생성
+                <div className="analysis-detail">
+                  키워드 <strong>{session.material.keywords.length}개</strong>{' '}
+                  추출 · 사전 퀴즈 <strong>3문항</strong> 생성
                   <br />
                   OpenAI: {hasOpenAI() ? '연결됨' : '데모'} · Supabase: {hasSupabase() ? '설정됨' : '로컬'}
                 </div>
@@ -202,13 +175,13 @@ export function UploadWorkspace() {
                 );
               })
             ) : (
-              <p style={{ color: 'var(--muted2)', fontSize: 13, lineHeight: 1.6 }}>
+              <p className="quiz-empty-hint">
                 왼쪽에서 자료를 분석하면 퀴즈가 표시됩니다.
               </p>
             )}
 
             {session.status === 'PRE_QUIZ' && session.material.quiz.length > 0 && (
-              <div className="qc-footer" style={{ justifyContent: 'flex-start', marginTop: 8 }}>
+              <div className="qc-footer qc-footer-left">
                 <button
                   type="button"
                   className="btn-submit-q"
@@ -221,13 +194,13 @@ export function UploadWorkspace() {
             )}
 
             {session.material.pre_quiz_score > 0 && (
-              <div className="quiz-score" style={{ display: 'block', marginTop: 16 }}>
+              <div className="quiz-score quiz-score-visible">
                 <div className="qs-label">내용 숙지도 점수</div>
                 <div className="qs-score">
                   {session.material.pre_quiz_score}
-                  <span style={{ fontSize: 18, opacity: 0.6 }}>점</span>
+                  <span className="score-unit">점</span>
                 </div>
-                <div style={{ fontSize: 12, color: 'var(--green)', marginTop: 6 }}>
+                <div className="score-guide">
                   상단의 「발표 시작」으로 라이브 세션에 들어가세요.
                 </div>
               </div>
@@ -236,14 +209,7 @@ export function UploadWorkspace() {
             {session.status === 'PRE_QUIZ' &&
               session.material.summary &&
               session.material.pre_quiz_score <= 0 && (
-                <p
-                  style={{
-                    marginTop: 14,
-                    fontSize: 12,
-                    color: 'var(--muted2)',
-                    lineHeight: 1.6,
-                  }}
-                >
+                <p className="quiz-hint">
                   퀴즈를 풀지 않아도 자료 분석이 끝났다면 「발표 시작」으로 바로 진행할 수 있습니다.
                 </p>
               )}
