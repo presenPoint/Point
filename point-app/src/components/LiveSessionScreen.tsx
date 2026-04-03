@@ -153,9 +153,6 @@ export function LiveSessionScreen() {
           </div>
           <div className="live-timer">{formatMmSs(sec)}</div>
           <div className="live-actions">
-            <button type="button" className="btn-sm" onClick={() => setCoachVisual((v) => !v)}>
-              🔔 {coachVisual ? 'Visual' : 'Alert'} Mode
-            </button>
             <button type="button" className="btn-end" onClick={endSession}>
               End Session ■
             </button>

@@ -762,9 +762,9 @@ body {
 .chat-input::placeholder { color:var(--muted); }
 
 .btn-send {
-  width:42px; height:42px; border-radius:10px; background:var(--accent); border:none;
-  display:flex; align-items:center; justify-content:center; cursor:pointer;
-  font-size:17px; color:#fff; transition:all .2s; flex-shrink:0;
+  padding:10px 18px; border-radius:10px; background:var(--accent); border:none;
+  display:flex; align-items:center; justify-content:center; gap:4px; cursor:pointer;
+  font-size:13px; font-weight:600; font-family:inherit; color:#fff; transition:all .2s; flex-shrink:0;
 }
 .btn-send:hover { transform:scale(1.05); box-shadow:0 4px 12px rgba(126,156,248,.25); }
 
@@ -911,20 +911,21 @@ body {
 
 /* ── VOICE INPUT ── */
 .voice-input-area {
-  display:flex; flex-direction:column; gap:10px; padding:12px;
+  display:flex; flex-direction:column; gap:12px; padding:16px 18px;
 }
 .voice-transcript-box {
-  min-height:48px; padding:12px 16px; border-radius:10px;
+  min-height:52px; padding:14px 18px; border-radius:12px;
   background:var(--surface); border:1px solid var(--border);
-  display:flex; align-items:center; gap:8px; flex-wrap:wrap;
+  display:flex; align-items:center; gap:10px; flex-wrap:wrap;
 }
 .voice-transcript-text { color:var(--text); font-size:14px; line-height:1.5; }
 .voice-placeholder { color:var(--muted); font-size:13px; }
-.voice-actions { display:flex; gap:8px; align-items:center; }
+.voice-actions { display:flex; gap:12px; align-items:center; }
 .btn-mic {
   width:48px; height:48px; border-radius:50%; border:2px solid var(--accent);
   background:transparent; color:var(--accent); font-size:20px;
   cursor:pointer; display:flex; align-items:center; justify-content:center;
+  flex-shrink:0;
   transition:all 0.2s ease;
 }
 .btn-mic:hover { background:rgba(126,156,248,0.1); }
