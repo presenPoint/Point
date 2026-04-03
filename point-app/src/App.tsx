@@ -1,15 +1,52 @@
 import { useSessionStore } from './store/sessionStore';
+import { useAuth } from './hooks/useAuth';
+import { LoginScreen } from './components/LoginScreen';
 import { HomeScreen } from './components/HomeScreen';
 import { UploadWorkspace } from './components/UploadWorkspace';
 import { LiveSessionScreen } from './components/LiveSessionScreen';
 import { QaReportScreen } from './components/QaReportScreen';
 
 export default function App() {
+  const { user, loading, signOut } = useAuth();
   const appStarted = useSessionStore((s) => s.appStarted);
   const status = useSessionStore((s) => s.session.status);
 
+  if (loading) {
+    return (
+      <main className="login-screen">
+        <div className="login-card">
+          <h1 className="login-logo">Point</h1>
+          <p className="login-tagline">Loading…</p>
+        </div>
+      </main>
+    );
+  }
+
+  if (!user) {
+    return <LoginScreen />;
+  }
+
+  const userBar = (
+    <div className="user-bar">
+      {user.user_metadata?.avatar_url && (
+        <img
+          className="user-avatar"
+          src={user.user_metadata.avatar_url}
+          alt=""
+          referrerPolicy="no-referrer"
+        />
+      )}
+      <span className="user-name">
+        {user.user_metadata?.full_name ?? user.email}
+      </span>
+      <button type="button" className="btn-sign-out" onClick={signOut}>
+        Sign out
+      </button>
+    </div>
+  );
+
   if (!appStarted) {
-    return <HomeScreen />;
+    return <HomeScreen userBar={userBar} />;
   }
 
   if (status === 'IDLE' || status === 'PRE_QUIZ') {

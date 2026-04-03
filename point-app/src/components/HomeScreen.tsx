@@ -1,10 +1,12 @@
 import { useSessionStore } from '../store/sessionStore';
+import type { ReactNode } from 'react';
 
-export function HomeScreen() {
+export function HomeScreen({ userBar }: { userBar?: ReactNode }) {
   const setAppStarted = useSessionStore((s) => s.setAppStarted);
 
   return (
     <main id="screen-home" className="point-screen screen-home" role="main">
+      {userBar}
       <div className="home-content">
         <h1 className="home-logo">Point</h1>
         <p className="home-tagline">AI helps you beat presentation anxiety</p>
