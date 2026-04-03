@@ -1,5 +1,5 @@
 /**
- * 발표 자료 파일 → 원문 텍스트 (업로드 UI에서 단일/다중 처리 시 공통 사용).
+ * Presentation material file → raw text extraction.
  */
 import { extractTextFromPdf, extractTextFromPptx, isLegacyPpt } from './extractDocumentText';
 
@@ -27,13 +27,13 @@ export function getMaterialFileKind(filename: string): MaterialFileKind | null {
   return null;
 }
 
-/** 단일 파일에서 텍스트 추출 */
+/** Extract text from a single file */
 export async function extractMaterialFromFile(file: File): Promise<MaterialExtractResult> {
   if (isLegacyPpt(file.name)) {
     return {
       ok: false,
       message:
-        '구형 .ppt는 지원하지 않습니다. PPTX로 저장한 뒤 업로드하세요.',
+        'Legacy .ppt is not supported. Please save as PPTX and re-upload.',
     };
   }
 
@@ -41,7 +41,7 @@ export async function extractMaterialFromFile(file: File): Promise<MaterialExtra
   if (!kind) {
     return {
       ok: false,
-      message: '지원 형식: TXT, MD, PDF, PPTX',
+      message: 'Supported formats: TXT, MD, PDF, PPTX',
     };
   }
 
@@ -59,7 +59,7 @@ export async function extractMaterialFromFile(file: File): Promise<MaterialExtra
         return {
           ok: false,
           message:
-            'PDF에서 텍스트를 거의 찾지 못했습니다. 텍스트 PDF 또는 TXT를 사용하세요.',
+            'Almost no text found in this PDF. Please use a text-based PDF or TXT file.',
         };
       }
       return { ok: true, text, kind };
@@ -70,14 +70,14 @@ export async function extractMaterialFromFile(file: File): Promise<MaterialExtra
       return {
         ok: false,
         message:
-          'PPT에서 텍스트를 거의 찾지 못했습니다. 슬라이드에 텍스트가 있는지 확인하세요.',
+          'Almost no text found in this PPTX. Make sure your slides contain text.',
       };
     }
     return { ok: true, text, kind };
   } catch {
     return {
       ok: false,
-      message: '파일을 읽는 중 오류가 났습니다.',
+      message: 'An error occurred while reading the file.',
     };
   }
 }

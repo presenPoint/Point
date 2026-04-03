@@ -1,5 +1,5 @@
 /**
- * Point 에이전트 진입점. 에이전트별 상세 지침은 각 폴더의 AGENT.md 를 참고하세요.
+ * Point agent entry point. See each folder's AGENT.md for details.
  */
 export { feedbackQueue } from './shared/feedbackQueue';
 export { SESSION_STATUS_FLOW } from './agent0-session-orchestrator';

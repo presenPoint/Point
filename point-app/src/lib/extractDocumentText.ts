@@ -1,7 +1,7 @@
 /**
- * 브라우저에서 TXT/MD/PDF/PPTX 원문 추출 (Agent 1 → material.raw_text).
- * 레거시 .ppt(바이너리)는 지원하지 않음.
- * PDF는 선택 가능한 텍스트 레이어만 추출(스캔 이미지 전용 PDF는 OCR 없음).
+ * Browser-side raw text extraction for TXT/MD/PDF/PPTX (Agent 1 → material.raw_text).
+ * Legacy .ppt (binary) is not supported.
+ * PDF: only selectable text layers are extracted (no OCR for scan-only PDFs).
  */
 import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist';
 import JSZip from 'jszip';
@@ -27,7 +27,7 @@ function slideSortKey(path: string): number {
   return m ? parseInt(m[1], 10) : 0;
 }
 
-/** PPTX에서 슬라이드·발표자 노트 텍스트 추출 */
+/** Extract slide and speaker notes text from PPTX */
 export async function extractTextFromPptx(buffer: ArrayBuffer): Promise<string> {
   const zip = await JSZip.loadAsync(buffer);
   const names = Object.keys(zip.files).filter((p) => !zip.files[p].dir);
@@ -49,7 +49,7 @@ export async function extractTextFromPptx(buffer: ArrayBuffer): Promise<string> 
     const xml = await file.async('string');
     const lines = collectAText(xml);
     if (lines.length) {
-      chunks.push(`[슬라이드 ${i + 1}]\n${lines.join('\n')}`);
+      chunks.push(`[Slide ${i + 1}]\n${lines.join('\n')}`);
     }
   }
 
@@ -60,7 +60,7 @@ export async function extractTextFromPptx(buffer: ArrayBuffer): Promise<string> 
     const xml = await file.async('string');
     const lines = collectAText(xml);
     if (lines.length) {
-      chunks.push(`[노트 ${i + 1}]\n${lines.join('\n')}`);
+      chunks.push(`[Notes ${i + 1}]\n${lines.join('\n')}`);
     }
   }
 
@@ -74,7 +74,7 @@ function textFromPdfItem(item: unknown): string {
   return '';
 }
 
-/** PDF에서 페이지별 텍스트 추출 */
+/** Extract text per page from PDF */
 export async function extractTextFromPdf(buffer: ArrayBuffer): Promise<string> {
   const data = new Uint8Array(buffer);
   const loadingTask = getDocument({ data });
@@ -89,7 +89,7 @@ export async function extractTextFromPdf(buffer: ArrayBuffer): Promise<string> {
         .join(' ')
         .replace(/\s+/g, ' ')
         .trim();
-      if (line) parts.push(`[페이지 ${p}]\n${line}`);
+      if (line) parts.push(`[Page ${p}]\n${line}`);
     }
     return parts.join('\n\n').trim();
   } finally {

@@ -34,7 +34,7 @@ function truncateName(name: string, max = 14): string {
 function combineMaterialText(items: LocalFileEntry[]): string {
   const ok = items.filter((e) => !e.error && !e.loading && e.text.trim().length > 0);
   return ok
-    .map((e) => `<<< 파일: ${e.name} >>>\n\n${e.text.trim()}`)
+    .map((e) => `<<< File: ${e.name} >>>\n\n${e.text.trim()}`)
     .join('\n\n---\n\n');
 }
 
@@ -141,7 +141,7 @@ export function FileSubmissionPanel({ globalBusy }: Props) {
     const oversized = fileArray.filter((f) => f.size > MAX_BYTES);
     if (oversized.length) {
       useSessionStore.setState({
-        error: '파일당 최대 1GB까지 업로드할 수 있습니다.',
+        error: 'Each file must be under 1GB.',
       });
       return;
     }
@@ -149,7 +149,7 @@ export function FileSubmissionPanel({ globalBusy }: Props) {
     const supported = filterSupportedFiles(fileArray);
     if (supported.length === 0) {
       useSessionStore.setState({
-        error: '지원 형식(TXT, MD, PDF, PPTX) 파일만 추가할 수 있습니다.',
+        error: 'Only supported formats (TXT, MD, PDF, PPTX) can be added.',
       });
       return;
     }
@@ -160,12 +160,12 @@ export function FileSubmissionPanel({ globalBusy }: Props) {
       setEntries((prev) => {
         const room = MAX_FILES - prev.length;
         if (room <= 0) {
-          useSessionStore.setState({ error: `첨부는 최대 ${MAX_FILES}개까지입니다.` });
+          useSessionStore.setState({ error: `You can attach up to ${MAX_FILES} files.` });
           return prev;
         }
         const take = supported.slice(0, room);
         if (supported.length > room) {
-          useSessionStore.setState({ error: `최대 ${MAX_FILES}개까지만 추가했습니다.` });
+          useSessionStore.setState({ error: `Only the first ${MAX_FILES} files were added.` });
         } else {
           useSessionStore.setState({ error: null });
         }
@@ -236,14 +236,14 @@ export function FileSubmissionPanel({ globalBusy }: Props) {
     const combined = combineMaterialText(entries);
     if (entries.some((e) => e.loading)) {
       useSessionStore.setState({
-        error: '파일 텍스트 추출이 끝날 때까지 기다린 뒤 저장하세요.',
+        error: 'Please wait until file text extraction is complete before saving.',
       });
       return;
     }
     if (combined.trim().length < 20) {
       useSessionStore.setState({
         error:
-          '저장할 수 있는 텍스트가 없습니다. 오류 없이 처리된 파일을 추가한 뒤 다시 시도하세요.',
+          'No text available to save. Please add files that were processed without errors and try again.',
       });
       return;
     }
@@ -265,9 +265,9 @@ export function FileSubmissionPanel({ globalBusy }: Props) {
   return (
     <div className="file-submit-panel">
       <div className="fs-header-row">
-        <h3 className="fs-title">파일 제출</h3>
+        <h3 className="fs-title">File Submission</h3>
         <p className="fs-limits">
-          파일의 최대 크기: 1GB, 최대 첨부 파일 갯수: {MAX_FILES}
+          Max file size: 1GB, Max attachments: {MAX_FILES}
         </p>
       </div>
 
@@ -277,7 +277,7 @@ export function FileSubmissionPanel({ globalBusy }: Props) {
             <button
               type="button"
               className="fs-tool-btn"
-              title="파일 추가"
+              title="Add files"
               disabled={disabled}
               onClick={() => fileInputRef.current?.click()}
             >
@@ -286,7 +286,7 @@ export function FileSubmissionPanel({ globalBusy }: Props) {
             <button
               type="button"
               className="fs-tool-btn"
-              title="폴더에서 추가"
+              title="Add from folder"
               disabled={disabled}
               onClick={() => folderInputRef.current?.click()}
             >
@@ -295,7 +295,7 @@ export function FileSubmissionPanel({ globalBusy }: Props) {
             <button
               type="button"
               className="fs-tool-btn"
-              title="업로드 영역 포커스"
+              title="Upload"
               disabled={disabled}
               onClick={() => fileInputRef.current?.click()}
             >
@@ -306,7 +306,7 @@ export function FileSubmissionPanel({ globalBusy }: Props) {
             <button
               type="button"
               className={`fs-view-btn ${viewMode === 'grid' ? 'active' : ''}`}
-              title="격자 보기"
+              title="Grid view"
               onClick={() => setViewMode('grid')}
             >
               <IconGrid />
@@ -314,7 +314,7 @@ export function FileSubmissionPanel({ globalBusy }: Props) {
             <button
               type="button"
               className={`fs-view-btn ${viewMode === 'list' ? 'active' : ''}`}
-              title="목록 보기"
+              title="List view"
               onClick={() => setViewMode('list')}
             >
               <IconList />
@@ -322,7 +322,7 @@ export function FileSubmissionPanel({ globalBusy }: Props) {
             <button
               type="button"
               className={`fs-view-btn ${viewMode === 'folder' ? 'active' : ''}`}
-              title="폴더형 보기"
+              title="Folder view"
               onClick={() => setViewMode('folder')}
             >
               <IconFolderView />
@@ -364,7 +364,7 @@ export function FileSubmissionPanel({ globalBusy }: Props) {
         >
           {entries.length === 0 ? (
             <div className="fs-empty-hint">
-              {panelBusy ? '파일을 처리하는 중…' : '파일을 여기로 드래그하거나 위 도구에서 추가하세요.'}
+              {panelBusy ? 'Processing files…' : 'Drag files here or add them using the toolbar above.'}
             </div>
           ) : viewMode === 'list' ? (
             <ul className="fs-list">
@@ -375,14 +375,14 @@ export function FileSubmissionPanel({ globalBusy }: Props) {
                     <span className="fs-list-name">{e.name}</span>
                     <span className="fs-list-sub">
                       {(e.size / 1024).toFixed(1)} KB
-                      {e.loading ? ' · 처리 중…' : ''}
+                      {e.loading ? ' · Processing…' : ''}
                       {e.error ? ` · ${e.error}` : ''}
                     </span>
                   </div>
                   <button
                     type="button"
                     className="fs-remove"
-                    aria-label="제거"
+                    aria-label="Remove"
                     disabled={disabled}
                     onClick={() => removeEntry(e.id)}
                   >
@@ -398,7 +398,7 @@ export function FileSubmissionPanel({ globalBusy }: Props) {
                   <button
                     type="button"
                     className="fs-remove fs-remove-float"
-                    aria-label="제거"
+                    aria-label="Remove"
                     disabled={disabled}
                     onClick={() => removeEntry(e.id)}
                   >
@@ -408,7 +408,7 @@ export function FileSubmissionPanel({ globalBusy }: Props) {
                   <div className="fs-grid-name" title={e.name}>
                     {truncateName(e.name, 16)}
                   </div>
-                  {e.loading && <div className="fs-grid-status">처리 중…</div>}
+                  {e.loading && <div className="fs-grid-status">Processing…</div>}
                   {e.error && <div className="fs-grid-err">{truncateName(e.error, 24)}</div>}
                 </div>
               ))}
@@ -424,7 +424,7 @@ export function FileSubmissionPanel({ globalBusy }: Props) {
           disabled={disabled || entries.length === 0}
           onClick={handleSave}
         >
-          저장
+          Save
         </button>
         <button
           type="button"
@@ -432,7 +432,7 @@ export function FileSubmissionPanel({ globalBusy }: Props) {
           disabled={globalBusy}
           onClick={handleCancel}
         >
-          취소
+          Cancel
         </button>
       </div>
     </div>

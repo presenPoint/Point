@@ -1,8 +1,7 @@
 /**
  * Agent 3 — Live Nonverbal (Web Worker)
- * MVP: MediaPipe 대신 데모용 비언어 신호를 주기적으로 전송합니다.
- * 실제 배포 시 FaceMesh/Pose/Hands로 교체하면 됩니다.
- * 규격: ./AGENT.md
+ * MVP: Sends periodic demo nonverbal signals (replaced by PoseTracker in production).
+ * Spec: ./AGENT.md
  */
 
 type FromMain = { type: 'START' } | { type: 'STOP' };

@@ -1,4 +1,4 @@
-/** Web Speech API — TS lib.dom에 없을 때 보완 */
+/** Web Speech API — polyfill types when not in TS lib.dom */
 
 interface SpeechRecognitionEventMap {
   audioend: Event;
