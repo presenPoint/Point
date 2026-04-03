@@ -83,7 +83,7 @@ export function useLivePresenting() {
     let recognition: SpeechRecognition | null = null;
     if (RecCtor) {
       recognition = new RecCtor();
-      recognition.lang = 'ko-KR';
+      recognition.lang = 'en-US';
       recognition.continuous = true;
       recognition.interimResults = true;
       recognition.onresult = (event: SpeechRecognitionEvent) => {
@@ -97,7 +97,7 @@ export function useLivePresenting() {
         silenceTimerRef.current = setTimeout(() => {
           feedbackQueue.push({
             level: 'INFO',
-            msg: '발표가 잠시 멈췄습니다',
+            msg: 'Your presentation has paused',
             source: 'SPEECH_RULE',
             cooldown: 30_000,
           });
@@ -105,6 +105,7 @@ export function useLivePresenting() {
 
         onTranscriptChunk(t, bufferRef, fillerRef, lastWpmWarnRef);
         const fillers = fillerRef.length;
+        const ts = Date.now();
         useSessionStore.setState((st) => ({
           session: {
             ...st.session,
@@ -112,6 +113,7 @@ export function useLivePresenting() {
               ...st.session.speech_coaching,
               filler_count: fillers,
               filler_timestamps: fillerRef.map((f) => f.timestamp),
+              transcript_log: [...st.session.speech_coaching.transcript_log, { text: t, timestamp: ts }].slice(-500),
             },
           },
         }));
@@ -181,13 +183,13 @@ export function useLivePresenting() {
       });
 
       if (!frame.gaze.isGazing) {
-        feedbackQueue.push({ level: 'WARN', msg: '청중을 좀 더 바라보세요', source: 'NONVERBAL', cooldown: 30_000 });
+        feedbackQueue.push({ level: 'WARN', msg: 'Try to look at the audience more', source: 'NONVERBAL', cooldown: 30_000 });
       }
       if (!frame.posture.isStraight) {
-        feedbackQueue.push({ level: 'WARN', msg: '자세를 바르게 해주세요', source: 'NONVERBAL', cooldown: 15_000 });
+        feedbackQueue.push({ level: 'WARN', msg: 'Please straighten your posture', source: 'NONVERBAL', cooldown: 15_000 });
       }
       if (frame.gesture.excess) {
-        feedbackQueue.push({ level: 'WARN', msg: '제스처가 너무 많아요', source: 'NONVERBAL', cooldown: 60_000 });
+        feedbackQueue.push({ level: 'WARN', msg: 'Too many gestures', source: 'NONVERBAL', cooldown: 60_000 });
       }
     });
   };

@@ -1,5 +1,5 @@
 /**
- * Agent 2-B — Speech Semantic Engine. 규격: ../AGENT.md
+ * Agent 2-B — Speech Semantic Engine. Spec: ../AGENT.md
  */
 import { chatJson, hasOpenAI } from '../../../lib/openai';
 import { feedbackQueue } from '../../shared/feedbackQueue';
@@ -14,25 +14,25 @@ type SemanticResult = {
   feedback_message: string | null;
 };
 
-const SYSTEM = (summary: string, history: OffTopicEntry[]) => `너는 발표 코치다. 발표자의 최근 30초 발화를 분석해서 JSON으로만 응답해라.
+const SYSTEM = (summary: string, history: OffTopicEntry[]) => `You are a presentation coach. Analyze the presenter's last 30 seconds of speech and respond with JSON only.
 
-발표 주제 요약: ${summary}
-이전 분석 이력: ${JSON.stringify(history.slice(-2))}
+Presentation topic summary: ${summary}
+Previous analysis history: ${JSON.stringify(history.slice(-2))}
 
-응답 형식:
+Response format:
 {
   "off_topic": true/false,
-  "off_topic_reason": "이탈 이유 (off_topic이 true인 경우)",
+  "off_topic_reason": "reason for going off-topic (if off_topic is true)",
   "logic_break": true/false,
-  "logic_break_reason": "흐름 단절 이유",
-  "ambiguous_phrases": ["감지된 모호 표현 목록"],
-  "feedback_message": "사용자에게 보여줄 피드백 문장 (없으면 null)"
+  "logic_break_reason": "reason for flow disruption",
+  "ambiguous_phrases": ["list of detected vague expressions"],
+  "feedback_message": "feedback sentence to show the user (null if none)"
 }
 
-규칙:
-- feedback_message는 20자 이내로 간결하게
-- off_topic 판단은 엄격하게 (주제와 완전히 무관한 경우만 true)
-- 발화가 너무 짧아 판단 불가 시 모든 값 false 반환`;
+Rules:
+- feedback_message must be concise, under 20 characters
+- Be strict with off_topic judgment (true only when completely unrelated to the topic)
+- If the speech is too short to judge, return all values as false`;
 
 export async function runSemanticAnalysis(
   recentText: string,
@@ -52,14 +52,14 @@ export async function runSemanticAnalysis(
   }
 
   if (!result) {
-    const vague = (recentText.match(/대략|뭔가|어떤 식으로|나름대로/g) ?? []).length;
+    const vague = (recentText.match(/roughly|something|somehow|sort of|kind of|like/gi) ?? []).length;
     result = {
       off_topic: false,
       off_topic_reason: '',
       logic_break: false,
       logic_break_reason: '',
-      ambiguous_phrases: vague ? ['모호 표현'] : [],
-      feedback_message: vague ? '표현을 구체적으로' : null,
+      ambiguous_phrases: vague ? ['vague expression'] : [],
+      feedback_message: vague ? 'Be more specific' : null,
     };
   }
 

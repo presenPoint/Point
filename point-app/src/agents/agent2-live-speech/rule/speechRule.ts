@@ -1,5 +1,5 @@
 /**
- * Agent 2-A — Speech Rule Engine. 규격: ../AGENT.md
+ * Agent 2-A — Speech Rule Engine. Spec: ../AGENT.md
  */
 import { feedbackQueue } from '../../shared/feedbackQueue';
 import {
@@ -37,7 +37,7 @@ export function onTranscriptChunk(
     lastWpmWarnAt.current = now;
     feedbackQueue.push({
       level: 'WARN',
-      msg: '말이 너무 빠릅니다',
+      msg: 'You are speaking too fast',
       source: 'SPEECH_RULE',
       cooldown: 15_000,
     });
@@ -45,7 +45,7 @@ export function onTranscriptChunk(
     lastWpmWarnAt.current = now;
     feedbackQueue.push({
       level: 'WARN',
-      msg: '조금 더 빠르게 말해보세요',
+      msg: 'Try speaking a bit faster',
       source: 'SPEECH_RULE',
       cooldown: 15_000,
     });
@@ -56,7 +56,7 @@ export function onTranscriptChunk(
     fillerHistory.push({ word: m.trim(), timestamp: Date.now() });
     feedbackQueue.push({
       level: 'INFO',
-      msg: `추임새 감지: "${m.trim()}"`,
+      msg: `Filler word detected: "${m.trim()}"`,
       source: 'SPEECH_RULE',
       cooldown: 30_000,
       silent: true,
@@ -67,7 +67,7 @@ export function onTranscriptChunk(
   if (recentCount >= FILLER_THRESHOLD) {
     feedbackQueue.push({
       level: 'WARN',
-      msg: '추임새가 반복되고 있어요',
+      msg: 'Filler words are being repeated',
       source: 'SPEECH_RULE',
       cooldown: 30_000,
     });

@@ -3,12 +3,12 @@ import { useCallback, useRef, useState } from 'react';
 const OPENAI_KEY = import.meta.env.VITE_OPENAI_API_KEY as string | undefined;
 
 async function transcribeWithWhisper(audioBlob: Blob): Promise<string> {
-  if (!OPENAI_KEY) throw new Error('OpenAI API 키가 설정되지 않았습니다.');
+  if (!OPENAI_KEY) throw new Error('OpenAI API key is not configured.');
 
   const formData = new FormData();
   formData.append('file', audioBlob, 'audio.webm');
   formData.append('model', 'whisper-1');
-  formData.append('language', 'ko');
+  formData.append('language', 'en');
 
   const res = await fetch('https://api.openai.com/v1/audio/transcriptions', {
     method: 'POST',
@@ -39,7 +39,7 @@ export function useSpeechToText() {
     setTranscript('');
 
     if (!OPENAI_KEY) {
-      setError('OpenAI API 키가 설정되지 않았습니다. .env 파일에 VITE_OPENAI_API_KEY를 추가해주세요.');
+      setError('OpenAI API key is not set. Please add VITE_OPENAI_API_KEY to your .env file.');
       return;
     }
 
@@ -63,7 +63,7 @@ export function useSpeechToText() {
         streamRef.current = null;
 
         if (chunksRef.current.length === 0) {
-          setError('녹음된 오디오가 없습니다.');
+          setError('No audio was recorded.');
           return;
         }
 
@@ -75,10 +75,10 @@ export function useSpeechToText() {
           if (text) {
             setTranscript(text);
           } else {
-            setError('음성이 감지되지 않았습니다. 다시 시도해주세요.');
+            setError('No speech detected. Please try again.');
           }
         } catch (err) {
-          setError(err instanceof Error ? err.message : '음성 변환 중 오류가 발생했습니다.');
+          setError(err instanceof Error ? err.message : 'An error occurred during transcription.');
         } finally {
           setTranscribing(false);
         }
@@ -88,7 +88,7 @@ export function useSpeechToText() {
       recorder.start(1000);
       setListening(true);
     } catch {
-      setError('마이크 접근이 거부되었습니다. 브라우저 설정에서 마이크를 허용해주세요.');
+      setError('Microphone access denied. Please allow microphone in browser settings.');
     }
   }, []);
 

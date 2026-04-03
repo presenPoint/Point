@@ -37,6 +37,7 @@ function createSession(userId: string): SessionContext {
       off_topic_log: [],
       ambiguous_count: 0,
       total_duration_sec: 0,
+      transcript_log: [],
     },
     nonverbal_coaching: {
       gaze_rate: 0.7,
@@ -165,11 +166,11 @@ export const useSessionStore = create<State>((set, get) => ({
     if (raw.length < 20) {
       set({
         error:
-          '파일 제출 영역에서 자료를 추가한 뒤 「저장」으로 반영한 다음 분석하세요. (반영된 텍스트가 20자 이상이어야 합니다.)',
+          'Please add materials in the file submission area, save them, and then analyze. (The saved text must be at least 20 characters.)',
       });
       return;
     }
-    set({ busy: '자료 분석 중…', error: null });
+    set({ busy: 'Analyzing materials...', error: null });
     try {
       const result = await analyzeMaterial(raw);
       set((s) => ({
@@ -197,11 +198,11 @@ export const useSessionStore = create<State>((set, get) => ({
     const { session, preQuizAnswers } = get();
     for (const q of session.material.quiz) {
       if (!preQuizAnswers[q.id]?.trim()) {
-        set({ error: '모든 퀴즈에 답하세요.' });
+        set({ error: 'Please answer all quiz questions.' });
         return;
       }
     }
-    set({ busy: '채점 중…', error: null });
+    set({ busy: 'Grading...', error: null });
     try {
       const graded = await gradePreQuiz(session, preQuizAnswers);
       set((s) => ({
@@ -240,7 +241,7 @@ export const useSessionStore = create<State>((set, get) => ({
   startQa: async () => {
     if (qaStartLock || get().qaCurrentQuestion) return;
     qaStartLock = true;
-    set({ busy: 'Q&A 준비…', error: null });
+    set({ busy: 'Preparing Q&A…', error: null });
     try {
       const q = await qaNextQuestion(get().session, []);
       set({ qaCurrentQuestion: q.text, busy: null });
@@ -264,7 +265,7 @@ export const useSessionStore = create<State>((set, get) => ({
     }));
 
     if (nextExchanges.length >= 5) {
-      set({ busy: 'Q&A 채점 중…' });
+      set({ busy: 'Grading Q&A…' });
       const grade = await gradeQaExchanges(nextExchanges);
       const g = grade ?? {
         final_score: 0,
@@ -289,7 +290,7 @@ export const useSessionStore = create<State>((set, get) => ({
       return;
     }
 
-    set({ busy: '다음 질문 생성 중…' });
+    set({ busy: 'Generating next question…' });
     const q = await qaNextQuestion(get().session, nextExchanges);
     set({
       qaCurrentQuestion: q.text,
@@ -300,20 +301,21 @@ export const useSessionStore = create<State>((set, get) => ({
   runReport: async () => {
     set((s) => ({
       session: { ...s.session, status: 'REPORT' },
-      busy: '리포트 생성 중…',
+      busy: 'Generating report…',
     }));
     const ctx = get().session;
-    const scores = calcCompositeScore(ctx);
-    const narrative = await generateReportNarrative(ctx, scores);
+    const scoresWithContext = calcCompositeScore(ctx);
+    const { compositeScore, speechScore, nonverbalScore, qaScore } = scoresWithContext;
+    const narrative = await generateReportNarrative(ctx, scoresWithContext);
     const generated_at = new Date().toISOString();
     set((s) => ({
       session: {
         ...s.session,
         report: {
-          composite_score: scores.compositeScore,
-          speech_score: scores.speechScore,
-          nonverbal_score: scores.nonverbalScore,
-          qa_score: scores.qaScore,
+          composite_score: compositeScore,
+          speech_score: speechScore,
+          nonverbal_score: nonverbalScore,
+          qa_score: qaScore,
           strengths: narrative.strengths,
           improvements: narrative.improvements,
           generated_at,
@@ -350,7 +352,7 @@ export const useSessionStore = create<State>((set, get) => ({
         generated_at: ctx.report.generated_at,
       });
     } catch (e) {
-      console.warn('Supabase 저장 생략 또는 실패', e);
+      console.warn('Supabase save skipped or failed', e);
     }
   },
 }));

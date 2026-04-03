@@ -81,6 +81,7 @@ export interface SessionContext {
     off_topic_log: OffTopicEntry[];
     ambiguous_count: number;
     total_duration_sec: number;
+    transcript_log: TranscriptEntry[];
   };
 
   nonverbal_coaching: {

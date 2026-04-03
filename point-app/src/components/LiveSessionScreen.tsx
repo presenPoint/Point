@@ -122,10 +122,10 @@ export function LiveSessionScreen() {
   };
 
   const tickerItems = [
-    `🎙 말 속도 ${wpm || '—'} (음절/분) · 권장 250–350`,
-    `👁 시선 응시율 ${gazePct}%`,
-    `⚠ 추임새 ${fillers}회`,
-    `🧍 자세 안정 ${posturePct}점`,
+    `🎙 Speech Rate ${wpm || '—'} (syll/min) · target 250–350`,
+    `👁 Eye contact ${gazePct}%`,
+    `⚠ Fillers ${fillers} times`,
+    `🧍 Posture stability ${posturePct} pts`,
   ];
 
   return (
@@ -154,10 +154,10 @@ export function LiveSessionScreen() {
           <div className="live-timer">{formatMmSs(sec)}</div>
           <div className="live-actions">
             <button type="button" className="btn-sm" onClick={() => setCoachVisual((v) => !v)}>
-              🔔 {coachVisual ? '시각' : '알림'} 모드
+              🔔 {coachVisual ? 'Visual' : 'Alert'} Mode
             </button>
             <button type="button" className="btn-end" onClick={endSession}>
-              발표 종료 ■
+              End Session ■
             </button>
           </div>
         </div>
@@ -174,10 +174,10 @@ export function LiveSessionScreen() {
             {!camOn && (
               <div className="cam-placeholder">
                 <div className="cam-icon" aria-hidden="true">📹</div>
-                <div className="cam-label">카메라는 선택입니다 · 음성 코칭은 마이크만으로 동작</div>
+                <div className="cam-label">Camera is optional · Voice coaching works with mic only</div>
                 <div className="cam-action">
                   <button type="button" className="btn-primary btn-cam" onClick={startCamera}>
-                    카메라 켜기
+                    Turn on Camera
                   </button>
                 </div>
               </div>
@@ -192,14 +192,14 @@ export function LiveSessionScreen() {
 
             <div className="cam-overlays">
               <div className="cam-metric">
-                <div className="cm-label">말 속도</div>
+                <div className="cm-label">Speech Rate</div>
                 <div className={`cm-value ${wpmOk || wpm === 0 ? 'good' : 'warn'}`}>
                   {wpm || '—'}{' '}
-                  <span className="cm-unit">음절/분</span>
+                  <span className="cm-unit">syll/min</span>
                 </div>
               </div>
               <div className="cam-metric">
-                <div className="cm-label">음성</div>
+                <div className="cm-label">Voice</div>
                 <div className="wave-bars">
                   {[1, 2, 3, 4, 5, 6].map((i) => (
                     <div key={i} className="wave-bar" />
@@ -207,15 +207,15 @@ export function LiveSessionScreen() {
                 </div>
               </div>
               <div className="cam-metric">
-                <div className="cm-label">시선</div>
+                <div className="cm-label">Gaze</div>
                 <div className={`cm-value ${gazePct >= 55 ? 'good' : 'warn'}`}>
-                  {gazePct >= 55 ? '정면 ✓' : '이탈'}
+                  {gazePct >= 55 ? 'Front ✓' : 'Off'}
                 </div>
               </div>
               <div className="cam-metric">
-                <div className="cm-label">자세</div>
+                <div className="cm-label">Posture</div>
                 <div className={`cm-value ${posturePct >= 60 ? 'good' : 'warn'}`}>
-                  {posturePct >= 60 ? '안정' : '⚠ 점검'}
+                  {posturePct >= 60 ? 'Stable' : '⚠ Check'}
                 </div>
               </div>
             </div>
@@ -223,30 +223,30 @@ export function LiveSessionScreen() {
 
           <div className="coaching-panel">
             <div className="cp-header">
-              <div className="cp-title">실시간 코칭</div>
+              <div className="cp-title">Live Coaching</div>
               <div className="cp-mode-toggle">
                 <button
                   type="button"
                   className={`mode-btn${coachVisual ? ' active' : ''}`}
                   onClick={() => setCoachVisual(true)}
                 >
-                  시각
+                  Visual
                 </button>
                 <button
                   type="button"
                   className={`mode-btn${!coachVisual ? ' active' : ''}`}
                   onClick={() => setCoachVisual(false)}
                 >
-                  음성
+                  Voice
                 </button>
               </div>
             </div>
 
             <div className="metrics-grid">
               <div className={wpmCard}>
-                <div className="mc-label">🎙 말 속도</div>
+                <div className="mc-label">🎙 Speech Rate</div>
                 <div className="mc-val">{wpm || '—'}</div>
-                <div className="mc-sub">음절/분 · 권장 250–350</div>
+                <div className="mc-sub">syll/min · target 250–350</div>
                 <div className="prog-bar">
                   <div
                     className="prog-fill"
@@ -258,9 +258,9 @@ export function LiveSessionScreen() {
                 </div>
               </div>
               <div className={fillerCard}>
-                <div className="mc-label">😶 추임새</div>
+                <div className="mc-label">😶 Fillers</div>
                 <div className="mc-val">{fillers}</div>
-                <div className="mc-sub">회 · 누적</div>
+                <div className="mc-sub">count · cumulative</div>
                 <div className="prog-bar">
                   <div
                     className="prog-fill"
@@ -272,9 +272,9 @@ export function LiveSessionScreen() {
                 </div>
               </div>
               <div className={gazeCard}>
-                <div className="mc-label">👁 시선처리</div>
+                <div className="mc-label">👁 Eye Contact</div>
                 <div className="mc-val">{gazePct}</div>
-                <div className="mc-sub">점 · 응시율</div>
+                <div className="mc-sub">pts · gaze rate</div>
                 <div className="prog-bar">
                   <div
                     className="prog-fill"
@@ -283,9 +283,9 @@ export function LiveSessionScreen() {
                 </div>
               </div>
               <div className={postureCard}>
-                <div className="mc-label">🧍 자세</div>
+                <div className="mc-label">🧍 Posture</div>
                 <div className="mc-val">{posturePct}</div>
-                <div className="mc-sub">점 · 안정성</div>
+                <div className="mc-sub">pts · stability</div>
                 <div className="prog-bar">
                   <div
                     className="prog-fill"
@@ -301,7 +301,7 @@ export function LiveSessionScreen() {
                   <span className="fb-cat cat-content">CONTENT</span>
                   <span className="fb-time">{formatMmSs(0)}</span>
                 </div>
-                <div className="fb-text">발표가 시작되었습니다. AI 코칭이 실시간으로 작동 중입니다.</div>
+                <div className="fb-text">Presentation started. AI coaching is active.</div>
               </div>
               {feed.map((item) => {
                 const { cls, label } = sourceToCat(item.source);
@@ -319,24 +319,24 @@ export function LiveSessionScreen() {
               })}
             </div>
 
-            <div className="nonverbal-panel" aria-label="비언어 종합 지표">
-              <div className="nv-title">비언어 종합</div>
+            <div className="nonverbal-panel" aria-label="Nonverbal summary metrics">
+              <div className="nv-title">Nonverbal Summary</div>
               <div className="nv-row">
-                <span className="nv-label">시선 응시</span>
+                <span className="nv-label">Eye Contact</span>
                 <div className="nv-bar-wrap">
                   <div className="nv-bar-fill nv-fill-green" style={{ width: `${gazePct}%` }} />
                 </div>
                 <span className="nv-score nv-score-green">{gazePct}</span>
               </div>
               <div className="nv-row">
-                <span className="nv-label">자세 안정</span>
+                <span className="nv-label">Posture Stability</span>
                 <div className="nv-bar-wrap">
                   <div className="nv-bar-fill nv-fill-amber" style={{ width: `${posturePct}%` }} />
                 </div>
                 <span className="nv-score nv-score-amber">{posturePct}</span>
               </div>
               <div className="nv-row">
-                <span className="nv-label">제스처(과다 이벤트)</span>
+                <span className="nv-label">Gestures (excess events)</span>
                 <div className="nv-bar-wrap">
                   <div
                     className="nv-bar-fill nv-fill-violet"

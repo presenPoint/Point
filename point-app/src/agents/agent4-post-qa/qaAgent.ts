@@ -1,5 +1,5 @@
 /**
- * Agent 4 — Post-Presentation Q&A. 규격: ./AGENT.md
+ * Agent 4 — Post-Presentation Q&A. Spec: ./AGENT.md
  */
 import { chatJson, hasOpenAI } from '../../lib/openai';
 import type { QaExchange, SessionContext } from '../../types/session';
@@ -22,37 +22,37 @@ export function parseGptResponse(text: string): { message: string; isComplete: b
 
 function buildSystemPrompt(ctx: SessionContext, currentTurn: number): string {
   const off = ctx.speech_coaching.off_topic_log.map((e) => e.excerpt).join(' / ');
-  return `너는 방금 발표를 들은 비판적인 청중이다.
+  return `You are a critical audience member who just listened to a presentation.
 
-[발표 자료 요약]
+[Presentation Material Summary]
 ${ctx.material.summary}
 
-[발표자가 취약한 영역]
-${ctx.material.weak_areas.length ? ctx.material.weak_areas.join(', ') : '(사전 퀴즈에서 특별히 지적된 약점 없음)'}
+[Presenter's Weak Areas]
+${ctx.material.weak_areas.length ? ctx.material.weak_areas.join(', ') : '(No specific weaknesses identified from the pre-quiz)'}
 
-[발표 중 주제를 이탈한 부분]
-${off || '(없음)'}
+[Parts Where the Presenter Went Off-Topic]
+${off || '(None)'}
 
-[규칙]
-- 총 5회 질문 후 반드시 종료한다
-- 현재 진행 중인 턴: ${currentTurn} / 5
-- 1~2회: 기본 이해 확인 질문 (친절한 톤)
-- 3~4회: 취약 영역 집중 질문 (엄격한 톤)
-- 5회: 가장 날카로운 반박 또는 '이 발표의 가장 큰 약점이 무엇이라고 생각하나요?' 형태의 심화 질문
-- 5회 완료 시 응답 마지막에 [QA_COMPLETE] 태그를 붙여라
-- 질문은 두 문장 이내로 간결하게
-- 한국어로 응답해라`;
+[Rules]
+- You must end after a total of 5 questions
+- Current turn: ${currentTurn} / 5
+- Turns 1–2: Basic comprehension questions (friendly tone)
+- Turns 3–4: Focused questions on weak areas (strict tone)
+- Turn 5: The sharpest rebuttal or a deep question like "What do you think is the biggest weakness of this presentation?"
+- After completing turn 5, append the [QA_COMPLETE] tag at the end of your response
+- Keep questions concise — two sentences or fewer
+- Respond in English`;
 }
 
 const MOCK_QUESTIONS = [
-  '발표의 핵심 메시지를 한 문장으로 다시 말해보시오.',
-  '청중이 가장 궁금해할 질문 하나를 스스로 정해 답하시오.',
-  '취약 영역으로 지적된 주제를 어떻게 보완했는지 설명하시오.',
-  '발표 중 주제에서 벗어난 부분이 있었다면 어떻게 설명하시겠습니까?',
-  '이 발표의 가장 큰 한계는 무엇이라고 생각하시나요?',
+  'Restate the core message of your presentation in one sentence.',
+  'Come up with a question the audience would most likely ask, and answer it yourself.',
+  'Explain how you addressed the topics identified as weak areas.',
+  'If there were parts where you went off-topic during the presentation, how would you explain them?',
+  'What do you think is the biggest limitation of this presentation?',
 ];
 
-/** exchanges: 이미 완료된 질문·답변만 포함. 비어 있으면 첫 질문 생성. */
+/** exchanges: contains only completed Q&A pairs. If empty, generates the first question. */
 export async function qaNextQuestion(
   ctx: SessionContext,
   exchanges: QaExchange[]
@@ -69,8 +69,8 @@ export async function qaNextQuestion(
 
   const userMsg =
     exchanges.length === 0
-      ? '첫 번째 질문만 출력해줘. 아직 사용자 답변은 없다.'
-      : `지금까지 교환:\n${JSON.stringify(exchanges, null, 2)}\n\n다음 질문을 해줘.`;
+      ? 'Output only the first question. There are no user answers yet.'
+      : `Exchanges so far:\n${JSON.stringify(exchanges, null, 2)}\n\nAsk the next question.`;
 
   const res = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
@@ -88,7 +88,7 @@ export async function qaNextQuestion(
     }),
   });
   if (!res.ok) {
-    return { text: '질문 생성에 실패했습니다. API 키를 확인하세요.', isComplete: false };
+    return { text: 'Failed to generate a question. Please check your API key.', isComplete: false };
   }
   const data = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> };
   const text = data.choices?.[0]?.message?.content?.trim() ?? '';
@@ -97,17 +97,17 @@ export async function qaNextQuestion(
 }
 
 export async function gradeQaExchanges(exchanges: QaExchange[]): Promise<QaGrade | null> {
-  const sys = `아래 Q&A 전체 내용을 평가해서 JSON으로만 응답해라.
+  const sys = `Evaluate the entire Q&A content below and respond with JSON only.
 
-응답 형식:
+Response format:
 {
   "final_score": 0~100,
   "per_turn": [
-    { "turn": 1, "score": 0~100, "comment": "한 줄 평가" }
+    { "turn": 1, "score": 0~100, "comment": "one-line evaluation" }
   ],
   "best_answer_turn": 1~5,
   "worst_answer_turn": 1~5,
-  "overall_comment": "전체 Q&A 총평 2~3문장"
+  "overall_comment": "Overall Q&A review in 2–3 sentences"
 }`;
 
   if (!hasOpenAI()) {
@@ -116,11 +116,11 @@ export async function gradeQaExchanges(exchanges: QaExchange[]): Promise<QaGrade
       per_turn: exchanges.map((e) => ({
         turn: e.turn,
         score: 70,
-        comment: '데모 채점',
+        comment: 'Demo grading',
       })),
       best_answer_turn: 1,
       worst_answer_turn: exchanges.length || 1,
-      overall_comment: 'OpenAI 키가 없어 데모 점수입니다.',
+      overall_comment: 'Demo score — no OpenAI key provided.',
     };
   }
 
