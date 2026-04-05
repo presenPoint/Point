@@ -104,9 +104,17 @@ export interface SessionContext {
     nonverbal_score: number;
     qa_score: number;
     strengths: string[];
-    improvements: string[];
+    improvements: ActionableFeedback[] | string[];
     generated_at: string;
   };
+}
+
+export interface ActionableFeedback {
+  label: string;
+  situation: string;
+  stop_doing: string;
+  start_doing: string;
+  expected_impact: string;
 }
 
 export type AgentId =

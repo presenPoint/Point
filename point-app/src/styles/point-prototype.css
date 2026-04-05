@@ -685,10 +685,10 @@ body {
    SCREEN 4 — POST Q&A
 ══════════════════════════════════ */
 #screen-qa { padding:0; }
-.qa-shell { display:grid; grid-template-rows:54px 1fr; height:100vh; }
-.qa-main { display:grid; grid-template-columns:1fr 380px; overflow:hidden; }
+.qa-shell { display:grid; grid-template-rows:54px 1fr; height:100vh; min-height:0; }
+.qa-main { display:grid; grid-template-columns:1fr 380px; overflow:hidden; min-height:0; }
 
-.report-side { padding:32px 36px; overflow-y:auto; border-right:1px solid var(--border); }
+.report-side { padding:32px 36px; overflow-y:auto; border-right:1px solid var(--border); min-height:0; }
 .report-side h2 { font-size:20px; font-weight:700; color:var(--text); margin-bottom:4px; }
 .report-sub { font-size:13px; color:var(--muted2); margin-bottom:28px; }
 
@@ -703,7 +703,8 @@ body {
 .circle-wrap svg circle { fill:none; stroke-width:4; stroke-linecap:round; }
 .circle-bg  { stroke:rgba(255,255,255,.05); }
 .circle-fg  { transition:stroke-dashoffset 1.2s ease; }
-.circle-val { font-family:'Manrope',sans-serif; font-size:20px; font-weight:800; color:var(--text); position:relative; z-index:1; }
+.circle-val { font-family:'Manrope',sans-serif; font-size:20px; font-weight:800; color:var(--text); position:relative; z-index:1; display:flex; align-items:baseline; gap:1px; }
+.circle-max { font-size:10px; font-weight:500; color:var(--muted); }
 .circle-label { font-size:11px; color:var(--muted2); line-height:1.4; }
 
 .report-section-title {
@@ -725,7 +726,7 @@ body {
 .insight-desc  { font-size:11.5px; color:var(--muted2); line-height:1.55; }
 
 /* QA CHAT */
-.qa-chat-side { background:var(--surface); display:flex; flex-direction:column; }
+.qa-chat-side { background:var(--surface); display:flex; flex-direction:column; min-height:0; }
 .qac-header { padding:16px 20px; border-bottom:1px solid var(--border); }
 .qac-title { font-size:15px; font-weight:700; color:var(--text); margin-bottom:4px; }
 .qac-sub { font-size:11.5px; color:var(--muted2); }
@@ -994,6 +995,60 @@ body {
 }
 .voice-transcript-text.transcribing { color:var(--muted); font-style:italic; }
 @keyframes spin { to { transform:rotate(360deg); } }
+
+/* ── SESSION HISTORY ── */
+.history-section { width:100%; margin-top:32px; }
+.history-title {
+  font-size:16px; font-weight:700; color:var(--text); margin-bottom:16px;
+  display:flex; align-items:center; gap:8px;
+}
+.history-title::before {
+  content:''; display:block; width:3px; height:16px; border-radius:2px; background:var(--accent);
+}
+.history-loading { color:var(--muted2); font-size:13px; text-align:center; padding:20px; }
+.history-list { display:flex; flex-direction:column; gap:10px; }
+.history-card {
+  background:var(--surface2); border:1px solid var(--border); border-radius:12px;
+  padding:16px 20px; transition:all 0.2s ease;
+}
+.history-card:hover { border-color:var(--accent); }
+.history-card-top {
+  display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;
+}
+.history-date { font-size:13px; font-weight:600; color:var(--text); }
+.history-duration { font-size:12px; color:var(--muted2); }
+.history-scores { display:flex; gap:16px; }
+.history-score { display:flex; flex-direction:column; align-items:center; min-width:52px; }
+.hs-val { font-size:18px; font-weight:800; color:var(--accent); }
+.hs-label { font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:0.05em; }
+
+/* ── COACHING CARDS (Actionable Feedback) ── */
+.coaching-card {
+  background:var(--surface2); border:1px solid var(--border2); border-radius:14px;
+  padding:20px; margin-bottom:12px; transition:all 0.2s ease;
+}
+.coaching-card:hover { border-color:var(--accent); box-shadow:0 4px 16px rgba(126,156,248,0.08); }
+.coaching-header {
+  display:flex; align-items:center; gap:10px; margin-bottom:16px;
+}
+.coaching-number {
+  width:28px; height:28px; border-radius:8px; background:var(--accent-dim);
+  color:var(--accent); font-size:13px; font-weight:700;
+  display:flex; align-items:center; justify-content:center; flex-shrink:0;
+}
+.coaching-label { font-size:15px; font-weight:700; color:var(--text); }
+.coaching-section { margin-bottom:12px; }
+.coaching-section:last-child { margin-bottom:0; }
+.coaching-tag {
+  display:inline-block; font-size:10px; font-weight:700; letter-spacing:0.08em;
+  padding:3px 8px; border-radius:4px; margin-bottom:6px; text-transform:uppercase;
+}
+.tag-situation { background:var(--surface3); color:var(--muted2); }
+.tag-stop { background:var(--red-dim); color:var(--red); }
+.tag-start { background:var(--green-dim); color:var(--green); }
+.tag-impact { background:var(--violet-dim); color:var(--violet); }
+.coaching-text { font-size:13px; line-height:1.6; color:var(--text); margin:0; }
+.coaching-impact { color:var(--muted2); font-style:italic; }
 
 /* ── LOGIN SCREEN ── */
 .login-screen {

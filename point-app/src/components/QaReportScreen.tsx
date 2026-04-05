@@ -158,17 +158,45 @@ export function QaReportScreen() {
                   ))}
                 </div>
 
-                <div className="report-section-title">Areas for Improvement ⚠</div>
+                <div className="report-section-title">Actionable Coaching</div>
                 <div className="insight-list">
-                  {session.report.improvements.map((s, i) => (
-                    <div key={i} className="insight-item negative">
-                      <div className="insight-icon">⚠️</div>
-                      <div className="insight-content">
-                        <div className="insight-title">Improvement {i + 1}</div>
-                        <div className="insight-desc">{s}</div>
+                  {(session.report.improvements as unknown as Array<{label: string; situation: string; stop_doing: string; start_doing: string; expected_impact: string} | string>).map((item, i) => {
+                    if (typeof item === 'string') {
+                      return (
+                        <div key={i} className="insight-item negative">
+                          <div className="insight-icon">⚠️</div>
+                          <div className="insight-content">
+                            <div className="insight-title">Improvement {i + 1}</div>
+                            <div className="insight-desc">{item}</div>
+                          </div>
+                        </div>
+                      );
+                    }
+                    return (
+                      <div key={i} className="coaching-card">
+                        <div className="coaching-header">
+                          <span className="coaching-number">{i + 1}</span>
+                          <span className="coaching-label">{item.label}</span>
+                        </div>
+                        <div className="coaching-section">
+                          <div className="coaching-tag tag-situation">SITUATION</div>
+                          <p className="coaching-text">{item.situation}</p>
+                        </div>
+                        <div className="coaching-section">
+                          <div className="coaching-tag tag-stop">STOP DOING</div>
+                          <p className="coaching-text">{item.stop_doing}</p>
+                        </div>
+                        <div className="coaching-section">
+                          <div className="coaching-tag tag-start">START DOING</div>
+                          <p className="coaching-text">{item.start_doing}</p>
+                        </div>
+                        <div className="coaching-section">
+                          <div className="coaching-tag tag-impact">EXPECTED IMPACT</div>
+                          <p className="coaching-text coaching-impact">{item.expected_impact}</p>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </>
             ) : (

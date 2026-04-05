@@ -24,7 +24,7 @@ export function ScoreRing({
           style={{ strokeDashoffset: offset }}
         />
       </svg>
-      <div className="circle-val">{Math.round(v)}</div>
+      <div className="circle-val">{Math.round(v)}<span className="circle-max">/100</span></div>
     </div>
   );
 }

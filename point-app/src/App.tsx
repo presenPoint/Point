@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useSessionStore } from './store/sessionStore';
 import { useAuth } from './hooks/useAuth';
 import { LoginScreen } from './components/LoginScreen';
@@ -10,6 +11,11 @@ export default function App() {
   const { user, loading, signOut } = useAuth();
   const appStarted = useSessionStore((s) => s.appStarted);
   const status = useSessionStore((s) => s.session.status);
+  const setUserId = useSessionStore((s) => s.setUserId);
+
+  useEffect(() => {
+    if (user) setUserId(user.id);
+  }, [user, setUserId]);
 
   if (loading) {
     return (
@@ -46,7 +52,7 @@ export default function App() {
   );
 
   if (!appStarted) {
-    return <HomeScreen userBar={userBar} />;
+    return <HomeScreen userBar={userBar} userId={user.id} />;
   }
 
   if (status === 'IDLE' || status === 'PRE_QUIZ') {

@@ -93,6 +93,7 @@ type State = {
 
   runReport: () => Promise<void>;
   persistSession: () => Promise<void>;
+  setUserId: (id: string) => void;
 };
 
 const DEMO_USER = '00000000-0000-0000-0000-000000000001';
@@ -339,20 +340,51 @@ export const useSessionStore = create<State>((set, get) => ({
         ended_at: new Date().toISOString(),
         total_duration_sec: ctx.speech_coaching.total_duration_sec,
         composite_score: ctx.report.composite_score,
-        status: ctx.status,
-      });
-      await supabase.from('reports').insert({
-        session_id: ctx.session_id,
         speech_score: ctx.report.speech_score,
         nonverbal_score: ctx.report.nonverbal_score,
         qa_score: ctx.report.qa_score,
-        composite_score: ctx.report.composite_score,
         strengths: ctx.report.strengths,
         improvements: ctx.report.improvements,
-        generated_at: ctx.report.generated_at,
+        status: ctx.status,
       });
+      set({ error: null });
     } catch (e) {
       console.warn('Supabase save skipped or failed', e);
     }
   },
+
+  setUserId: (id: string) => {
+    set((s) => ({
+      session: { ...s.session, user_id: id },
+    }));
+  },
 }));
+
+export interface SessionHistoryItem {
+  session_id: string;
+  started_at: string;
+  ended_at: string;
+  composite_score: number;
+  speech_score: number;
+  nonverbal_score: number;
+  qa_score: number;
+  strengths: string[];
+  improvements: unknown[];
+  total_duration_sec: number;
+}
+
+export async function loadSessionHistory(userId: string): Promise<SessionHistoryItem[]> {
+  if (!supabase) return [];
+  const { data, error } = await supabase
+    .from('sessions')
+    .select('*')
+    .eq('user_id', userId)
+    .eq('status', 'DONE')
+    .order('started_at', { ascending: false })
+    .limit(20);
+  if (error) {
+    console.warn('Failed to load history', error);
+    return [];
+  }
+  return (data ?? []) as SessionHistoryItem[];
+}
