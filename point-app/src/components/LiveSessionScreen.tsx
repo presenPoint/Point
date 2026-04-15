@@ -90,6 +90,11 @@ export function LiveSessionScreen() {
   const postureCard =
     posturePct >= 70 ? 'metric-card good' : posturePct >= 50 ? 'metric-card warn' : 'metric-card alert';
 
+  const dynamismLog = session.nonverbal_coaching.dynamism_log;
+  const lastDynamism = dynamismLog.length > 0 ? dynamismLog[dynamismLog.length - 1].level : 'natural';
+  const dynamismLabel = lastDynamism === 'stiff' ? '⚠ Stiff' : lastDynamism === 'restless' ? '⚠ Restless' : '✓ Natural';
+  const dynamismOk = lastDynamism === 'natural';
+
   const wpmProg = Math.min(100, wpm === 0 ? 8 : (wpm / 400) * 100);
   const fillerProg = Math.min(100, fillers * 8);
   const gazeProg = gazePct;
@@ -213,6 +218,12 @@ export function LiveSessionScreen() {
                 <div className="cm-label">Posture</div>
                 <div className={`cm-value ${posturePct >= 60 ? 'good' : 'warn'}`}>
                   {posturePct >= 60 ? 'Stable' : '⚠ Check'}
+                </div>
+              </div>
+              <div className="cam-metric">
+                <div className="cm-label">Movement</div>
+                <div className={`cm-value ${dynamismOk ? 'good' : 'warn'}`}>
+                  {dynamismLabel}
                 </div>
               </div>
             </div>

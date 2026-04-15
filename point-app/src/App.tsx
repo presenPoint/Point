@@ -1,8 +1,10 @@
 import { useEffect } from 'react';
 import { useSessionStore } from './store/sessionStore';
 import { useAuth } from './hooks/useAuth';
+import { useAppHistorySync } from './hooks/useAppHistorySync';
 import { LoginScreen } from './components/LoginScreen';
 import { HomeScreen } from './components/HomeScreen';
+import { PersonaSurvey } from './components/PersonaSurvey';
 import { UploadWorkspace } from './components/UploadWorkspace';
 import { LiveSessionScreen } from './components/LiveSessionScreen';
 import { QaReportScreen } from './components/QaReportScreen';
@@ -10,12 +12,15 @@ import { QaReportScreen } from './components/QaReportScreen';
 export default function App() {
   const { user, loading, signOut } = useAuth();
   const appStarted = useSessionStore((s) => s.appStarted);
+  const selectedPersona = useSessionStore((s) => s.selectedPersona);
   const status = useSessionStore((s) => s.session.status);
   const setUserId = useSessionStore((s) => s.setUserId);
 
   useEffect(() => {
     if (user) setUserId(user.id);
   }, [user, setUserId]);
+
+  useAppHistorySync(!!user && !loading);
 
   if (loading) {
     return (
@@ -53,6 +58,10 @@ export default function App() {
 
   if (!appStarted) {
     return <HomeScreen userBar={userBar} userId={user.id} />;
+  }
+
+  if (!selectedPersona) {
+    return <PersonaSurvey />;
   }
 
   if (status === 'IDLE' || status === 'PRE_QUIZ') {

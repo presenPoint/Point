@@ -49,6 +49,11 @@ export interface GestureEntry {
   type: 'excess' | 'lack';
 }
 
+export interface DynamismEntry {
+  timestamp: number;
+  level: 'stiff' | 'natural' | 'restless';
+}
+
 export interface QaExchange {
   turn: number;
   question: string;
@@ -89,6 +94,7 @@ export interface SessionContext {
     gaze_log: GazeEntry[];
     posture_log: PostureEntry[];
     gesture_log: GestureEntry[];
+    dynamism_log: DynamismEntry[];
   };
 
   qa: {
@@ -106,7 +112,14 @@ export interface SessionContext {
     strengths: string[];
     improvements: ActionableFeedback[] | string[];
     generated_at: string;
+    /** Present when a coach persona was selected and the narrative model returned this block. */
+    persona_style_coaching?: PersonaStyleCoaching | null;
   };
+}
+
+export interface TimeMarker {
+  time: string;
+  event: string;
 }
 
 export interface ActionableFeedback {
@@ -115,6 +128,19 @@ export interface ActionableFeedback {
   stop_doing: string;
   start_doing: string;
   expected_impact: string;
+  time_markers?: TimeMarker[];
+}
+
+/** Persona-benchmark delivery & rhetoric section (report only; optional for older sessions). */
+export interface PersonaPhraseRewrite {
+  from_session: string;
+  persona_aligned_example: string;
+}
+
+export interface PersonaStyleCoaching {
+  style_alignment: string;
+  delivery_practices: string[];
+  phrase_rewrites?: PersonaPhraseRewrite[];
 }
 
 export type AgentId =

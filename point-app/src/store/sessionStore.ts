@@ -9,6 +9,7 @@ import {
   feedbackQueue,
 } from '../agents';
 import { supabase } from '../lib/supabase';
+import { PERSONAS } from '../constants/personas';
 import type { SessionContext, SessionStatus } from '../types/session';
 
 function emptyMaterial() {
@@ -44,6 +45,7 @@ function createSession(userId: string): SessionContext {
       gaze_log: [],
       posture_log: [],
       gesture_log: [],
+      dynamism_log: [],
     },
     qa: {
       exchanges: [],
@@ -63,6 +65,14 @@ function createSession(userId: string): SessionContext {
   };
 }
 
+export type PersonaType =
+  | 'visionary'
+  | 'orator'
+  | 'analyst'
+  | 'connector'
+  | 'powerhouse'
+  | 'elon_musk';
+
 type State = {
   session: SessionContext;
   preQuizAnswers: Record<number, string>;
@@ -72,10 +82,12 @@ type State = {
   appStarted: boolean;
   presentationTopic: string;
   livePresentation: { wpm: number; fillerCount: number };
+  selectedPersona: PersonaType | null;
 
   setAppStarted: (v: boolean) => void;
   setPresentationTopic: (t: string) => void;
   setLivePresentation: (p: Partial<{ wpm: number; fillerCount: number }>) => void;
+  setPersona: (persona: PersonaType | null) => void;
 
   resetSession: () => void;
   transition: (to: SessionStatus) => void;
@@ -109,9 +121,11 @@ export const useSessionStore = create<State>((set, get) => ({
   appStarted: false,
   presentationTopic: '',
   livePresentation: { wpm: 0, fillerCount: 0 },
+  selectedPersona: null,
 
   setAppStarted: (v) => set({ appStarted: v }),
   setPresentationTopic: (t) => set({ presentationTopic: t }),
+  setPersona: (persona) => set({ selectedPersona: persona }),
   setLivePresentation: (p) =>
     set((s) => ({
       livePresentation: { ...s.livePresentation, ...p },
@@ -305,9 +319,11 @@ export const useSessionStore = create<State>((set, get) => ({
       busy: 'Generating report…',
     }));
     const ctx = get().session;
-    const scoresWithContext = calcCompositeScore(ctx);
+    const persona = get().selectedPersona ? PERSONAS[get().selectedPersona!] : null;
+    const wpmRange = persona ? persona.config.wpmRange : undefined;
+    const scoresWithContext = calcCompositeScore(ctx, wpmRange);
     const { compositeScore, speechScore, nonverbalScore, qaScore } = scoresWithContext;
-    const narrative = await generateReportNarrative(ctx, scoresWithContext);
+    const narrative = await generateReportNarrative(ctx, scoresWithContext, persona);
     const generated_at = new Date().toISOString();
     set((s) => ({
       session: {
@@ -320,6 +336,7 @@ export const useSessionStore = create<State>((set, get) => ({
           strengths: narrative.strengths,
           improvements: narrative.improvements,
           generated_at,
+          persona_style_coaching: narrative.persona_style_coaching ?? undefined,
         },
         status: 'DONE',
       },

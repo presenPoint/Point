@@ -2,7 +2,7 @@ import type { SessionContext, TranscriptEntry, GestureEntry } from '../../types/
 
 export interface ContextInsight {
   timestamp: number;
-  type: 'keyword_gesture' | 'keyword_still' | 'filler_fidget' | 'long_freeze' | 'good_rhythm';
+  type: 'keyword_gesture' | 'keyword_still' | 'filler_fidget' | 'long_freeze' | 'good_rhythm' | 'stiff_segment' | 'good_dynamism';
   description: string;
 }
 
@@ -108,7 +108,7 @@ function detectFreezes(
 
 export function analyzeContext(ctx: SessionContext): ContextAnalysisResult {
   const { transcript_log, filler_timestamps, total_duration_sec } = ctx.speech_coaching;
-  const { gesture_log, posture_log } = ctx.nonverbal_coaching;
+  const { gesture_log, posture_log, dynamism_log } = ctx.nonverbal_coaching;
   const { keywords } = ctx.material;
 
   const insights: ContextInsight[] = [];
@@ -163,6 +163,26 @@ export function analyzeContext(ctx: SessionContext): ContextAnalysisResult {
     });
   }
 
+  if (dynamism_log.length > 10) {
+    const stiffRate = dynamism_log.filter((d) => d.level === 'stiff').length / dynamism_log.length;
+    const naturalRate = dynamism_log.filter((d) => d.level === 'natural').length / dynamism_log.length;
+
+    if (stiffRate > 0.5) {
+      insights.push({
+        timestamp: 0,
+        type: 'stiff_segment',
+        description: `Body was stiff for ${Math.round(stiffRate * 100)}% of the session — natural small movements build audience trust`,
+      });
+    }
+    if (naturalRate > 0.6) {
+      insights.push({
+        timestamp: 0,
+        type: 'good_dynamism',
+        description: `Maintained natural body movement for ${Math.round(naturalRate * 100)}% of the session`,
+      });
+    }
+  }
+
   const totalKeywordMoments = keywordGestureHits + keywordGestureMisses;
   const keywordMatchRate = totalKeywordMoments > 0
     ? keywordGestureHits / totalKeywordMoments
@@ -171,11 +191,16 @@ export function analyzeContext(ctx: SessionContext): ContextAnalysisResult {
   const fidgetPenalty = Math.min(30, fillerFidgetCount * 8);
   const freezePenalty = Math.min(20, freezeInsights.length * 10);
 
+  const stiffPenalty = dynamism_log.length > 10
+    ? Math.min(15, Math.round(dynamism_log.filter((d) => d.level === 'stiff').length / dynamism_log.length * 30))
+    : 0;
+
   const contextScore = Math.max(0, Math.min(100, Math.round(
     keywordMatchRate * 40 +
     rhythmScore * 0.4 -
     fidgetPenalty -
-    freezePenalty
+    freezePenalty -
+    stiffPenalty
   )));
 
   return {

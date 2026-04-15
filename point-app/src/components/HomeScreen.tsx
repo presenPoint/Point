@@ -1,6 +1,40 @@
 import { useEffect, useState } from 'react';
-import { useSessionStore, loadSessionHistory, type SessionHistoryItem } from '../store/sessionStore';
+import { useSessionStore, loadSessionHistory, type SessionHistoryItem, type PersonaType } from '../store/sessionStore';
+import { PERSONA_LIST, PERSONAS } from '../constants/personas';
+import { PersonaInfoModal } from './PersonaInfoModal';
 import type { ReactNode } from 'react';
+
+function coachInitials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) {
+    const a = parts[0].charAt(0);
+    const b = parts[parts.length - 1].charAt(0);
+    return (a + b).toUpperCase();
+  }
+  return name.slice(0, 2).toUpperCase();
+}
+
+function PersonaCardPhoto({ name, src }: { name: string; src: string }) {
+  const [failed, setFailed] = useState(false);
+  return (
+    <div className="hpc-photo-wrap">
+      {failed ? (
+        <div className="hpc-photo-fallback" aria-hidden="true">
+          <span className="hpc-photo-fallback-initials">{coachInitials(name)}</span>
+        </div>
+      ) : (
+        <img
+          className="hpc-photo"
+          src={src}
+          alt=""
+          loading="lazy"
+          decoding="async"
+          onError={() => setFailed(true)}
+        />
+      )}
+    </div>
+  );
+}
 
 function HistorySection({ userId }: { userId: string }) {
   const [history, setHistory] = useState<SessionHistoryItem[]>([]);
@@ -57,6 +91,26 @@ function HistorySection({ userId }: { userId: string }) {
 
 export function HomeScreen({ userBar, userId }: { userBar?: ReactNode; userId?: string }) {
   const setAppStarted = useSessionStore((s) => s.setAppStarted);
+  const setPersona = useSessionStore((s) => s.setPersona);
+  const [detailPersonaId, setDetailPersonaId] = useState<PersonaType | null>(null);
+
+  const selectPersonaAndStart = (id: PersonaType) => {
+    setPersona(id);
+    setAppStarted(true);
+  };
+
+  const closePersonaDetail = () => setDetailPersonaId(null);
+
+  const startFromDetail = () => {
+    if (!detailPersonaId) return;
+    setDetailPersonaId(null);
+    selectPersonaAndStart(detailPersonaId);
+  };
+
+  const openPersonaQuiz = () => {
+    setPersona(null);
+    setAppStarted(true);
+  };
 
   return (
     <main id="screen-home" className="point-screen screen-home" role="main">
@@ -85,12 +139,69 @@ export function HomeScreen({ userBar, userId }: { userBar?: ReactNode; userId?: 
           </li>
         </ul>
 
-        <button type="button" className="btn-start" onClick={() => setAppStarted(true)}>
-          Start presenting →
-        </button>
+        <div className="home-quiz-row">
+          <button type="button" className="home-quiz-link" onClick={openPersonaQuiz}>
+            Suggested match — take the 3-question style quiz
+          </button>
+        </div>
+      </div>
 
+      <section className="home-persona-section" aria-labelledby="home-persona-heading">
+        <div className="home-persona-section-inner">
+          <p className="home-persona-eyebrow">Coach profiles</p>
+          <h2 id="home-persona-heading" className="home-persona-heading">
+            Browse styles
+          </h2>
+          <p className="home-persona-lead">
+            Tap a card to read how they present. Use <strong>Select</strong> to jump straight into a session with that style.
+          </p>
+        </div>
+        <div className="home-persona-strip">
+          <div className="home-persona-scroll">
+            <div className="home-persona-scroll-inner" role="list" aria-label="Coach style cards">
+              {PERSONA_LIST.map((p) => (
+                <article key={p.id} className="home-persona-card home-persona-card--compact" role="listitem">
+                  <button
+                    type="button"
+                    className="hpc-card-tap"
+                    onClick={() => setDetailPersonaId(p.id)}
+                    aria-label={`View ${p.name} presentation style`}
+                  >
+                    <PersonaCardPhoto name={p.name} src={p.cardImage} />
+                    <div className="hpc-card-body hpc-card-body--compact">
+                      <h3 className="hpc-name hpc-name--compact">{p.name}</h3>
+                      <p className="hpc-desc hpc-desc--compact">{p.description}</p>
+                      <p className="hpc-meta-inline">
+                        {p.config.wpmRange[0]}–{p.config.wpmRange[1]} WPM ·{' '}
+                        <span className="hpc-meta-tone">{p.config.feedbackTone}</span>
+                      </p>
+                    </div>
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-persona-pick btn-persona-pick--compact"
+                    onClick={() => selectPersonaAndStart(p.id)}
+                  >
+                    Select
+                  </button>
+                </article>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div className="home-content home-content--after-cards">
         {userId && <HistorySection userId={userId} />}
       </div>
+
+      {detailPersonaId && (
+        <PersonaInfoModal
+          persona={PERSONAS[detailPersonaId]}
+          onClose={closePersonaDetail}
+          onStart={startFromDetail}
+        />
+      )}
     </main>
   );
 }

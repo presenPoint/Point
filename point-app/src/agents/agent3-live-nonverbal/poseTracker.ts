@@ -1,4 +1,27 @@
 import { PoseLandmarker, FilesetResolver, type PoseLandmarkerResult } from '@mediapipe/tasks-vision';
+import type { GazeSensitivity } from '../../constants/personas';
+
+export type DynamismLevel = 'stiff' | 'natural' | 'restless';
+
+export interface NonverbalConfig {
+  gazeOffsetThreshold: number;
+  wristMoveThreshold: number;
+  gestureExcessLimit: number;
+}
+
+export function getDefaultNonverbalConfig(): NonverbalConfig {
+  return { gazeOffsetThreshold: 0.08, wristMoveThreshold: 0.06, gestureExcessLimit: 3 };
+}
+
+export function nonverbalConfigFromPersona(
+  gazeSensitivity: GazeSensitivity,
+  gestureIntensity: number,
+): NonverbalConfig {
+  const gazeOffsetThreshold = gazeSensitivity === 'high' ? 0.06 : gazeSensitivity === 'mid' ? 0.08 : 0.12;
+  const wristMoveThreshold = 0.03 + (1 - gestureIntensity) * 0.06;
+  const gestureExcessLimit = Math.round(2 + (1 - gestureIntensity) * 4);
+  return { gazeOffsetThreshold, wristMoveThreshold, gestureExcessLimit };
+}
 
 export type PoseFrame = {
   type: 'FRAME';
@@ -11,18 +34,27 @@ export type PoseFrame = {
     timestamp: number;
   };
   gesture: { excess: boolean; lack: boolean };
+  dynamism: DynamismLevel;
 };
 
 type Landmark = { x: number; y: number; z: number; visibility?: number };
 
 const FPS = 5;
-const WRIST_MOVE_THRESHOLD = 0.06;
+// Default wrist threshold used by getDefaultNonverbalConfig()
 const SHOULDER_WIDTH_FAR = 0.08;
 const SHOULDER_WIDTH_CLOSE = 0.45;
 const STRAIGHT_ANGLE_THRESHOLD = 12;
 
 let prevWrists: { left: Landmark; right: Landmark } | null = null;
 let gestureExcessCount = 0;
+let activeConfig: NonverbalConfig = getDefaultNonverbalConfig();
+
+const DYNAMISM_WINDOW = 15;
+const bodyMovementBuffer: number[] = [];
+const BODY_MOVE_NATURAL_MIN = 0.008;
+const BODY_MOVE_RESTLESS_MAX = 0.05;
+let prevNose: Landmark | null = null;
+let prevShoulderMid: { x: number; y: number } | null = null;
 
 function calcAngleDeg(a: Landmark, b: Landmark): number {
   const dx = b.x - a.x;
@@ -33,7 +65,7 @@ function calcAngleDeg(a: Landmark, b: Landmark): number {
 function isGazingAtCamera(nose: Landmark, leftShoulder: Landmark, rightShoulder: Landmark): boolean {
   const shoulderMidX = (leftShoulder.x + rightShoulder.x) / 2;
   const offsetX = Math.abs(nose.x - shoulderMidX);
-  return offsetX < 0.08;
+  return offsetX < activeConfig.gazeOffsetThreshold;
 }
 
 function calcPosture(
@@ -68,11 +100,42 @@ function calcGesture(leftWrist: Landmark, rightWrist: Landmark): { excess: boole
   const rightMove = Math.hypot(rightWrist.x - prevWrists.right.x, rightWrist.y - prevWrists.right.y);
   prevWrists = { left: leftWrist, right: rightWrist };
 
-  const bigMove = leftMove > WRIST_MOVE_THRESHOLD || rightMove > WRIST_MOVE_THRESHOLD;
+  const bigMove = leftMove > activeConfig.wristMoveThreshold || rightMove > activeConfig.wristMoveThreshold;
   if (bigMove) gestureExcessCount++;
   else gestureExcessCount = Math.max(0, gestureExcessCount - 1);
 
-  return { excess: gestureExcessCount > 3, lack: false };
+  return { excess: gestureExcessCount > activeConfig.gestureExcessLimit, lack: false };
+}
+
+function calcDynamism(
+  nose: Landmark,
+  leftShoulder: Landmark,
+  rightShoulder: Landmark,
+): DynamismLevel {
+  const shoulderMidX = (leftShoulder.x + rightShoulder.x) / 2;
+  const shoulderMidY = (leftShoulder.y + rightShoulder.y) / 2;
+
+  if (prevNose && prevShoulderMid) {
+    const noseMove = Math.hypot(nose.x - prevNose.x, nose.y - prevNose.y);
+    const shoulderMove = Math.hypot(shoulderMidX - prevShoulderMid.x, shoulderMidY - prevShoulderMid.y);
+    const totalMove = (noseMove + shoulderMove) / 2;
+    bodyMovementBuffer.push(totalMove);
+  }
+
+  prevNose = nose;
+  prevShoulderMid = { x: shoulderMidX, y: shoulderMidY };
+
+  if (bodyMovementBuffer.length > DYNAMISM_WINDOW) {
+    bodyMovementBuffer.shift();
+  }
+
+  if (bodyMovementBuffer.length < 5) return 'natural';
+
+  const avg = bodyMovementBuffer.reduce((a, b) => a + b, 0) / bodyMovementBuffer.length;
+
+  if (avg < BODY_MOVE_NATURAL_MIN) return 'stiff';
+  if (avg > BODY_MOVE_RESTLESS_MAX) return 'restless';
+  return 'natural';
 }
 
 function extractFrame(result: PoseLandmarkerResult): PoseFrame | null {
@@ -92,12 +155,14 @@ function extractFrame(result: PoseLandmarkerResult): PoseFrame | null {
   const gazing = isGazingAtCamera(nose, leftShoulder, rightShoulder);
   const posture = calcPosture(nose, leftShoulder, rightShoulder, leftHip, rightHip);
   const gesture = calcGesture(leftWrist, rightWrist);
+  const dynamism = calcDynamism(nose, leftShoulder, rightShoulder);
 
   return {
     type: 'FRAME',
     gaze: { isGazing: gazing, timestamp: t },
     posture: { ...posture, timestamp: t },
     gesture,
+    dynamism,
   };
 }
 
@@ -122,11 +187,15 @@ export class PoseTracker {
     });
   }
 
-  start(video: HTMLVideoElement, callback: (frame: PoseFrame) => void): void {
+  start(video: HTMLVideoElement, callback: (frame: PoseFrame) => void, config?: NonverbalConfig): void {
+    if (config) activeConfig = config;
     this.onFrame = callback;
     this.running = true;
     prevWrists = null;
     gestureExcessCount = 0;
+    prevNose = null;
+    prevShoulderMid = null;
+    bodyMovementBuffer.length = 0;
 
     const loop = (): void => {
       if (!this.running) return;

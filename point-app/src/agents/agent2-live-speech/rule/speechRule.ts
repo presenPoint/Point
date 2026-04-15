@@ -12,6 +12,21 @@ import {
   WINDOW_MS,
 } from '../../../lib/speechUtils';
 import type { TranscriptEntry, FillerEntry } from '../../../types/session';
+import type { PersonaConfig } from '../../../constants/personas';
+
+export interface SpeechRuleConfig {
+  wpmMin: number;
+  wpmMax: number;
+  feedbackTone: string;
+}
+
+export function getDefaultSpeechConfig(): SpeechRuleConfig {
+  return { wpmMin: TARGET_WPM_MIN, wpmMax: TARGET_WPM_MAX, feedbackTone: 'neutral' };
+}
+
+export function speechConfigFromPersona(pc: PersonaConfig): SpeechRuleConfig {
+  return { wpmMin: pc.wpmRange[0], wpmMax: pc.wpmRange[1], feedbackTone: pc.feedbackTone };
+}
 
 export function calcWpm(buffer: TranscriptEntry[]): number {
   const now = Date.now();
@@ -23,29 +38,42 @@ export function calcWpm(buffer: TranscriptEntry[]): number {
   return Math.round((syllableCount / span) * 60_000);
 }
 
+function toneMsg(tone: string, fast: string, slow: string): string {
+  const prefix: Record<string, [string, string]> = {
+    sharp: ['Cut the speed — your words are blurring together', 'Too slow — you\'re losing momentum'],
+    encouraging: ['Ease up a little — let your words land', 'Pick up the pace — carry the energy forward'],
+    precise: ['Reduce speed for clarity', 'Increase pace to maintain engagement'],
+    warm: ['Slow down — let the audience breathe with you', 'A little faster — keep the conversation flowing'],
+    empowering: ['Rein it in — power needs control', 'Bring more energy — own the room'],
+  };
+  const pair = prefix[tone];
+  return pair ? pair[fast ? 0 : 1] : (fast ? fast : slow);
+}
+
 export function onTranscriptChunk(
   text: string,
   buffer: TranscriptEntry[],
   fillerHistory: FillerEntry[],
-  lastWpmWarnAt: { current: number }
+  lastWpmWarnAt: { current: number },
+  config: SpeechRuleConfig = getDefaultSpeechConfig(),
 ): void {
   const now = Date.now();
   buffer.push({ text, timestamp: now });
 
   const wpm = calcWpm(buffer);
-  if (wpm > TARGET_WPM_MAX && now - lastWpmWarnAt.current > 15_000) {
+  if (wpm > config.wpmMax && now - lastWpmWarnAt.current > 15_000) {
     lastWpmWarnAt.current = now;
     feedbackQueue.push({
       level: 'WARN',
-      msg: 'You are speaking too fast',
+      msg: toneMsg(config.feedbackTone, 'fast', ''),
       source: 'SPEECH_RULE',
       cooldown: 15_000,
     });
-  } else if (wpm > 0 && wpm < TARGET_WPM_MIN && now - lastWpmWarnAt.current > 15_000) {
+  } else if (wpm > 0 && wpm < config.wpmMin && now - lastWpmWarnAt.current > 15_000) {
     lastWpmWarnAt.current = now;
     feedbackQueue.push({
       level: 'WARN',
-      msg: 'Try speaking a bit faster',
+      msg: toneMsg(config.feedbackTone, '', 'slow'),
       source: 'SPEECH_RULE',
       cooldown: 15_000,
     });
@@ -67,7 +95,9 @@ export function onTranscriptChunk(
   if (recentCount >= FILLER_THRESHOLD) {
     feedbackQueue.push({
       level: 'WARN',
-      msg: 'Filler words are being repeated',
+      msg: config.feedbackTone === 'sharp' ? 'Too many fillers — every "um" costs you credibility'
+        : config.feedbackTone === 'warm' ? 'I\'m hearing some filler words — try pausing instead'
+        : 'Filler words are being repeated',
       source: 'SPEECH_RULE',
       cooldown: 30_000,
     });

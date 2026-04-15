@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useSpeechToText } from '../hooks/useSpeechToText';
 import { useSessionStore } from '../store/sessionStore';
 import { ScoreRing } from './ScoreRing';
+import { ReportTranscriptSection } from './ReportTranscriptSection';
 
 function QaTopBar({ sessionDone }: { sessionDone: boolean }) {
   const resetSession = useSessionStore((s) => s.resetSession);
@@ -49,6 +50,7 @@ function formatDuration(sec: number): string {
 
 export function QaReportScreen() {
   const session = useSessionStore((s) => s.session);
+  const selectedPersona = useSessionStore((s) => s.selectedPersona);
   const qaCurrentQuestion = useSessionStore((s) => s.qaCurrentQuestion);
   const busy = useSessionStore((s) => s.busy);
   const startQa = useSessionStore((s) => s.startQa);
@@ -158,6 +160,39 @@ export function QaReportScreen() {
                   ))}
                 </div>
 
+                {session.report.persona_style_coaching && (
+                  <>
+                    <div className="report-section-title">Persona delivery roadmap</div>
+                    <div className="report-persona-panel">
+                      <p className="report-persona-alignment">
+                        {session.report.persona_style_coaching.style_alignment}
+                      </p>
+                      <h4 className="report-persona-sub">Next-session practices</h4>
+                      <ul className="report-persona-practices">
+                        {session.report.persona_style_coaching.delivery_practices.map((line, i) => (
+                          <li key={i}>{line}</li>
+                        ))}
+                      </ul>
+                      {session.report.persona_style_coaching.phrase_rewrites &&
+                        session.report.persona_style_coaching.phrase_rewrites.length > 0 && (
+                          <>
+                            <h4 className="report-persona-sub">Line-level examples</h4>
+                            <div className="report-rewrite-list">
+                              {session.report.persona_style_coaching.phrase_rewrites.map((rw, i) => (
+                                <div key={i} className="report-rewrite-card">
+                                  <div className="report-rewrite-label">From your session</div>
+                                  <p className="report-rewrite-from">{rw.from_session}</p>
+                                  <div className="report-rewrite-label report-rewrite-label-alt">Persona-aligned alternative</div>
+                                  <p className="report-rewrite-to">{rw.persona_aligned_example}</p>
+                                </div>
+                              ))}
+                            </div>
+                          </>
+                        )}
+                    </div>
+                  </>
+                )}
+
                 <div className="report-section-title">Actionable Coaching</div>
                 <div className="insight-list">
                   {(session.report.improvements as unknown as Array<{label: string; situation: string; stop_doing: string; start_doing: string; expected_impact: string} | string>).map((item, i) => {
@@ -172,12 +207,24 @@ export function QaReportScreen() {
                         </div>
                       );
                     }
+                    const markers = (item as {time_markers?: {time: string; event: string}[]}).time_markers;
                     return (
                       <div key={i} className="coaching-card">
                         <div className="coaching-header">
                           <span className="coaching-number">{i + 1}</span>
                           <span className="coaching-label">{item.label}</span>
                         </div>
+                        {markers && markers.length > 0 && (
+                          <div className="coaching-timestamps">
+                            {markers.map((m, mi) => (
+                              <span key={mi} className="coaching-ts-badge">
+                                <span className="ts-icon" aria-hidden="true">⏱</span>
+                                <span className="ts-time">{m.time}</span>
+                                <span className="ts-event">{m.event}</span>
+                              </span>
+                            ))}
+                          </div>
+                        )}
                         <div className="coaching-section">
                           <div className="coaching-tag tag-situation">SITUATION</div>
                           <p className="coaching-text">{item.situation}</p>
@@ -198,6 +245,13 @@ export function QaReportScreen() {
                     );
                   })}
                 </div>
+
+                <ReportTranscriptSection
+                  transcriptLog={session.speech_coaching.transcript_log}
+                  sessionStartedAt={session.started_at}
+                  sessionId={session.session_id}
+                  selectedPersona={selectedPersona}
+                />
               </>
             ) : (
               <div className="insight-list">

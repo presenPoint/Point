@@ -14,7 +14,8 @@ type SemanticResult = {
   feedback_message: string | null;
 };
 
-const SYSTEM = (summary: string, history: OffTopicEntry[]) => `You are a presentation coach. Analyze the presenter's last 30 seconds of speech and respond with JSON only.
+const SYSTEM = (summary: string, history: OffTopicEntry[], personaPrompt?: string) => {
+  const base = `You are a presentation coach. Analyze the presenter's last 30 seconds of speech and respond with JSON only.
 
 Presentation topic summary: ${summary}
 Previous analysis history: ${JSON.stringify(history.slice(-2))}
@@ -34,11 +35,18 @@ Rules:
 - Be strict with off_topic judgment (true only when completely unrelated to the topic)
 - If the speech is too short to judge, return all values as false`;
 
+  if (personaPrompt) {
+    return `${base}\n\n[Coaching Persona]\n${personaPrompt}\nApply this persona's tone and priorities when writing feedback_message.`;
+  }
+  return base;
+};
+
 export async function runSemanticAnalysis(
   recentText: string,
   materialSummary: string,
   offTopicLog: OffTopicEntry[],
-  onResult: (payload: { offTopic?: OffTopicEntry; ambiguousDelta: number }) => void
+  onResult: (payload: { offTopic?: OffTopicEntry; ambiguousDelta: number }) => void,
+  personaPrompt?: string,
 ): Promise<void> {
   if (recentText.length < 50) return;
 
@@ -46,7 +54,7 @@ export async function runSemanticAnalysis(
   if (hasOpenAI()) {
     result = await chatJson<SemanticResult>(
       'gpt-4o-mini',
-      SYSTEM(materialSummary, offTopicLog),
+      SYSTEM(materialSummary, offTopicLog, personaPrompt),
       recentText
     );
   }

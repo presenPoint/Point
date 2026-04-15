@@ -1,6 +1,8 @@
 import { useEffect, useRef } from 'react';
-import { feedbackQueue, runSemanticAnalysis, calcWpm, onTranscriptChunk } from '../agents';
-import { PoseTracker } from '../agents/agent3-live-nonverbal/poseTracker';
+import { feedbackQueue, runSemanticAnalysis, calcWpm, onTranscriptChunk, speechConfigFromPersona, getDefaultSpeechConfig } from '../agents';
+import type { SpeechRuleConfig } from '../agents';
+import { PoseTracker, nonverbalConfigFromPersona, getDefaultNonverbalConfig } from '../agents/agent3-live-nonverbal/poseTracker';
+import { PERSONAS } from '../constants/personas';
 import { SEMANTIC_INTERVAL_MS, SILENCE_THRESHOLD_MS } from '../lib/speechUtils';
 import { useSessionStore } from '../store/sessionStore';
 import type { FillerEntry, TranscriptEntry } from '../types/session';
@@ -13,6 +15,13 @@ export function useLivePresenting() {
     presentingStartRef.current = Date.now();
     feedbackQueue.clearQueue();
     useSessionStore.getState().setLivePresentation({ wpm: 0, fillerCount: 0 });
+
+    const personaType = useSessionStore.getState().selectedPersona;
+    const persona = personaType ? PERSONAS[personaType] : null;
+    const speechConfig: SpeechRuleConfig = persona
+      ? speechConfigFromPersona(persona.config)
+      : getDefaultSpeechConfig();
+    const personaPrompt = persona?.systemPrompt;
 
     const bufferRef: TranscriptEntry[] = [];
     const fillerRef: FillerEntry[] = [];
@@ -57,7 +66,8 @@ export function useLivePresenting() {
               },
             };
           });
-        }
+        },
+        personaPrompt,
       );
     }, SEMANTIC_INTERVAL_MS);
 
@@ -103,7 +113,7 @@ export function useLivePresenting() {
           });
         }, SILENCE_THRESHOLD_MS);
 
-        onTranscriptChunk(t, bufferRef, fillerRef, lastWpmWarnRef);
+        onTranscriptChunk(t, bufferRef, fillerRef, lastWpmWarnRef, speechConfig);
         const fillers = fillerRef.length;
         const ts = Date.now();
         useSessionStore.setState((st) => ({
@@ -152,6 +162,12 @@ export function useLivePresenting() {
   const startPoseTracking = (video: HTMLVideoElement) => {
     const tracker = poseTrackerRef.current;
     if (!tracker) return;
+    const personaType = useSessionStore.getState().selectedPersona;
+    const activePersona = personaType ? PERSONAS[personaType] : null;
+    const nvCfg = activePersona
+      ? nonverbalConfigFromPersona(activePersona.config.gazeSensitivity, activePersona.config.gestureIntensity)
+      : getDefaultNonverbalConfig();
+    const tone = activePersona?.config.feedbackTone ?? 'neutral';
     tracker.start(video, (frame) => {
       useSessionStore.setState((st) => {
         const nv = st.session.nonverbal_coaching;
@@ -166,6 +182,11 @@ export function useLivePresenting() {
           ? [...nv.gesture_log, { timestamp: posture.timestamp, type: 'excess' as const }].slice(-200)
           : nv.gesture_log;
 
+        const dynamism_log = [
+          ...nv.dynamism_log,
+          { timestamp: posture.timestamp, level: frame.dynamism },
+        ].slice(-500);
+
         return {
           session: {
             ...st.session,
@@ -177,21 +198,64 @@ export function useLivePresenting() {
                 { timestamp: posture.timestamp, angle: posture.angle, is_ok: posture.isStraight && !posture.isTooFar && !posture.isTooClose },
               ].slice(-500),
               gesture_log,
+              dynamism_log,
             },
           },
         };
       });
 
+      const gazeMsg: Record<string, string> = {
+        sharp: 'Eyes wandering — lock in on the audience',
+        encouraging: 'Try connecting with the audience through eye contact',
+        precise: 'Eye contact below threshold — redirect gaze forward',
+        warm: 'Look at your audience — let them see you',
+        empowering: 'Own the room with your eyes — look at them',
+      };
+      const postureMsg: Record<string, string> = {
+        sharp: 'Your posture is leaking credibility — straighten up',
+        encouraging: 'A small posture adjustment will boost your presence',
+        precise: 'Posture deviation detected — correct alignment',
+        warm: 'Stand tall — it helps you breathe and project confidence',
+        empowering: 'Command the stage — shoulders back, chin up',
+      };
+      const gestureExcessMsg: Record<string, string> = {
+        sharp: 'Too many gestures — each one should mean something',
+        encouraging: 'Dial back the gestures — let each one land',
+        precise: 'Gesture frequency exceeds optimal range — reduce',
+        warm: 'You\'re gesturing a lot — try letting a few moments be still',
+        empowering: 'Control is power — fewer gestures, bigger impact',
+      };
+      const stiffMsg: Record<string, string> = {
+        sharp: 'You\'re frozen — movement is conviction',
+        encouraging: 'Loosen up a bit — small movements show confidence',
+        precise: 'Minimal body movement detected — add natural motion',
+        warm: 'You seem stiff — try natural small movements',
+        empowering: 'Break free — let your body match your energy',
+      };
+      const restlessMsg: Record<string, string> = {
+        sharp: 'Stop fidgeting — stillness is strength',
+        encouraging: 'Try to settle your body — channel that energy into words',
+        precise: 'Excessive movement detected — stabilize',
+        warm: 'Too much body movement — try to settle down',
+        empowering: 'Rein it in — power needs control',
+      };
+
       if (!frame.gaze.isGazing) {
-        feedbackQueue.push({ level: 'WARN', msg: 'Try to look at the audience more', source: 'NONVERBAL', cooldown: 30_000 });
+        feedbackQueue.push({ level: 'WARN', msg: gazeMsg[tone] ?? 'Try to look at the audience more', source: 'NONVERBAL', cooldown: 30_000 });
       }
       if (!frame.posture.isStraight) {
-        feedbackQueue.push({ level: 'WARN', msg: 'Please straighten your posture', source: 'NONVERBAL', cooldown: 15_000 });
+        feedbackQueue.push({ level: 'WARN', msg: postureMsg[tone] ?? 'Please straighten your posture', source: 'NONVERBAL', cooldown: 15_000 });
       }
       if (frame.gesture.excess) {
-        feedbackQueue.push({ level: 'WARN', msg: 'Too many gestures', source: 'NONVERBAL', cooldown: 60_000 });
+        feedbackQueue.push({ level: 'WARN', msg: gestureExcessMsg[tone] ?? 'Too many gestures', source: 'NONVERBAL', cooldown: 60_000 });
       }
-    });
+      if (frame.dynamism === 'stiff') {
+        feedbackQueue.push({ level: 'WARN', msg: stiffMsg[tone] ?? 'You seem stiff — try natural small movements', source: 'NONVERBAL', cooldown: 20_000 });
+      }
+      if (frame.dynamism === 'restless') {
+        feedbackQueue.push({ level: 'WARN', msg: restlessMsg[tone] ?? 'Too much body movement — try to settle down', source: 'NONVERBAL', cooldown: 20_000 });
+      }
+    }, nvCfg);
   };
 
   const stopPoseTracking = () => {
