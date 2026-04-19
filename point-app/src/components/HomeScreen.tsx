@@ -92,6 +92,8 @@ function HistorySection({ userId }: { userId: string }) {
 export function HomeScreen({ userBar, userId }: { userBar?: ReactNode; userId?: string }) {
   const setAppStarted = useSessionStore((s) => s.setAppStarted);
   const setPersona = useSessionStore((s) => s.setPersona);
+  const startPersonaStyleQuiz = useSessionStore((s) => s.startPersonaStyleQuiz);
+  const startWithDefaultCoaching = useSessionStore((s) => s.startWithDefaultCoaching);
   const [detailPersonaId, setDetailPersonaId] = useState<PersonaType | null>(null);
 
   const selectPersonaAndStart = (id: PersonaType) => {
@@ -105,11 +107,6 @@ export function HomeScreen({ userBar, userId }: { userBar?: ReactNode; userId?: 
     if (!detailPersonaId) return;
     setDetailPersonaId(null);
     selectPersonaAndStart(detailPersonaId);
-  };
-
-  const openPersonaQuiz = () => {
-    setPersona(null);
-    setAppStarted(true);
   };
 
   return (
@@ -139,9 +136,14 @@ export function HomeScreen({ userBar, userId }: { userBar?: ReactNode; userId?: 
           </li>
         </ul>
 
-        <div className="home-quiz-row">
-          <button type="button" className="home-quiz-link" onClick={openPersonaQuiz}>
-            Suggested match — take the 3-question style quiz
+        <div className="home-cta-row" role="group" aria-label="시작 옵션">
+          <button type="button" className="home-cta-primary" onClick={startPersonaStyleQuiz}>
+            Suggested match
+            <span className="home-cta-sub">Solve the Quiz</span>
+          </button>
+          <button type="button" className="home-cta-secondary" onClick={startWithDefaultCoaching}>
+            quick start
+            <span className="home-cta-sub">Default scoring</span>
           </button>
         </div>
       </div>

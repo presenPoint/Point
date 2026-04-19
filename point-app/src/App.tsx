@@ -12,6 +12,7 @@ import { QaReportScreen } from './components/QaReportScreen';
 export default function App() {
   const { user, loading, signOut } = useAuth();
   const appStarted = useSessionStore((s) => s.appStarted);
+  const skipPersonaSurvey = useSessionStore((s) => s.skipPersonaSurvey);
   const selectedPersona = useSessionStore((s) => s.selectedPersona);
   const status = useSessionStore((s) => s.session.status);
   const setUserId = useSessionStore((s) => s.setUserId);
@@ -60,7 +61,7 @@ export default function App() {
     return <HomeScreen userBar={userBar} userId={user.id} />;
   }
 
-  if (!selectedPersona) {
+  if (!selectedPersona && !skipPersonaSurvey) {
     return <PersonaSurvey />;
   }
 

@@ -1,4 +1,7 @@
 import { PoseLandmarker, FilesetResolver, type PoseLandmarkerResult } from '@mediapipe/tasks-vision';
+
+/** `@mediapipe/tasks-vision` 패키지 버전과 맞춤 — `@latest` WASM과 불일치 시 경고·동작 차이 방지 */
+const VISION_WASM_ROOT = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.34/wasm';
 import type { GazeSensitivity } from '../../constants/personas';
 
 export type DynamismLevel = 'stiff' | 'natural' | 'restless';
@@ -174,9 +177,7 @@ export class PoseTracker {
   private onFrame: ((frame: PoseFrame) => void) | null = null;
 
   async init(): Promise<void> {
-    const vision = await FilesetResolver.forVisionTasks(
-      'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm'
-    );
+    const vision = await FilesetResolver.forVisionTasks(VISION_WASM_ROOT);
     this.landmarker = await PoseLandmarker.createFromOptions(vision, {
       baseOptions: {
         modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task',

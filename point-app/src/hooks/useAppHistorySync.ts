@@ -9,15 +9,18 @@ type HistState = {
   route: AppRouteId;
   persona: PersonaType | null;
   status: SessionStatus;
+  /** True when coaching uses built-in defaults (no persona) but the survey is skipped. */
+  defaultCoaching?: boolean;
 };
 
 export function routeFromStore(
   appStarted: boolean,
   persona: PersonaType | null,
   status: SessionStatus,
+  skipPersonaSurvey: boolean,
 ): AppRouteId {
   if (!appStarted) return 'home';
-  if (!persona) return 'survey';
+  if (!persona && !skipPersonaSurvey) return 'survey';
   if (status === 'IDLE' || status === 'PRE_QUIZ') return 'prepare';
   if (status === 'PRESENTING') return 'live';
   return 'report';
@@ -36,7 +39,11 @@ function parseHashRoute(): AppRouteId | null {
 }
 
 function normalizeHistState(st: HistState): HistState {
-  if ((st.route === 'prepare' || st.route === 'live' || st.route === 'report') && !st.persona) {
+  if (
+    (st.route === 'prepare' || st.route === 'live' || st.route === 'report') &&
+    !st.persona &&
+    !st.defaultCoaching
+  ) {
     return { route: 'survey', persona: null, status: 'IDLE' };
   }
   return st;
@@ -44,17 +51,20 @@ function normalizeHistState(st: HistState): HistState {
 
 function applyHistoryState(st: HistState | null) {
   if (!st || st.route === 'home') {
-    useSessionStore.setState({ appStarted: false, selectedPersona: null });
+    useSessionStore.setState({ appStarted: false, selectedPersona: null, skipPersonaSurvey: false });
     return;
   }
   const n = normalizeHistState(st);
   if (n.route === 'home') {
-    useSessionStore.setState({ appStarted: false, selectedPersona: null });
+    useSessionStore.setState({ appStarted: false, selectedPersona: null, skipPersonaSurvey: false });
     return;
   }
+  const skipPersonaSurvey =
+    n.route === 'survey' ? false : Boolean(n.defaultCoaching) || n.persona != null;
   useSessionStore.setState((prev) => ({
     appStarted: true,
     selectedPersona: n.persona ?? null,
+    skipPersonaSurvey,
     session: {
       ...prev.session,
       status: n.status,
@@ -73,6 +83,7 @@ export function useAppHistorySync(enabled: boolean) {
 
   const appStarted = useSessionStore((s) => s.appStarted);
   const selectedPersona = useSessionStore((s) => s.selectedPersona);
+  const skipPersonaSurvey = useSessionStore((s) => s.skipPersonaSurvey);
   const status = useSessionStore((s) => s.session.status);
 
   useEffect(() => {
@@ -136,11 +147,12 @@ export function useAppHistorySync(enabled: boolean) {
       return;
     }
 
-    const route = routeFromStore(appStarted, selectedPersona, status);
+    const route = routeFromStore(appStarted, selectedPersona, status, skipPersonaSurvey);
     const state: HistState = {
       route,
       persona: selectedPersona,
       status,
+      defaultCoaching: skipPersonaSurvey && selectedPersona === null,
     };
 
     if (lastRouteRef.current === route) {
@@ -161,5 +173,5 @@ export function useAppHistorySync(enabled: boolean) {
     }
 
     history.pushState(state, '', url);
-  }, [enabled, appStarted, selectedPersona, status]);
+  }, [enabled, appStarted, selectedPersona, skipPersonaSurvey, status]);
 }
