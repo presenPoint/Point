@@ -1,7 +1,7 @@
 # Point — 팀 TODO (2인 개발)
 
-> **프로젝트**: `point-app` (React · Vite · Zustand · Supabase · OpenAI)  
-> **참고 문서**: `point-agents.md`, `point-system-uml.md`, `point-app/supabase/schema.sql`
+> **프로젝트**: 저장소 루트 (React · Vite · Zustand · Supabase · OpenAI)  
+> **참고 문서**: `point-agents.md`, `point-system-uml.md`, `supabase/schema.sql`
 
 아래 항목은 **담당자(A/B)를 팀에서 나눠** 체크박스로 진행 상황을 갱신하면 됩니다.
 
@@ -20,7 +20,7 @@
 
 - [ ] Supabase 프로젝트 생성 및 `schema.sql` 적용
 - [ ] **RLS 정책** 작성·검증 (스키마에 RLS 활성화만 있고 정책이 없다면 `SELECT/INSERT/UPDATE` 규칙 추가)
-- [ ] Vercel(또는 팀이 정한 호스팅)에 `point-app` 배포 파이프라인
+- [ ] Vercel(또는 팀이 정한 호스팅)에 저장소 배포 파이프라인
 - [ ] 프로덕션용 환경 변수 설정 (`VITE_SUPABASE_*`, OpenAI 관련은 아래 보안 항목 참고)
 
 ---
@@ -78,7 +78,7 @@
 ## 8. 문서
 
 - [ ] 루트 `README.md`에 클론·설치·환경 변수·스크립트·배포 요약
-- [ ] `point-app/README.md`에 앱 전용 상세(선택)
+- [ ] (선택) 앱 전용 상세 `README` 보강
 - [ ] 본 `TODO.md`와 실제 진행이 어긋나면 주기적으로 항목 수정
 
 ---
