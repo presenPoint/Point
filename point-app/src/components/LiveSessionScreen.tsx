@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { feedbackQueue } from '../agents';
 import { useLivePresenting } from '../hooks/useLivePresenting';
+import { cancelFeedbackSpeech, primeFeedbackAudio, speakFeedbackMessage } from '../lib/feedbackTts';
 import { useSessionStore } from '../store/sessionStore';
 import type { FeedbackItem, FeedbackLevel } from '../types/session';
 
@@ -30,6 +31,7 @@ export function LiveSessionScreen() {
   const [sec, setSec] = useState(0);
   const [feed, setFeed] = useState<FeedbackItem[]>([]);
   const [coachVisual, setCoachVisual] = useState(true);
+  const voiceFeedbackRef = useRef(false);
   const [alertUi, setAlertUi] = useState<{
     msg: string;
     typeLabel: string;
@@ -50,6 +52,14 @@ export function LiveSessionScreen() {
   }, [presentingStartRef]);
 
   useEffect(() => {
+    voiceFeedbackRef.current = !coachVisual;
+  }, [coachVisual]);
+
+  useEffect(() => {
+    if (coachVisual) cancelFeedbackSpeech();
+  }, [coachVisual]);
+
+  useEffect(() => {
     const sync = () => {
       setFeed([...feedbackQueue.getFeedHistory()]);
       const items = feedbackQueue.getDisplayItems();
@@ -63,10 +73,16 @@ export function LiveSessionScreen() {
         setAlertUi({ msg: top.msg, typeLabel, color });
         if (alertT.current) clearTimeout(alertT.current);
         alertT.current = setTimeout(() => setAlertUi(null), 3500);
+        if (voiceFeedbackRef.current) void speakFeedbackMessage(top.msg, { level: top.level });
       }
     };
     sync();
-    return feedbackQueue.subscribe(sync);
+    const unsub = feedbackQueue.subscribe(sync);
+    return () => {
+      unsub();
+      if (alertT.current) clearTimeout(alertT.current);
+      cancelFeedbackSpeech();
+    };
   }, []);
 
   useEffect(() => {
@@ -236,6 +252,7 @@ export function LiveSessionScreen() {
                 <button
                   type="button"
                   className={`mode-btn${coachVisual ? ' active' : ''}`}
+                  title="Overlay alerts only"
                   onClick={() => setCoachVisual(true)}
                 >
                   Visual
@@ -243,7 +260,11 @@ export function LiveSessionScreen() {
                 <button
                   type="button"
                   className={`mode-btn${!coachVisual ? ' active' : ''}`}
-                  onClick={() => setCoachVisual(false)}
+                  title="OpenAI TTS + 자동재생 허용을 위해 이 버튼을 한 번 눌러 주세요"
+                  onClick={() => {
+                    primeFeedbackAudio();
+                    setCoachVisual(false);
+                  }}
                 >
                   Voice
                 </button>

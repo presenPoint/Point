@@ -10,17 +10,30 @@ import {
 } from '../agents';
 import { supabase } from '../lib/supabase';
 import { PERSONAS } from '../constants/personas';
+import { chunkScript } from '../lib/scriptChunker';
+import {
+  embedAndStoreChunks,
+  analyzeScriptStyle,
+  clearChunks,
+  calcScriptCoverage,
+} from '../lib/scriptEmbedding';
 import type { SessionContext, SessionStatus } from '../types/session';
+import { buildPresentationTopicBlock } from '../lib/presentationTopicContext';
 
-function emptyMaterial() {
+function emptyMaterial(): SessionContext['material'] {
   return {
     raw_text: '',
     summary: '',
-    keywords: [] as string[],
-    quiz: [] as SessionContext['material']['quiz'],
+    keywords: [],
+    quiz: [],
     pre_quiz_score: 0,
-    pre_quiz_grades: [] as SessionContext['material']['pre_quiz_grades'],
-    weak_areas: [] as string[],
+    pre_quiz_grades: [],
+    weak_areas: [],
+    script_text: '',
+    script_embedding_status: 'idle',
+    script_chunk_count: 0,
+    script_style: undefined,
+    script_coverage: undefined,
   };
 }
 
@@ -30,6 +43,8 @@ function createSession(userId: string): SessionContext {
     user_id: userId,
     status: 'IDLE',
     started_at: new Date().toISOString(),
+    presentation_topic_keys: [],
+    presentation_topic_custom: '',
     material: emptyMaterial(),
     speech_coaching: {
       wpm_log: [],
@@ -80,19 +95,24 @@ type State = {
   busy: string | null;
   error: string | null;
   appStarted: boolean;
-  presentationTopic: string;
-  livePresentation: { wpm: number; fillerCount: number };
+  /** When true with `selectedPersona === null`, skip the style survey and use default coaching/scoring. */
+  skipPersonaSurvey: boolean;
+  livePresentation: { wpm: number; fillerCount: number; volumeRms: number };
   selectedPersona: PersonaType | null;
 
   setAppStarted: (v: boolean) => void;
-  setPresentationTopic: (t: string) => void;
-  setLivePresentation: (p: Partial<{ wpm: number; fillerCount: number }>) => void;
+  startPersonaStyleQuiz: () => void;
+  startWithDefaultCoaching: () => void;
+  setPresentationTopics: (keys: string[], custom: string) => void;
+  setLivePresentation: (p: Partial<{ wpm: number; fillerCount: number; volumeRms: number }>) => void;
   setPersona: (persona: PersonaType | null) => void;
 
   resetSession: () => void;
   transition: (to: SessionStatus) => void;
   setPreQuizAnswer: (id: number, text: string) => void;
   setMaterialText: (text: string) => void;
+  setScriptText: (text: string) => void;
+  embedScript: () => Promise<void>;
 
   runMaterialAnalysis: () => Promise<void>;
   submitPreQuiz: () => Promise<void>;
@@ -119,19 +139,44 @@ export const useSessionStore = create<State>((set, get) => ({
   busy: null,
   error: null,
   appStarted: false,
-  presentationTopic: '',
-  livePresentation: { wpm: 0, fillerCount: 0 },
+  skipPersonaSurvey: false,
+  livePresentation: { wpm: 0, fillerCount: 0, volumeRms: 0 },
   selectedPersona: null,
 
-  setAppStarted: (v) => set({ appStarted: v }),
-  setPresentationTopic: (t) => set({ presentationTopic: t }),
+  setAppStarted: (v) =>
+    set({
+      appStarted: v,
+      ...(v === false ? { skipPersonaSurvey: false } : {}),
+    }),
+  startPersonaStyleQuiz: () =>
+    set({
+      appStarted: true,
+      selectedPersona: null,
+      skipPersonaSurvey: false,
+    }),
+  startWithDefaultCoaching: () =>
+    set({
+      appStarted: true,
+      selectedPersona: null,
+      skipPersonaSurvey: true,
+    }),
+  setPresentationTopics: (keys, custom) =>
+    set((s) => ({
+      session: {
+        ...s.session,
+        presentation_topic_keys: keys,
+        presentation_topic_custom: custom,
+      },
+    })),
   setPersona: (persona) => set({ selectedPersona: persona }),
   setLivePresentation: (p) =>
     set((s) => ({
       livePresentation: { ...s.livePresentation, ...p },
     })),
 
-  resetSession: () =>
+  resetSession: () => {
+    const sid = get().session.session_id;
+    clearChunks(sid);
     set({
       session: createSession(DEMO_USER),
       preQuizAnswers: {},
@@ -139,9 +184,11 @@ export const useSessionStore = create<State>((set, get) => ({
       busy: null,
       error: null,
       appStarted: false,
-      presentationTopic: '',
-      livePresentation: { wpm: 0, fillerCount: 0 },
-    }),
+      skipPersonaSurvey: false,
+      livePresentation: { wpm: 0, fillerCount: 0, volumeRms: 0 },
+      selectedPersona: null,
+    });
+  },
 
   transition: (to) =>
     set((s) => ({
@@ -176,6 +223,77 @@ export const useSessionStore = create<State>((set, get) => ({
       },
     })),
 
+  setScriptText: (text) =>
+    set((s) => ({
+      session: {
+        ...s.session,
+        material: {
+          ...s.session.material,
+          script_text: text,
+          // Reset embedding state when script changes
+          script_embedding_status: text.trim().length > 0 ? 'idle' : 'idle',
+          script_chunk_count: 0,
+          script_style: undefined,
+          script_coverage: undefined,
+        },
+      },
+    })),
+
+  embedScript: async () => {
+    const { session } = get();
+    const text = session.material.script_text.trim();
+    if (text.length < 20) return;
+
+    // Mark as processing
+    set((s) => ({
+      session: {
+        ...s.session,
+        material: { ...s.session.material, script_embedding_status: 'processing' },
+      },
+    }));
+
+    try {
+      const chunks = chunkScript(text);
+      const { stored, error } = await embedAndStoreChunks(
+        session.session_id,
+        session.user_id,
+        chunks,
+      );
+
+      // Style analysis (non-blocking — run in parallel)
+      const stylePromise = analyzeScriptStyle(text);
+
+      if (error) {
+        console.warn('Embedding partial failure:', error);
+      }
+
+      const style = await stylePromise;
+
+      set((s) => ({
+        session: {
+          ...s.session,
+          material: {
+            ...s.session.material,
+            script_embedding_status: stored > 0 ? 'ready' : 'error',
+            script_chunk_count: stored,
+            script_style: style ?? undefined,
+          },
+        },
+      }));
+    } catch (err) {
+      console.error('embedScript failed', err);
+      set((s) => ({
+        session: {
+          ...s.session,
+          material: {
+            ...s.session.material,
+            script_embedding_status: 'error',
+          },
+        },
+      }));
+    }
+  },
+
   runMaterialAnalysis: async () => {
     const raw = get().session.material.raw_text.trim();
     if (raw.length < 20) {
@@ -187,7 +305,9 @@ export const useSessionStore = create<State>((set, get) => ({
     }
     set({ busy: 'Analyzing materials...', error: null });
     try {
-      const result = await analyzeMaterial(raw);
+      const scriptText = get().session.material.script_text.trim() || undefined;
+      const topicBlock = buildPresentationTopicBlock(get().session);
+      const result = await analyzeMaterial(raw, scriptText, topicBlock || undefined);
       set((s) => ({
         session: {
           ...s.session,
@@ -323,11 +443,23 @@ export const useSessionStore = create<State>((set, get) => ({
     const wpmRange = persona ? persona.config.wpmRange : undefined;
     const scoresWithContext = calcCompositeScore(ctx, wpmRange);
     const { compositeScore, speechScore, nonverbalScore, qaScore } = scoresWithContext;
-    const narrative = await generateReportNarrative(ctx, scoresWithContext, persona);
+
+    // Compute script coverage if script was provided
+    let scriptCoverage: number | null = null;
+    if (ctx.material.script_text.trim().length > 0) {
+      const fullTranscript = ctx.speech_coaching.transcript_log.map((e) => e.text).join(' ');
+      scriptCoverage = await calcScriptCoverage(ctx.session_id, fullTranscript);
+    }
+
+    const narrative = await generateReportNarrative(ctx, scoresWithContext, persona, scriptCoverage);
     const generated_at = new Date().toISOString();
     set((s) => ({
       session: {
         ...s.session,
+        material: {
+          ...s.session.material,
+          script_coverage: scriptCoverage ?? undefined,
+        },
         report: {
           composite_score: compositeScore,
           speech_score: speechScore,

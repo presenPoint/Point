@@ -10,6 +10,7 @@ import type {
 } from '../../types/session';
 import type { Persona } from '../../constants/personas';
 import { analyzeContext, type ContextAnalysisResult } from './contextAnalysis';
+import { buildPresentationTopicBlock } from '../../lib/presentationTopicContext';
 
 function tsToLabel(ts: number, sessionStart: number): string {
   const elapsed = Math.max(0, Math.round((ts - sessionStart) / 1000));
@@ -263,6 +264,7 @@ export async function generateReportNarrative(
   ctx: SessionContext,
   scores: ReportScores & { contextAnalysis: ContextAnalysisResult },
   persona?: Persona | null,
+  scriptCoverage?: number | null,
 ): Promise<ReportNarrative> {
   const personaPrompt = persona?.systemPrompt;
   const avgWpm =
@@ -283,11 +285,25 @@ export async function generateReportNarrative(
     ? `Selected coaching persona: ${persona.name} (id: ${persona.id})\nArchetype: ${persona.presentationInfo.archetype}\nDomain fit: ${persona.presentationInfo.domainFit}`
     : 'Selected coaching persona: none (use generic executive-coach benchmark).';
 
+  const topicBlock = buildPresentationTopicBlock(ctx);
+  const topicMeta = topicBlock ? `${topicBlock}\n` : '';
+
   const speechExcerpt = transcriptExcerpt(ctx);
+
+  // Script coverage (passed in from sessionStore after calcScriptCoverage)
+  const scriptCoverageBlock = scriptCoverage != null
+    ? `Script coverage: ${Math.round(scriptCoverage * 100)}% of planned script sections delivered`
+    : '';
+
+  // Script style summary
+  const scriptStyleBlock = ctx.material.script_style
+    ? `Script style: ${ctx.material.script_style.tone} tone, ${ctx.material.script_style.complexity} complexity, ~${ctx.material.script_style.estimatedMinutes} min planned`
+    : '';
 
   const userBlock = [
     coachMeta,
     '',
+    topicMeta,
     `Duration: ${ctx.speech_coaching.total_duration_sec}s (~${durationMin} min)`,
     `Average speech rate: ${avgWpm} words/min`,
     `Filler words: ${ctx.speech_coaching.filler_count}`,
@@ -298,13 +314,15 @@ export async function generateReportNarrative(
     `Body dynamism: ${ctx.nonverbal_coaching.dynamism_log.length > 0 ? `natural=${Math.round(ctx.nonverbal_coaching.dynamism_log.filter(d => d.level === 'natural').length / ctx.nonverbal_coaching.dynamism_log.length * 100)}%, stiff=${Math.round(ctx.nonverbal_coaching.dynamism_log.filter(d => d.level === 'stiff').length / ctx.nonverbal_coaching.dynamism_log.length * 100)}%, restless=${Math.round(ctx.nonverbal_coaching.dynamism_log.filter(d => d.level === 'restless').length / ctx.nonverbal_coaching.dynamism_log.length * 100)}%` : 'no camera data'}`,
     `Q&A score: ${scores.qaScore}/100 (weakest: Q${ctx.qa.worst_answer_turn})`,
     `Composite: ${scores.compositeScore}/100 (speech ${scores.speechScore}, nonverbal ${scores.nonverbalScore}, Q&A ${scores.qaScore})`,
+    scriptCoverageBlock,
+    scriptStyleBlock,
     '',
     `Recent speech (excerpt, partial transcript — quote only what appears here for phrase_rewrites):`,
     speechExcerpt || '(no transcript captured)',
     '',
     contextBlock,
     timelineBlock,
-  ].join('\n');
+  ].filter(Boolean).join('\n');
 
   const personaBlock = personaPrompt
     ? `\n[Coaching Persona]\n${personaPrompt}\nAdopt this persona's voice, priorities, and style when writing strengths and improvements. The tone of every sentence should reflect this persona.\n`

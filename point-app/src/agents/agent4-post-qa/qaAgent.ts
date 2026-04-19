@@ -3,6 +3,7 @@
  */
 import { chatJson, hasOpenAI } from '../../lib/openai';
 import type { QaExchange, SessionContext } from '../../types/session';
+import { buildPresentationTopicBlock } from '../../lib/presentationTopicContext';
 
 type QaGrade = {
   final_score: number;
@@ -22,8 +23,22 @@ export function parseGptResponse(text: string): { message: string; isComplete: b
 
 function buildSystemPrompt(ctx: SessionContext, currentTurn: number): string {
   const off = ctx.speech_coaching.off_topic_log.map((e) => e.excerpt).join(' / ');
-  return `You are a critical audience member who just listened to a presentation.
 
+  const scriptBlock = ctx.material.script_text?.trim()
+    ? `\n[Presenter's Script — key sections for deep questioning]\n${ctx.material.script_text.slice(0, 3_000)}\n`
+    : '';
+
+  const styleBlock = ctx.material.script_style
+    ? `\n[Script Style Analysis]\nTone: ${ctx.material.script_style.tone} · Complexity: ${ctx.material.script_style.complexity}\nKey phrases the presenter planned to use: ${ctx.material.script_style.keyPhrases.join(', ')}\n`
+    : '';
+
+  const topicBlock = buildPresentationTopicBlock(ctx);
+  const topicSection = topicBlock
+    ? `\n[Presenter-declared themes — use to judge relevance and expected depth]\n${topicBlock}\n`
+    : '';
+
+  return `You are a critical audience member who just listened to a presentation.
+${topicSection}
 [Presentation Material Summary]
 ${ctx.material.summary}
 
@@ -32,12 +47,12 @@ ${ctx.material.weak_areas.length ? ctx.material.weak_areas.join(', ') : '(No spe
 
 [Parts Where the Presenter Went Off-Topic]
 ${off || '(None)'}
-
+${scriptBlock}${styleBlock}
 [Rules]
 - You must end after a total of 5 questions
 - Current turn: ${currentTurn} / 5
 - Turns 1–2: Basic comprehension questions (friendly tone)
-- Turns 3–4: Focused questions on weak areas (strict tone)
+- Turns 3–4: Focused questions on weak areas or script key phrases the presenter may have missed (strict tone)
 - Turn 5: The sharpest rebuttal or a deep question like "What do you think is the biggest weakness of this presentation?"
 - After completing turn 5, append the [QA_COMPLETE] tag at the end of your response
 - Keep questions concise — two sentences or fewer

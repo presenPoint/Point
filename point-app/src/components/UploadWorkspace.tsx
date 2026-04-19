@@ -5,6 +5,8 @@ import { useSpeechToText } from '../hooks/useSpeechToText';
 import { useSessionStore } from '../store/sessionStore';
 import { PRE_QUIZ_PASS_SCORE } from '../types/session';
 import { FileSubmissionPanel } from './FileSubmissionPanel';
+import { PresentationTopicPanel } from './PresentationTopicPanel';
+import { ScriptUploadPanel } from './ScriptUploadPanel';
 
 function VoiceQuizInput({ value, onChange, disabled }: {
   value: string;
@@ -107,8 +109,6 @@ export function UploadWorkspace() {
   const busy = useSessionStore((s) => s.busy);
   const error = useSessionStore((s) => s.error);
   const preQuizAnswers = useSessionStore((s) => s.preQuizAnswers);
-  const presentationTopic = useSessionStore((s) => s.presentationTopic);
-  const setPresentationTopic = useSessionStore((s) => s.setPresentationTopic);
   const setAppStarted = useSessionStore((s) => s.setAppStarted);
   const setPreQuizAnswer = useSessionStore((s) => s.setPreQuizAnswer);
   const runMaterialAnalysis = useSessionStore((s) => s.runMaterialAnalysis);
@@ -156,16 +156,13 @@ export function UploadWorkspace() {
               <span style={{ color: 'var(--muted)' }}>Add files, apply them to the session with 「Save」, then tap 「AI Analysis & Quiz Generation」.</span>
             </p>
 
-            <label className="input-label">Presentation topic</label>
-            <input
-              type="text"
-              className="topic-input"
-              placeholder="e.g. Climate change and carbon-neutral policy: status and challenges"
-              value={presentationTopic}
-              onChange={(e) => setPresentationTopic(e.target.value)}
-            />
+            <PresentationTopicPanel />
 
-            <FileSubmissionPanel globalBusy={!!busy} />
+            {/* File Submission & Script — side by side */}
+            <div className="upload-panels-row">
+              <FileSubmissionPanel globalBusy={!!busy} />
+              <ScriptUploadPanel />
+            </div>
 
             {error && (
               <div className="error-box" role="alert">

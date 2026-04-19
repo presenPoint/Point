@@ -5,6 +5,7 @@ import { PoseTracker, nonverbalConfigFromPersona, getDefaultNonverbalConfig } fr
 import { PERSONAS } from '../constants/personas';
 import { SEMANTIC_INTERVAL_MS, SILENCE_THRESHOLD_MS } from '../lib/speechUtils';
 import { useSessionStore } from '../store/sessionStore';
+import { buildPresentationTopicSummaryLine } from '../lib/presentationTopicContext';
 import type { FillerEntry, TranscriptEntry } from '../types/session';
 
 export function useLivePresenting() {
@@ -47,7 +48,9 @@ export function useLivePresenting() {
     const semanticId = window.setInterval(() => {
       const text = transcriptForSemantic();
       const { session } = useSessionStore.getState();
-      const summary = session.material.summary || session.material.raw_text.slice(0, 500);
+      const topicLine = buildPresentationTopicSummaryLine(session);
+      const baseSummary = session.material.summary || session.material.raw_text.slice(0, 500);
+      const summary = topicLine ? `${topicLine}\n\n${baseSummary}` : baseSummary;
       void runSemanticAnalysis(
         text,
         summary,
@@ -68,6 +71,7 @@ export function useLivePresenting() {
           });
         },
         personaPrompt,
+        session.session_id,
       );
     }, SEMANTIC_INTERVAL_MS);
 
@@ -154,7 +158,7 @@ export function useLivePresenting() {
           ...st.session,
           speech_coaching: { ...st.session.speech_coaching, total_duration_sec: sec },
         },
-        livePresentation: { wpm: 0, fillerCount: 0 },
+        livePresentation: { wpm: 0, fillerCount: 0, volumeRms: 0 },
       }));
     };
   }, []);

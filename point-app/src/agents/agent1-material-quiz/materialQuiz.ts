@@ -3,6 +3,7 @@
  */
 import { chatJson, hasOpenAI } from '../../lib/openai';
 import type { QuizItem, SessionContext } from '../../types/session';
+import { buildPresentationTopicBlock } from '../../lib/presentationTopicContext';
 
 type AnalyzeResponse = {
   summary: string;
@@ -34,10 +35,13 @@ Response format:
 Rules:
 - No simple memorization questions. Must be in "explain" form
 - Do not ask questions about content not in the material
+- If a presentation script is provided, prioritize its key concepts and structure for quiz generation
+- If presenter-declared themes are provided, align summary tone, keyword emphasis, and quiz angles with that context (audience, domain, stakes)
 - Exactly 3 quiz questions. key_points are not shown to the user`;
 
-const SYSTEM_GRADE = `Evaluate the user's answers based on the presentation material (summary and original excerpt) and quiz grading criteria below.
+const SYSTEM_GRADE = `Evaluate the user's answers based on the presentation material (summary and original excerpt), declared presentation themes (if any), and quiz grading criteria below.
 Do not give high scores for content not found in the material.
+Use presentation_themes only to interpret expected depth and vocabulary — answers must still be grounded in the material excerpt.
 Respond with JSON only.
 
 Response format:
@@ -85,12 +89,28 @@ function mockGrade(): GradeResponse {
   };
 }
 
-export async function analyzeMaterial(rawText: string): Promise<AnalyzeResponse> {
+export async function analyzeMaterial(
+  rawText: string,
+  scriptText?: string,
+  topicContextBlock?: string,
+): Promise<AnalyzeResponse> {
   if (!hasOpenAI()) return mockAnalyze(rawText);
+
+  const topicIntro =
+    topicContextBlock?.trim().length ?? 0
+      ? `[Presenter-declared themes — infer audience & on-topic scope]\n${topicContextBlock!.trim()}\n\n`
+      : '';
+
+  const body = scriptText?.trim()
+    ? `[Slide/Material Content]\n${rawText.slice(0, 100_000)}\n\n[Presentation Script]\n${scriptText.slice(0, 20_000)}`
+    : rawText.slice(0, 120_000);
+
+  const userContent = `${topicIntro}${body}`;
+
   const parsed = await chatJson<AnalyzeResponse>(
     'gpt-4o',
     SYSTEM_ANALYZE,
-    rawText.slice(0, 120_000)
+    userContent
   );
   if (!parsed?.quiz?.length) return mockAnalyze(rawText);
   while (parsed.quiz.length < 3) {
@@ -111,12 +131,14 @@ export type GradePreQuizResult = {
 };
 
 export async function gradePreQuiz(
-  ctx: Pick<SessionContext, 'material'>,
+  ctx: SessionContext,
   answers: Record<number, string>
 ): Promise<GradePreQuizResult> {
+  const topicBlock = buildPresentationTopicBlock(ctx);
   const payload = {
     material_summary: ctx.material.summary,
     material_excerpt: ctx.material.raw_text.slice(0, 24_000),
+    presentation_themes: topicBlock || '(not specified)',
     quiz: ctx.material.quiz.map((q) => ({
       id: q.id,
       question: q.question,

@@ -100,3 +100,12 @@ export async function extractTextFromPdf(buffer: ArrayBuffer): Promise<string> {
 export function isLegacyPpt(filename: string): boolean {
   return /\.ppt$/i.test(filename) && !/\.pptx$/i.test(filename);
 }
+
+/**
+ * Extract plain text from a .docx file using mammoth.
+ */
+export async function extractTextFromDocx(buffer: ArrayBuffer): Promise<string> {
+  const mammoth = await import('mammoth');
+  const result = await mammoth.extractRawText({ arrayBuffer: buffer });
+  return result.value.trim();
+}

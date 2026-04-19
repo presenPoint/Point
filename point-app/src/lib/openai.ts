@@ -41,3 +41,62 @@ export async function chatJson<T>(
 export function hasOpenAI(): boolean {
   return Boolean(OPENAI_KEY);
 }
+
+/**
+ * Generate a 1536-dimension embedding vector using text-embedding-3-small.
+ * Returns null when no API key is configured.
+ */
+export async function embedText(text: string): Promise<number[] | null> {
+  if (!OPENAI_KEY) return null;
+  const res = await fetch('https://api.openai.com/v1/embeddings', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${OPENAI_KEY}`,
+    },
+    body: JSON.stringify({
+      model: 'text-embedding-3-small',
+      input: text.slice(0, 8_000),
+    }),
+  });
+  if (!res.ok) {
+    console.error('OpenAI embeddings error', await res.text());
+    return null;
+  }
+  const data = (await res.json()) as {
+    data?: Array<{ embedding: number[] }>;
+  };
+  return data.data?.[0]?.embedding ?? null;
+}
+
+/** GPT-4o mini TTS — returns MP3 blob. `instructions`는 gpt-4o-mini-tts 전용. */
+export async function createSpeechAudio(params: {
+  input: string;
+  voice?: string;
+  instructions?: string;
+}): Promise<Blob | null> {
+  if (!OPENAI_KEY) return null;
+  const input = params.input.trim().slice(0, 4096);
+  if (!input) return null;
+  const res = await fetch('https://api.openai.com/v1/audio/speech', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${OPENAI_KEY}`,
+    },
+    body: JSON.stringify({
+      model: 'gpt-4o-mini-tts',
+      voice: params.voice ?? 'coral',
+      input,
+      instructions:
+        params.instructions ??
+        'Speak clearly as a concise presentation coach. Match the language of the input text.',
+      response_format: 'mp3',
+    }),
+  });
+  if (!res.ok) {
+    console.error('OpenAI speech error', await res.text());
+    return null;
+  }
+  return res.blob();
+}

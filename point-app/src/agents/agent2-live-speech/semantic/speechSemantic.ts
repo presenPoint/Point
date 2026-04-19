@@ -2,6 +2,7 @@
  * Agent 2-B — Speech Semantic Engine. Spec: ../AGENT.md
  */
 import { chatJson, hasOpenAI } from '../../../lib/openai';
+import { searchSimilarChunks } from '../../../lib/scriptEmbedding';
 import { feedbackQueue } from '../../shared/feedbackQueue';
 import type { OffTopicEntry } from '../../../types/session';
 
@@ -14,10 +15,19 @@ type SemanticResult = {
   feedback_message: string | null;
 };
 
-const SYSTEM = (summary: string, history: OffTopicEntry[], personaPrompt?: string) => {
+const SYSTEM = (
+  summary: string,
+  history: OffTopicEntry[],
+  scriptContext?: string,
+  personaPrompt?: string,
+) => {
+  const scriptBlock = scriptContext
+    ? `\n[Relevant script sections — presenter should be covering this content]\n${scriptContext}\n`
+    : '';
+
   const base = `You are a presentation coach. Analyze the presenter's last 30 seconds of speech and respond with JSON only.
 
-Presentation topic summary: ${summary}
+Presentation topic summary: ${summary}${scriptBlock}
 Previous analysis history: ${JSON.stringify(history.slice(-2))}
 
 Response format:
@@ -33,6 +43,7 @@ Response format:
 Rules:
 - feedback_message must be concise, under 20 characters
 - Be strict with off_topic judgment (true only when completely unrelated to the topic)
+- If the speech closely matches the relevant script sections above, do NOT mark it off_topic
 - If the speech is too short to judge, return all values as false`;
 
   if (personaPrompt) {
@@ -47,14 +58,26 @@ export async function runSemanticAnalysis(
   offTopicLog: OffTopicEntry[],
   onResult: (payload: { offTopic?: OffTopicEntry; ambiguousDelta: number }) => void,
   personaPrompt?: string,
+  sessionId?: string,
 ): Promise<void> {
   if (recentText.length < 50) return;
+
+  // RAG: fetch relevant script sections for this snippet of speech
+  let scriptContext: string | undefined;
+  if (sessionId) {
+    const chunks = await searchSimilarChunks(sessionId, recentText, 3);
+    if (chunks.length > 0) {
+      scriptContext = chunks
+        .map((c, i) => `[${i + 1}] ${c.text}`)
+        .join('\n\n');
+    }
+  }
 
   let result: SemanticResult | null = null;
   if (hasOpenAI()) {
     result = await chatJson<SemanticResult>(
       'gpt-4o-mini',
-      SYSTEM(materialSummary, offTopicLog, personaPrompt),
+      SYSTEM(materialSummary, offTopicLog, scriptContext, personaPrompt),
       recentText
     );
   }
