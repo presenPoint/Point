@@ -7,6 +7,7 @@ import { PRE_QUIZ_PASS_SCORE } from '../types/session';
 import { FileSubmissionPanel } from './FileSubmissionPanel';
 import { PresentationTopicPanel } from './PresentationTopicPanel';
 import { ScriptUploadPanel } from './ScriptUploadPanel';
+import { AnimatedPointLogo } from './AnimatedPointLogo';
 
 function VoiceQuizInput({ value, onChange, disabled }: {
   value: string;
@@ -128,7 +129,9 @@ export function UploadWorkspace() {
     <div id="screen-upload" className="point-screen">
       <div className="app-shell">
         <div className="topbar">
-          <div className="topbar-logo">Point</div>
+          <div className="topbar-logo" aria-label="Point">
+            <AnimatedPointLogo />
+          </div>
           <StepBar activeStep={activeStep} />
           <div className="topbar-right">
             <button type="button" className="btn-sm" onClick={() => setAppStarted(false)}>

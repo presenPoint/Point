@@ -83,10 +83,7 @@ function createSession(userId: string): SessionContext {
 export type PersonaType =
   | 'visionary'
   | 'orator'
-  | 'analyst'
-  | 'connector'
-  | 'powerhouse'
-  | 'elon_musk';
+  | 'connector';
 
 type State = {
   session: SessionContext;

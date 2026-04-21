@@ -1,5 +1,733 @@
 *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
 
+/* ══════════════════════════════════════════════════
+   NV — Notebook landing (ruled paper + handwriting)
+══════════════════════════════════════════════════ */
+
+.nv-page {
+  --nv-page-line: 2rem;
+  min-height: 100vh;
+  color: rgba(255, 255, 255, 0.85);
+  font-family: 'Manrope', system-ui, -apple-system, sans-serif;
+  overflow-x: hidden;
+  /* 책상 전체에 아주 옅은 줄 + 가장자리 살짝 어둡게 (양옆이 덜 휑해 보이게) */
+  background-color: #08080a;
+  background-image:
+    radial-gradient(ellipse 78% 62% at 50% 36%, rgba(24, 25, 32, 0.65) 0%, transparent 58%),
+    linear-gradient(
+      90deg,
+      rgba(0, 0, 0, 0.35) 0%,
+      transparent 12%,
+      transparent 88%,
+      rgba(0, 0, 0, 0.35) 100%
+    ),
+    repeating-linear-gradient(
+      to bottom,
+      transparent 0,
+      transparent calc(var(--nv-page-line) - 1px),
+      rgba(255, 255, 255, 0.02) calc(var(--nv-page-line) - 1px),
+      rgba(255, 255, 255, 0.02) var(--nv-page-line)
+    );
+  background-size: 100% 100%, 100% 100%, 100% var(--nv-page-line);
+  background-position: 0 0, 0 0, 0 0;
+}
+
+/* ── Nav ── */
+.nv-nav {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 32px;
+  background: rgba(25, 25, 25, 0.88);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 0.5px solid rgba(255, 255, 255, 0.07);
+}
+
+.nv-nav-logo {
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: #fff;
+}
+
+.nv-nav-cta {
+  background: rgba(255, 255, 255, 0.08);
+  border: 0.5px solid rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.8);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 7px 16px;
+  border-radius: 6px;
+  cursor: none;
+  transition: background 0.18s, border-color 0.18s;
+}
+
+.nv-nav-cta:hover {
+  background: rgba(255, 255, 255, 0.13);
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+/* ── Ruled notebook paper ── */
+.nv-paper {
+  --nv-line: 2rem;
+  position: relative;
+  width: min(920px, calc(100vw - 28px));
+  max-width: 920px;
+  margin: 20px auto 48px;
+  padding: 0 0 8px;
+  background-color: #1c1d24;
+  background-image:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.03) 0%, transparent 42%),
+    repeating-linear-gradient(
+      to bottom,
+      transparent 0,
+      transparent calc(var(--nv-line) - 1px),
+      rgba(255, 255, 255, 0.055) calc(var(--nv-line) - 1px),
+      rgba(255, 255, 255, 0.055) var(--nv-line)
+    );
+  background-size: 100% 100%, 100% var(--nv-line);
+  background-position: 0 0, 0 0;
+  border-radius: 3px;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.04) inset,
+    0 24px 80px rgba(0, 0, 0, 0.55),
+    0 4px 16px rgba(0, 0, 0, 0.35);
+  border: 0.5px solid rgba(255, 255, 255, 0.06);
+}
+
+.nv-paper-margin {
+  position: absolute;
+  left: 44px;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: linear-gradient(
+    180deg,
+    rgba(255, 90, 90, 0) 0%,
+    rgba(255, 75, 75, 0.38) 8%,
+    rgba(255, 75, 75, 0.38) 92%,
+    rgba(255, 90, 90, 0) 100%
+  );
+  pointer-events: none;
+}
+
+@media (min-width: 1200px) {
+  .nv-paper {
+    width: min(1000px, calc(100vw - 48px));
+    max-width: 1000px;
+  }
+}
+
+/* ── Handwriting + marginalia ── */
+.nv-hand {
+  font-family: 'Caveat', cursive;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.nv-hero-wrap {
+  position: relative;
+}
+
+.nv-scribble {
+  position: absolute;
+  font-family: 'Caveat', cursive;
+  font-size: clamp(1.15rem, 2.8vw, 1.55rem);
+  font-weight: 600;
+  color: rgba(255, 190, 120, 0.55);
+  pointer-events: none;
+  white-space: nowrap;
+  z-index: 2;
+}
+
+.nv-scribble--hero {
+  right: 4%;
+  top: 18%;
+  transform: rotate(-11deg);
+}
+
+.nv-block--rel {
+  position: relative;
+}
+
+.nv-scribble--side1 {
+  right: -4px;
+  top: -6px;
+  transform: rotate(6deg);
+  color: rgba(255, 160, 100, 0.45);
+}
+
+.nv-scribble--side2 {
+  right: 0;
+  top: 4px;
+  transform: rotate(-5deg);
+  color: rgba(120, 200, 255, 0.45);
+}
+
+.nv-scribble--side3 {
+  left: 0;
+  top: -8px;
+  transform: rotate(-7deg);
+  color: rgba(130, 210, 255, 0.48);
+}
+
+.nv-scribble--cta {
+  right: 8%;
+  top: -4px;
+  transform: rotate(14deg);
+  color: rgba(255, 214, 10, 0.55);
+  font-size: clamp(1.35rem, 3.5vw, 1.85rem);
+}
+
+/* 형광펜 */
+.nv-marker {
+  background: linear-gradient(
+    180deg,
+    transparent 58%,
+    rgba(255, 220, 60, 0.28) 58%,
+    rgba(255, 220, 60, 0.28) 92%,
+    transparent 92%
+  );
+  padding: 0 0.06em;
+}
+
+.nv-marker--strong {
+  background: linear-gradient(
+    180deg,
+    transparent 52%,
+    rgba(255, 214, 10, 0.38) 52%,
+    rgba(255, 214, 10, 0.38) 95%,
+    transparent 95%
+  );
+}
+
+/* 섹션 제목 — 손으로 밑줄 */
+.nv-h2--scribble {
+  position: relative;
+  display: inline-block;
+  margin-left: 0;
+}
+
+.nv-h2--scribble .nv-h2-text {
+  position: relative;
+  z-index: 1;
+}
+
+.nv-h2--scribble::after {
+  content: '';
+  position: absolute;
+  left: -2px;
+  right: -6px;
+  bottom: 2px;
+  height: 10px;
+  z-index: 0;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 8' preserveAspectRatio='none'%3E%3Cpath d='M0 5 Q30 2 60 5 T120 4' fill='none' stroke='rgba(255,180,80,0.35)' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E")
+    0 100% / 100% 10px no-repeat;
+  opacity: 0.9;
+}
+
+/* 이중 손글씨 밑줄 (What it tracks) */
+.nv-h2--double {
+  padding-bottom: 10px;
+}
+
+.nv-h2--double::before {
+  content: '';
+  position: absolute;
+  left: -4px;
+  right: -10px;
+  bottom: -4px;
+  height: 9px;
+  z-index: 0;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 7' preserveAspectRatio='none'%3E%3Cpath d='M2 3 Q40 6 78 2 T118 4' fill='none' stroke='rgba(255,165,70,0.42)' stroke-width='1.8' stroke-linecap='round'/%3E%3C/svg%3E")
+    0 100% / 100% 9px no-repeat;
+  opacity: 0.85;
+}
+
+.nv-scribble--steps {
+  right: -2px;
+  top: -2px;
+  transform: rotate(7deg);
+  color: rgba(255, 200, 140, 0.5);
+}
+
+.nv-scribble--tracks {
+  right: 0;
+  top: 6px;
+  transform: rotate(-8deg);
+  color: rgba(160, 220, 255, 0.48);
+}
+
+/* 체크리스트 옆 짧은 코멘트 */
+.nv-check--annotated {
+  flex-wrap: wrap;
+}
+
+.nv-check-main {
+  flex: 1;
+  min-width: 12ch;
+}
+
+.nv-check-note {
+  flex-basis: 100%;
+  margin: 4px 0 0 29px;
+  font-size: 1.05rem;
+  color: rgba(255, 170, 120, 0.55);
+  line-height: 1.2;
+}
+
+/* 스텝 아래 손글씨 코멘트 */
+.nv-step-comment {
+  margin: 8px 0 0;
+  font-size: 1.1rem;
+  color: rgba(255, 200, 130, 0.48);
+  line-height: 1.2;
+}
+
+/* ── Hero ── */
+.nv-hero {
+  text-align: center;
+  padding: 88px 28px 104px 56px;
+  max-width: none;
+  margin: 0;
+}
+
+.nv-hero-title {
+  font-size: clamp(72px, 14vw, 148px);
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  color: #fff;
+  line-height: 1;
+  margin-bottom: 20px;
+}
+
+/* ── Hero title: 다크 배경 + RTL 선택(시스템 텍스트 선택 느낌 파란 블록) ── */
+.nv-hero-title-track {
+  --nv-hero-selection: #2b5ed7;
+  display: inline-grid;
+  grid-template-columns: max-content;
+  grid-template-rows: max-content;
+  line-height: 1;
+  vertical-align: bottom;
+}
+
+/* 보이지 않는 전체 타이틀 — 그리드 열 폭만 잡고, 실제 애니메이션은 위에 겹침 */
+.nv-hero-title-sizer,
+.nv-hero-title-anim {
+  grid-area: 1 / 1;
+}
+
+.nv-hero-title-sizer {
+  visibility: hidden;
+  pointer-events: none;
+  user-select: none;
+}
+
+.nv-hero-title-anim {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.02em;
+  justify-content: flex-start;
+}
+
+.nv-hero-letter {
+  display: inline-block;
+  position: relative;
+  z-index: 1;
+  opacity: 0;
+  border-radius: 3px;
+  padding: 0.02em 0.04em;
+  margin: 0 -0.02em;
+  transition:
+    opacity 0.11s ease,
+    transform 0.18s ease,
+    filter 0.18s ease,
+    background 0.06s ease,
+    color 0.06s ease;
+}
+
+.nv-hero-letter--on {
+  opacity: 1;
+  color: #fff;
+}
+
+/* RTL 드래그 선택: 파란 블록 + 흰 글자 */
+.nv-hero-letter--selected {
+  background: var(--nv-hero-selection);
+  color: #fff !important;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+}
+
+.nv-hero-letter--wipe {
+  opacity: 0 !important;
+  transform: translateY(6px) scale(0.92);
+  filter: blur(2px);
+}
+
+.nv-hero-title-caret {
+  display: inline-block;
+  width: clamp(3px, 0.04em, 6px);
+  height: 0.68em;
+  margin-left: 0.04em;
+  vertical-align: -0.06em;
+  background: #ffd60a;
+  border-radius: 1px;
+  animation: nvHeroCaretBlink 0.85s step-end infinite;
+}
+
+@keyframes nvHeroCaretBlink {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nv-hero-title-caret { animation: none !important; opacity: 0; }
+  .nv-hero-letter--wipe { filter: none !important; }
+}
+
+.nv-hero-tagline {
+  font-size: clamp(26px, 4.5vw, 38px);
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.62);
+  margin-bottom: 14px;
+  letter-spacing: 0.01em;
+}
+
+.nv-hero-sub {
+  font-size: clamp(14px, 1.6vw, 16px);
+  color: rgba(255, 255, 255, 0.42);
+  line-height: 1.7;
+  max-width: 480px;
+  margin: 0 auto 36px;
+}
+
+.nv-hero-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #fff;
+  color: #111;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  padding: 13px 28px;
+  border-radius: 8px;
+  cursor: none;
+  border: none;
+  transition: opacity 0.18s, transform 0.18s;
+}
+
+.nv-hero-btn:hover {
+  opacity: 0.88;
+  transform: translateY(-1px);
+}
+
+/* ── Content wrapper ── */
+.nv-content {
+  max-width: none;
+  margin: 0;
+  padding: 0 28px 100px 64px;
+}
+
+/* ── Scroll reveal ── */
+.nv-block {
+  opacity: 0;
+  transform: translateY(22px);
+  transition: opacity 0.52s ease, transform 0.52s ease;
+  margin-bottom: 6px;
+}
+
+.nv-block.nv-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ── Headings ── */
+.nv-h2 {
+  font-size: clamp(20px, 2.8vw, 26px);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: #fff;
+  margin: 32px 0 16px;
+}
+
+/* ── Divider ── */
+.nv-divider {
+  border: none;
+  border-top: 0.5px solid rgba(255, 255, 255, 0.09);
+  margin: 40px 0;
+}
+
+/* ── Callout ── */
+.nv-callout {
+  display: flex;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 5px 9px 7px 8px / 8px 6px 9px 7px;
+  margin: 8px 0;
+  line-height: 1.65;
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.2);
+}
+
+.nv-callout p {
+  margin: 0;
+  font-size: 15px;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.nv-callout strong {
+  display: block;
+  font-size: 15px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.90);
+  margin-bottom: 4px;
+}
+
+.nv-callout--amber {
+  background: rgba(255, 168, 0, 0.07);
+  border-left: 3px solid rgba(255, 168, 0, 0.45);
+}
+
+.nv-callout--blue {
+  background: rgba(50, 130, 255, 0.07);
+  border-left: 3px solid rgba(50, 130, 255, 0.45);
+}
+
+.nv-callout--cta {
+  background: rgba(255, 214, 10, 0.05);
+  border: 0.5px solid rgba(255, 214, 10, 0.22);
+  border-radius: 10px;
+  padding: 28px 28px 32px;
+  display: block;
+}
+
+.nv-callout-icon {
+  font-size: 18px;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+/* ── Checklist ── */
+.nv-checklist {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.nv-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  padding: 8px 10px;
+  border-radius: 5px;
+  font-size: 15px;
+  color: rgba(255, 255, 255, 0.72);
+  line-height: 1.55;
+  transition: background 0.15s;
+}
+
+.nv-check:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.nv-check::before {
+  content: '';
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  border-radius: 42% 58% 48% 52% / 52% 48% 52% 48%;
+  margin-top: 2px;
+  border: 2px solid rgba(80, 200, 130, 0.55);
+  background: rgba(48, 209, 88, 0.12)
+    url("data:image/svg+xml,%3Csvg viewBox='0 0 12 10' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1.5 5.2l3.2 3.2L10.5 1.8' stroke='rgba(130,230,160,0.95)' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")
+    center / 11px no-repeat;
+  transform: rotate(-3deg);
+}
+
+/* ── Steps ── */
+.nv-steps {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.nv-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 14px 12px;
+  border-radius: 8px;
+  transition: background 0.15s;
+}
+
+.nv-step:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.nv-step-num {
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: rgba(255, 255, 255, 0.22);
+  min-width: 26px;
+  margin-top: 3px;
+  font-family: 'Manrope', system-ui, sans-serif;
+}
+
+.nv-step-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.88);
+  margin-bottom: 3px;
+}
+
+.nv-step-desc {
+  font-size: 13.5px;
+  color: rgba(255, 255, 255, 0.42);
+  line-height: 1.6;
+}
+
+/* ── Feature callouts ── */
+.nv-features {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.nv-feature-callout {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 14px 14px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 0.5px solid rgba(255, 255, 255, 0.07);
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.nv-feature-callout:hover {
+  background: rgba(255, 255, 255, 0.055);
+  border-color: rgba(255, 255, 255, 0.13);
+}
+
+.nv-feature-icon {
+  font-size: 22px;
+  line-height: 1;
+  flex-shrink: 0;
+  margin-top: 2px;
+  font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
+}
+
+.nv-feature-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.88);
+  margin-bottom: 3px;
+}
+
+.nv-feature-desc {
+  font-size: 13.5px;
+  color: rgba(255, 255, 255, 0.42);
+  line-height: 1.6;
+}
+
+/* ── CTA section ── */
+.nv-cta-block {
+  margin-top: 12px;
+}
+
+.nv-cta-inner {
+  text-align: center;
+}
+
+.nv-cta-heading {
+  font-size: clamp(20px, 2.8vw, 26px);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: #fff;
+  margin-bottom: 10px;
+}
+
+.nv-cta-sub {
+  font-size: 14.5px;
+  color: rgba(255, 255, 255, 0.45);
+  margin-bottom: 24px;
+  line-height: 1.6;
+}
+
+.nv-cta-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #ffd60a;
+  color: #111;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  padding: 13px 28px;
+  border-radius: 8px;
+  cursor: none;
+  border: none;
+  transition: opacity 0.18s, transform 0.18s;
+}
+
+.nv-cta-btn:hover {
+  opacity: 0.88;
+  transform: translateY(-1px);
+}
+
+/* ── Footer ── */
+.nv-footer {
+  text-align: center;
+  padding: 20px 24px 28px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.22);
+  border-top: 0.5px dashed rgba(255, 255, 255, 0.08);
+}
+
+.nv-footer--paper {
+  margin: 0 28px 0 64px;
+  font-family: 'Caveat', cursive;
+  font-size: 1.05rem;
+  letter-spacing: 0.02em;
+}
+
+/* ── Mobile ── */
+@media (max-width: 600px) {
+  .nv-nav { padding: 12px 20px; }
+  .nv-paper { margin: 12px 12px 32px; }
+  .nv-paper-margin { left: 32px; }
+  .nv-hero { padding: 56px 18px 72px 44px; }
+  .nv-content { padding: 0 18px 72px 44px; }
+  .nv-callout--cta { padding: 22px 20px 26px; }
+  .nv-footer--paper { margin: 0 18px 0 44px; }
+  .nv-scribble--hero,
+  .nv-scribble--side1,
+  .nv-scribble--side2,
+  .nv-scribble--side3,
+  .nv-scribble--cta,
+  .nv-scribble--steps,
+  .nv-scribble--tracks {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nv-block {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+  }
+}
+
+
 :root {
   --bg: #16171e;
   --surface: #1c1d27;
@@ -34,6 +762,1218 @@ body {
   overflow-x: hidden;
 }
 
+/* ══════════════════════════════════
+   NOTES PAGE  —  Apple Notes 다크 메모
+══════════════════════════════════ */
+
+/* 전체 페이지 — Apple Notes 다크 */
+.notes-page {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  /* Apple Notes 다크 배경 (#1c1c1e) */
+  background: #1c1c1e;
+  color: rgba(255, 255, 255, 0.86);
+  font-family: system-ui, -apple-system, 'Manrope', sans-serif;
+  overflow-x: hidden;
+  animation: notesFadeIn 0.4s ease;
+}
+
+@keyframes notesFadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* nav — Notes 앱 상단바 */
+.notes-nav {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  padding: 0 20px;
+  height: 50px;
+  background: rgba(28, 28, 30, 0.88);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 0.5px solid rgba(255, 255, 255, 0.10);
+  gap: 12px;
+}
+
+/* ‹ 메모 — Apple Notes 뒤로 버튼 느낌 */
+.notes-nav-back {
+  font-size: 17px;
+  color: #ffd60a;   /* Apple Notes 노란색 */
+  font-weight: 400;
+  flex-shrink: 0;
+}
+
+.notes-nav-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+}
+
+/* 페이퍼 — 규칙선 + 왼쪽 여백선 */
+.notes-paper {
+  flex: 1;
+  position: relative;
+  max-width: 740px;
+  width: 100%;
+  margin: 0 auto;
+  padding: calc(var(--nline) * 2) 44px 120px 76px;
+
+  --nline: 1.85rem;
+
+  /* 수평 규칙선 */
+  background-image: repeating-linear-gradient(
+    to bottom,
+    transparent 0,
+    transparent calc(var(--nline) - 0.5px),
+    rgba(255, 255, 255, 0.055) calc(var(--nline) - 0.5px),
+    rgba(255, 255, 255, 0.055) var(--nline)
+  );
+  background-size: 100% var(--nline);
+}
+
+/* 빨간 여백선 */
+.notes-margin-line {
+  position: absolute;
+  left: 56px;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: rgba(255, 70, 70, 0.22);
+  pointer-events: none;
+}
+
+.notes-inner {
+  position: relative;
+}
+
+/* 날짜 */
+.notes-date {
+  font-size: 12.5px;
+  color: rgba(255, 255, 255, 0.28);
+  line-height: var(--nline);
+  margin-bottom: 0;
+  letter-spacing: 0.01em;
+}
+
+/* 타이핑 제목 */
+.notes-title {
+  font-family: 'Manrope', system-ui, sans-serif;
+  font-size: clamp(60px, 16vw, 180px);
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  line-height: 1;
+  margin: 0.15em 0 0.6em;
+  color: rgba(255, 255, 255, 0.95);
+}
+
+/* 글자 하나씩 나타나기 */
+.notes-char {
+  display: inline-block;
+  opacity: 0;
+}
+
+.notes-char--on {
+  opacity: 1;
+}
+
+/* 제목 타이핑 커서 */
+.notes-title-cursor {
+  display: inline-block;
+  width: 4px;
+  height: 0.72em;
+  background: rgba(255, 255, 255, 0.82);
+  border-radius: 2px;
+  margin-left: 5px;
+  vertical-align: middle;
+  transition: opacity 0.1s;
+}
+
+.notes-title-cursor--off {
+  opacity: 0;
+}
+
+/* ── 메모 본문 ── */
+.memo-story {
+  margin-top: 0.3rem;
+}
+
+/* 한 줄 */
+.memo-line {
+  font-size: 1.15rem;
+  line-height: var(--nline);
+  color: rgba(255, 255, 255, 0.78);
+  min-height: var(--nline);
+  opacity: 0;
+  white-space: pre-wrap;
+  word-break: keep-all;
+}
+
+.memo-line--visible {
+  opacity: 1;
+}
+
+.memo-line--indent {
+  padding-left: 1.6em;
+}
+
+/* 빈 줄 */
+.memo-empty-line {
+  height: var(--nline);
+}
+
+/* 세그먼트 스타일 */
+.memo-seg--bold {
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.95);
+}
+
+.memo-seg--italic {
+  font-style: italic;
+}
+
+.memo-seg--muted {
+  opacity: 0.35;
+}
+
+/* → 이후 답 파트 */
+.memo-seg--accent {
+  color: rgba(130, 200, 255, 0.92);
+}
+
+/* 취소선 — 먼저 텍스트 타이핑 후 선이 그어짐 */
+.memo-seg--strike {
+  position: relative;
+  opacity: 0.50;
+}
+
+.memo-seg--strike::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 1.5px;
+  background: rgba(255, 255, 255, 0.65);
+  transform: scaleX(0);
+  transform-origin: left center;
+}
+
+.memo-seg--struck::after {
+  transform: scaleX(1);
+  transition: transform 0.52s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+/* 메모 타이핑 커서 */
+.memo-cursor {
+  display: inline-block;
+  width: 1.5px;
+  height: 1.05em;
+  background: rgba(255, 255, 255, 0.72);
+  margin-left: 2px;
+  vertical-align: text-bottom;
+  animation: memoBlink 0.9s ease-in-out infinite;
+}
+
+@keyframes memoBlink {
+  0%, 44% { opacity: 1; }
+  56%, 100% { opacity: 0; }
+}
+
+/* 대화 섹션 컨테이너 */
+.memo-convo-section {
+  margin: 0;
+}
+
+/* 섹션 구분선 */
+.memo-divider {
+  border: none;
+  border-top: 0.5px solid rgba(255, 255, 255, 0.10);
+  margin: calc(var(--nline) * 1.5) 0;
+  opacity: 0.6;
+}
+
+/* ─── 대화 턴 (user / point) ─── */
+.memo-turn {
+  margin-bottom: 0;
+}
+
+.memo-turn--point {
+  border-left: 1.5px solid rgba(255, 208, 0, 0.30);
+  padding-left: 0.8rem;
+  margin-left: -0.8rem;
+  margin-top: calc(var(--nline) * 0.6);
+  margin-bottom: calc(var(--nline) * 0.6);
+}
+
+.memo-turn-label {
+  display: flex;
+  align-items: center;
+  gap: 0.32rem;
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: rgba(255, 208, 0, 0.60);
+  margin-bottom: 0.25rem;
+  user-select: none;
+}
+
+.memo-turn-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: rgba(255, 208, 0, 0.55);
+  flex-shrink: 0;
+}
+
+/* ─── 타이핑 인디케이터 (Point 응답 전) ─── */
+.memo-typing-indicator {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0.2rem 0 0.1rem;
+}
+
+.memo-typing-indicator span {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.35);
+  animation: memoTypingBounce 1.1s ease-in-out infinite;
+}
+
+.memo-typing-indicator span:nth-child(2) { animation-delay: 0.18s; }
+.memo-typing-indicator span:nth-child(3) { animation-delay: 0.36s; }
+
+@keyframes memoTypingBounce {
+  0%, 60%, 100% { transform: translateY(0);    opacity: 0.35; }
+  30%            { transform: translateY(-5px); opacity: 0.85; }
+}
+
+/* ══════════════════════════════════
+   MVC — memo visual card (inline images)
+══════════════════════════════════ */
+.mvc {
+  margin: calc(var(--nline) * 0.9) 0;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.045);
+  border: 0.5px solid rgba(255, 255, 255, 0.13);
+  overflow: hidden;
+  animation: mvcReveal 0.45s cubic-bezier(0.34, 1.4, 0.64, 1) both;
+}
+
+@keyframes mvcReveal {
+  from { opacity: 0; transform: scale(0.95) translateY(12px); }
+  to   { opacity: 1; transform: scale(1)    translateY(0); }
+}
+
+.mvc-header {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 10px 14px 8px;
+  border-bottom: 0.5px solid rgba(255, 255, 255, 0.08);
+}
+
+.mvc-live-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #ff453a;
+  box-shadow: 0 0 6px rgba(255, 69, 58, 0.7);
+  animation: mvcPulse 1.6s ease-in-out infinite;
+  flex-shrink: 0;
+}
+
+@keyframes mvcPulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.45; }
+}
+
+.mvc-live-tag {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  color: #ff453a;
+  font-family: 'Manrope', system-ui, sans-serif;
+}
+
+.mvc-check {
+  font-size: 13px;
+  color: #30d158;
+}
+
+.mvc-header-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.55);
+  font-family: 'Manrope', system-ui, sans-serif;
+}
+
+/* ── session card body ── */
+.mvc-body {
+  display: flex;
+  gap: 0;
+}
+
+.mvc-cam {
+  flex: 0 0 42%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 18px 12px;
+  background: rgba(0, 0, 0, 0.25);
+  border-right: 0.5px solid rgba(255, 255, 255, 0.07);
+}
+
+.mvc-cam-silhouette svg {
+  width: 48px;
+  height: 56px;
+  opacity: 0.6;
+}
+
+.mvc-cam-label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  color: rgba(255, 255, 255, 0.35);
+  font-family: 'Manrope', system-ui, sans-serif;
+}
+
+.mvc-metrics {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 10px;
+  padding: 16px 14px;
+}
+
+.mvc-metric-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.mvc-metric-icon {
+  font-size: 13px;
+  width: 18px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.mvc-bar {
+  flex: 1;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.1);
+  overflow: hidden;
+}
+
+.mvc-bar-fill {
+  height: 100%;
+  width: var(--mvc-w, 75%);
+  border-radius: 2px;
+  background: linear-gradient(90deg, #ffd60a, #ff9f0a);
+  animation: mvcBarGrow 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: 0.2s;
+}
+
+@keyframes mvcBarGrow {
+  from { transform: scaleX(0); transform-origin: left; }
+  to   { transform: scaleX(1); transform-origin: left; }
+}
+
+.mvc-metric-pct {
+  font-size: 11px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.55);
+  font-family: 'Manrope', system-ui, sans-serif;
+  min-width: 28px;
+  text-align: right;
+}
+
+/* ── metrics card body ── */
+.mvc-score-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px 14px;
+}
+
+.mvc-score-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.mvc-score-icon {
+  font-size: 14px;
+  width: 20px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.mvc-score-label {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.45);
+  font-family: 'Manrope', system-ui, sans-serif;
+  width: 90px;
+  flex-shrink: 0;
+}
+
+.mvc-score-bar {
+  flex: 1;
+  height: 5px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.09);
+  overflow: hidden;
+}
+
+.mvc-score-fill {
+  height: 100%;
+  border-radius: 3px;
+  animation: mvcBarGrow 0.8s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: 0.3s;
+}
+
+.mvc-score-fill--voice { width: 82%; background: linear-gradient(90deg, #30d158, #34c759); }
+.mvc-score-fill--eye   { width: 91%; background: linear-gradient(90deg, #0a84ff, #32ade6); }
+.mvc-score-fill--qa    { width: 74%; background: linear-gradient(90deg, #ffd60a, #ff9f0a); }
+
+.mvc-score-val {
+  font-size: 12px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.60);
+  font-family: 'Manrope', system-ui, sans-serif;
+  min-width: 32px;
+  text-align: right;
+}
+
+/* ── shared footer caption ── */
+.mvc-caption {
+  padding: 8px 14px 11px;
+  font-size: 11px;
+  font-style: italic;
+  color: rgba(255, 255, 255, 0.32);
+  border-top: 0.5px solid rgba(255, 255, 255, 0.07);
+  font-family: 'Manrope', system-ui, sans-serif;
+}
+
+/* CTA 버튼 — 메모 끝에 자연스럽게 */
+.memo-cta {
+  margin-top: calc(var(--nline) * 2);
+  opacity: 0;
+  transform: translateY(6px);
+  pointer-events: none;
+  transition: opacity 0.55s ease, transform 0.55s ease;
+}
+
+.memo-cta--visible {
+  opacity: 1;
+  transform: none;
+  pointer-events: auto;
+}
+
+.notes-cta-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 24px;
+  background: rgba(255, 214, 10, 0.12);
+  border: 1px solid rgba(255, 214, 10, 0.35);
+  color: #ffd60a;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 600;
+  font-family: system-ui, -apple-system, sans-serif;
+  cursor: pointer;
+  transition: background 0.18s, border-color 0.18s;
+  letter-spacing: 0.01em;
+}
+
+.notes-cta-btn:hover {
+  background: rgba(255, 214, 10, 0.20);
+  border-color: rgba(255, 214, 10, 0.55);
+}
+
+/* 푸터 */
+.notes-footer {
+  text-align: center;
+  padding: 20px 24px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.18);
+  border-top: 0.5px solid rgba(255, 255, 255, 0.07);
+}
+
+/* 모바일 */
+@media (max-width: 600px) {
+  .notes-paper {
+    padding: calc(var(--nline) * 2) 20px 80px 52px;
+  }
+  .notes-margin-line { left: 36px; }
+  .notes-nav-back { font-size: 15px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .notes-page { animation: none; }
+  .memo-cursor { animation: none; opacity: 1; }
+  .memo-seg--struck::after { transition: none; }
+}
+
+/* ══════════════════════════════════
+   LANDING PAGE  (기존 — 하위호환)
+══════════════════════════════════ */
+
+/* root */
+.landing-root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Manrope', 'Noto Sans KR', sans-serif;
+  overflow-x: hidden;
+}
+
+@keyframes landingFadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* nav */
+.landing-nav {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 32px;
+  height: 60px;
+  background: rgba(22, 23, 30, 0.82);
+  backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--border);
+}
+
+.landing-nav-logo {
+  font-family: 'Manrope', sans-serif;
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--accent);
+  letter-spacing: -0.02em;
+}
+
+.landing-nav-right {
+  display: flex;
+  align-items: center;
+}
+
+/* ══════════════════════════════════
+   TYPING HERO  —  타입라이터 + 도미노
+══════════════════════════════════ */
+
+/* 전체 섹션 */
+.typing-hero {
+  position: relative;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  padding: 0 5vw 60px;
+}
+
+/* 배경 글로우 */
+.typing-hero-glow {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse at 50% 35%, rgba(126,156,248,0.10) 0%, transparent 55%),
+    radial-gradient(ellipse at 15% 70%, rgba(163,147,224,0.06) 0%, transparent 45%),
+    radial-gradient(ellipse at 85% 60%, rgba(96,200,224,0.05) 0%, transparent 40%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/*
+  글자 행:
+  - 타이핑 중: gap 작게 + center — 커서가 마지막 글자 옆에 붙음
+  - 완성 후: gap만 넓힘 (transition)
+*/
+.th-word,
+.th-below { position: relative; z-index: 1; }
+
+.th-word {
+  position: relative;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  line-height: 0.85;
+  margin-bottom: 52px;
+  padding-bottom: 4vw;
+  /* 타이핑 전·후 간격 동일 — gap 애니메이션으로 글자가 옆으로 밀리지 않음 */
+  gap: clamp(0.5rem, 5vw, 2.25rem);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-root { animation: none; }
+}
+
+/* 개별 글자 */
+.th-letter {
+  font-family: 'Manrope', sans-serif;
+  font-size: clamp(72px, 19vw, 260px);
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: var(--text);
+  display: inline-block;
+  flex-shrink: 0;
+  transition:
+    opacity   0.22s ease,
+    max-width 0.18s ease;
+  cursor: default;
+  user-select: none;
+  overflow: visible;
+}
+
+/* 미타이핑 — flex 공간 0 차지 */
+.th-letter--hidden {
+  max-width: 0;
+  overflow: hidden;
+  opacity: 0;
+  padding: 0;
+  pointer-events: none;
+}
+
+/* 타이핑됨 */
+.th-letter--shown {
+  max-width: 2em;
+  overflow: visible;
+  opacity: 1;
+}
+
+/* 커서 — 마지막 flex 아이템으로 항상 위치 */
+.th-cursor {
+  display: inline-block;
+  flex-shrink: 0;
+  width: clamp(4px, 0.08em, 18px);
+  height: 0.85em;
+  font-size: clamp(72px, 19vw, 260px);
+  background: var(--accent);
+  border-radius: 3px;
+  margin-left: 0.04em;
+  transition: opacity 0.12s;
+  box-shadow: 0 0 14px rgba(126,156,248,0.55);
+  align-self: center;
+}
+
+.th-cursor--off {
+  opacity: 0;
+}
+
+/* CTA 영역 — 타이핑 완료 후 fade in */
+.th-below {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+  opacity: 0;
+  transform: translateY(16px);
+  pointer-events: none;
+  transition: opacity 0.6s ease, transform 0.6s ease;
+}
+
+.th-below--visible {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+.th-sub {
+  font-size: clamp(14px, 1.6vw, 17px);
+  color: var(--muted2);
+  line-height: 1.7;
+  text-align: center;
+  max-width: 520px;
+}
+
+.th-hint {
+  font-size: 12px;
+  color: var(--muted);
+  letter-spacing: 0.04em;
+  margin-top: -8px;
+  animation: pulse 2.5s ease-in-out infinite;
+}
+
+/* hero */
+.landing-hero {
+  position: relative;
+  text-align: center;
+  padding: 110px 24px 100px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  overflow: hidden;
+  min-height: 90vh;
+}
+
+/* ── Floating feedback cards ── */
+@keyframes lfcFloat {
+  0%, 100% { transform: rotate(var(--lfc-rotate, 0deg)) translateY(0px); }
+  50%       { transform: rotate(var(--lfc-rotate, 0deg)) translateY(-12px); }
+}
+
+@keyframes lfcEnter {
+  from { opacity: 0; transform: rotate(var(--lfc-rotate, 0deg)) translateY(20px); }
+  to   { opacity: 1; transform: rotate(var(--lfc-rotate, 0deg)) translateY(0px); }
+}
+
+.lfc {
+  position: absolute;
+  top: 30%;
+  width: 190px;
+  background: rgba(28, 29, 39, 0.82);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(255,255,255,0.09);
+  border-radius: 16px;
+  padding: 14px 16px 12px;
+  box-shadow:
+    0 8px 32px rgba(0,0,0,0.40),
+    0 0 0 1px rgba(255,255,255,0.04);
+  transform: rotate(var(--lfc-rotate, 0deg));
+  animation:
+    lfcEnter 0.7s cubic-bezier(0.22,1,0.36,1) both,
+    lfcFloat 3.2s ease-in-out infinite;
+  animation-delay: var(--lfc-enter-delay, 0s), var(--lfc-enter-delay, 0s);
+  z-index: 2;
+  pointer-events: none;
+  /* 진입 딜레이는 JS의 animationDelay로 제어 */
+}
+
+.lfc--left  { left: 3%; }
+.lfc--right { right: 3%; }
+
+.lfc-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.lfc-icon {
+  font-size: 14px;
+  line-height: 1;
+}
+
+.lfc-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--muted2);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  flex: 1;
+}
+
+.lfc-live {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  color: var(--red);
+  background: rgba(232,112,112,0.12);
+  border: 1px solid rgba(232,112,112,0.25);
+  border-radius: 4px;
+  padding: 1px 5px;
+  animation: pulse 1.4s ease-in-out infinite;
+}
+
+.lfc-value {
+  font-family: 'Manrope', sans-serif;
+  font-size: 17px;
+  font-weight: 800;
+  color: var(--text);
+  letter-spacing: -0.02em;
+  margin: 0 0 8px;
+  line-height: 1.2;
+}
+
+.lfc-bar-track {
+  width: 100%;
+  height: 4px;
+  background: rgba(255,255,255,0.07);
+  border-radius: 99px;
+  margin-bottom: 8px;
+  overflow: hidden;
+}
+
+.lfc-bar-fill {
+  height: 100%;
+  border-radius: 99px;
+  transition: width 0.4s ease;
+}
+
+.lfc-sub {
+  font-size: 11px;
+  color: var(--muted2);
+  line-height: 1.4;
+  margin: 0;
+}
+
+/* 좁은 화면에서는 카드 숨김 */
+@media (max-width: 960px) {
+  .lfc { display: none; }
+}
+
+.landing-hero-glow {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(126,156,248,0.14) 0%, transparent 55%),
+    radial-gradient(ellipse at 20% 80%, rgba(163,147,224,0.07) 0%, transparent 45%),
+    radial-gradient(ellipse at 80% 60%, rgba(96,200,224,0.05) 0%, transparent 40%);
+  pointer-events: none;
+}
+
+.landing-eyebrow {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 20px;
+  position: relative;
+}
+
+.landing-headline {
+  font-family: 'Manrope', sans-serif;
+  font-size: clamp(38px, 6vw, 68px);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+  color: var(--text);
+  margin-bottom: 24px;
+  max-width: 760px;
+  position: relative;
+}
+
+.landing-subline {
+  font-size: clamp(15px, 1.8vw, 18px);
+  color: var(--muted2);
+  line-height: 1.7;
+  max-width: 560px;
+  margin-bottom: 44px;
+  position: relative;
+}
+
+.landing-br { display: inline; }
+@media (max-width: 480px) { .landing-br { display: none; } }
+
+.landing-hero-actions {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  position: relative;
+  margin-bottom: 36px;
+}
+
+.landing-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 28px;
+  border-radius: 14px;
+  border: none;
+  background: var(--accent);
+  color: #fff;
+  font-family: 'Manrope', sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 6px 28px rgba(126,156,248,0.32);
+  transition: filter 0.18s, box-shadow 0.18s, transform 0.18s;
+}
+
+.landing-btn-primary:hover {
+  filter: brightness(1.09);
+  box-shadow: 0 10px 36px rgba(126,156,248,0.44);
+  transform: translateY(-2px);
+}
+
+.landing-btn-primary--large {
+  font-size: 16px;
+  padding: 16px 36px;
+  border-radius: 16px;
+}
+
+.landing-badges {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+  list-style: none;
+  position: relative;
+}
+
+.landing-badges li {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted2);
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 5px 14px;
+}
+
+/* section shared */
+.landing-steps-section,
+.landing-features-section {
+  padding: 80px 24px;
+  text-align: center;
+  position: relative;
+}
+
+.landing-steps-section {
+  background: linear-gradient(180deg, rgba(126,156,248,0.04) 0%, transparent 100%);
+  border-top: 1px solid var(--border);
+}
+
+.landing-features-section {
+  border-top: 1px solid var(--border);
+}
+
+.landing-section-eyebrow {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 14px;
+}
+
+.landing-section-heading {
+  font-family: 'Manrope', sans-serif;
+  font-size: clamp(22px, 3vw, 32px);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--text);
+  margin-bottom: 48px;
+  max-width: 500px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* steps */
+.landing-steps {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 24px;
+  max-width: 900px;
+  margin: 0 auto;
+  text-align: left;
+}
+
+.landing-step {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 28px 24px;
+  transition: border-color 0.2s, transform 0.2s;
+}
+
+.landing-step:hover {
+  border-color: var(--border2);
+  transform: translateY(-3px);
+}
+
+.landing-step-num {
+  font-family: 'Manrope', sans-serif;
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  display: block;
+  margin-bottom: 12px;
+}
+
+.landing-step-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 8px;
+  letter-spacing: -0.01em;
+}
+
+.landing-step-desc {
+  font-size: 13px;
+  color: var(--muted2);
+  line-height: 1.65;
+  margin: 0;
+}
+
+/* features */
+.landing-features-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 20px;
+  max-width: 900px;
+  margin: 0 auto;
+  text-align: left;
+}
+
+.landing-feature-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 28px 24px;
+  transition: border-color 0.2s, transform 0.2s;
+}
+
+.landing-feature-card:hover {
+  border-color: var(--border2);
+  transform: translateY(-3px);
+}
+
+.landing-feature-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  border: 1px solid;
+  font-size: 20px;
+  margin-bottom: 16px;
+}
+
+.landing-feature-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 8px;
+  letter-spacing: -0.01em;
+}
+
+.landing-feature-desc {
+  font-size: 13px;
+  color: var(--muted2);
+  line-height: 1.65;
+  margin: 0;
+}
+
+/* final CTA */
+.landing-final-cta {
+  position: relative;
+  text-align: center;
+  padding: 96px 24px;
+  border-top: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.landing-final-glow {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at 50% 50%, rgba(126,156,248,0.10) 0%, transparent 60%);
+  pointer-events: none;
+}
+
+.landing-final-heading {
+  font-family: 'Manrope', sans-serif;
+  font-size: clamp(24px, 3.5vw, 36px);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--text);
+  margin-bottom: 14px;
+  position: relative;
+}
+
+.landing-final-sub {
+  font-size: 15px;
+  color: var(--muted2);
+  line-height: 1.6;
+  max-width: 420px;
+  margin: 0 auto 36px;
+  position: relative;
+}
+
+/* footer */
+.landing-footer {
+  padding: 24px 32px;
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+  color: var(--muted);
+  text-align: center;
+}
+
+/* ── CURSOR DOT ── */
+
+/* 기본 OS 커서 숨기기 — 커스텀 닷만 표시 */
+*,
+*::before,
+*::after {
+  cursor: none !important;
+}
+
+.cursor-dot-wrap {
+  position: fixed;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  z-index: 99999;
+  will-change: transform;
+  /* 중심 보정: 닷 크기의 절반만큼 당겨서 정확히 커서 위에 올라오게 */
+  margin: -6px 0 0 -6px;
+}
+
+/* 작은 빨간 코어 */
+.cursor-dot-core {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #e87070;
+  box-shadow:
+    0 0 6px 2px rgba(232, 112, 112, 0.70),
+    0 0 14px 4px rgba(232, 112, 112, 0.35);
+  animation: dotPulse 2s ease-in-out infinite;
+}
+
+/* 바깥 링 — 크고 느리게 퍼짐 */
+.cursor-dot-ring {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 28px;
+  height: 28px;
+  margin: -14px 0 0 -14px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(232, 112, 112, 0.45);
+  animation: dotRing 2s ease-in-out infinite;
+}
+
+@keyframes dotPulse {
+  0%, 100% { transform: scale(1);   opacity: 1; }
+  50%       { transform: scale(1.35); opacity: 0.80; }
+}
+
+@keyframes dotRing {
+  0%, 100% { transform: scale(1);   opacity: 0.45; }
+  50%       { transform: scale(1.5); opacity: 0.15; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cursor-dot-core, .cursor-dot-ring { animation: none !important; }
+}
+
 /* ── ANIMATIONS ── */
 @keyframes fadeIn  { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
 @keyframes pulse   { 0%,100%{opacity:1} 50%{opacity:.4} }
@@ -41,6 +1981,34 @@ body {
 @keyframes slideIn { from{transform:translateX(80%);opacity:0} to{transform:translateX(0);opacity:1} }
 @keyframes ticker  { 0%{transform:translateX(0)} 100%{transform:translateX(-50%)} }
 @keyframes quizGradingSpin { to { transform:rotate(360deg); } }
+
+/* “Point” 로고 — 글자별 기하 궤적(오각 루프 + 미세 회전) */
+/* seesaw: center letter is pivot, edges swing opposite */
+@keyframes logoSeesaw {
+  0%   { transform: translateY(0px); }
+  25%  { transform: translateY(var(--sa, 0px)); }
+  50%  { transform: translateY(0px); }
+  75%  { transform: translateY(calc(var(--sa, 0px) * -1)); }
+  100% { transform: translateY(0px); }
+}
+
+.geo-point-logo {
+  display: inline-flex;
+  align-items: center;
+}
+
+.geo-point-logo .geo-char {
+  display: inline-block;
+  will-change: transform;
+  animation: logoSeesaw 2s cubic-bezier(0.37, 0, 0.63, 1) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .geo-point-logo .geo-char {
+    animation: none !important;
+    transform: none !important;
+  }
+}
 
 /* ── SCREENS ── */
 .point-screen {
@@ -67,7 +2035,7 @@ body {
 .screen-home::before {
   content:'';
   position:absolute; inset:0;
-  background: radial-gradient(ellipse at 50% 40%, rgba(126,156,248,0.06) 0%, transparent 60%);
+  background: radial-gradient(ellipse at 50% 40%, rgba(126,156,248,0.11) 0%, transparent 60%);
   pointer-events:none;
 }
 
@@ -541,26 +2509,80 @@ body {
 }
 
 .home-cta-primary {
-  border: 1px solid rgba(126, 156, 248, 0.45);
-  background: linear-gradient(135deg, rgba(126, 156, 248, 0.22) 0%, rgba(126, 156, 248, 0.06) 100%);
-  color: var(--text);
-  box-shadow: 0 0 0 1px rgba(126, 156, 248, 0.08);
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  color: #fff;
+  box-shadow: 0 6px 24px rgba(126, 156, 248, 0.30);
 }
 
 .home-cta-primary:hover {
-  border-color: rgba(126, 156, 248, 0.65);
-  box-shadow: 0 4px 24px rgba(126, 156, 248, 0.15);
+  filter: brightness(1.08);
+  box-shadow: 0 8px 32px rgba(126, 156, 248, 0.42);
+  transform: translateY(-1px);
 }
 
 .home-cta-secondary {
   border: 1px solid var(--border2);
-  background: rgba(255, 255, 255, 0.03);
-  color: var(--muted);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--muted2);
 }
 
 .home-cta-secondary:hover {
-  border-color: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.18);
   color: var(--text);
+  background: rgba(255, 255, 255, 0.07);
+}
+
+/* ── Coach-select topbar (← Back + user bar) ── */
+.coach-select-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 24px;
+  border-bottom: 1px solid var(--border);
+  background: rgba(22,23,30,0.82);
+  backdrop-filter: blur(14px);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.coach-select-back {
+  font-family: 'Manrope', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted2);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 6px 10px;
+  border-radius: 8px;
+  transition: background 0.15s, color 0.15s;
+}
+
+.coach-select-back:hover {
+  background: var(--surface2);
+  color: var(--text);
+}
+
+.coach-select-topbar-right {
+  display: flex;
+  align-items: center;
+}
+
+/* CTA row inside coach-select page */
+.coach-select-cta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+  margin-top: 24px;
+}
+
+/* persona section when used as full page (no top border) */
+.home-persona-section--page {
+  border-top: none !important;
+  padding-top: 32px !important;
 }
 
 /* ── HOME: after-cards wrapper ── */
@@ -579,7 +2601,7 @@ body {
   padding: 48px 0 56px;
   text-align: center;
   border-top: 1px solid var(--border);
-  background: linear-gradient(180deg, rgba(126, 156, 248, 0.04) 0%, transparent 38%);
+  background: linear-gradient(180deg, rgba(126, 156, 248, 0.07) 0%, transparent 40%);
 }
 
 .home-persona-section-inner {
@@ -622,16 +2644,17 @@ body {
 .home-persona-scroll {
   overflow-x: auto;
   overflow-y: hidden;
-  padding: 16px 24px 24px;
-  scroll-snap-type: x proximity;
+  /* 오른쪽 패딩을 60px로 줄여 마지막+1 카드 peek */
+  padding: 16px 60px 24px 24px;
+  scroll-snap-type: x mandatory;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: thin;
   scrollbar-color: rgba(126, 156, 248, 0.35) transparent;
-  text-align: center;
+  text-align: left;
 }
 
 .home-persona-scroll-inner {
-  display: inline-flex;
+  display: flex;
   gap: 16px;
   text-align: left;
 }
@@ -769,9 +2792,12 @@ body {
 .hpc-meta-inline {
   font-size: 10px;
   font-weight: 600;
-  color: var(--muted);
+  color: var(--accent);
   margin: 0;
   line-height: 1.3;
+  opacity: 0.75;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
 .hpc-meta-tone {
@@ -858,7 +2884,7 @@ body {
   height: 110px;
   border-radius: 12px;
   overflow: hidden;
-  background: #08081a;
+  background: #ebe4d8;
 }
 
 .persona-modal-photo img {
@@ -995,7 +3021,7 @@ body {
   justify-content: flex-end;
   padding: 14px 16px 16px;
   border-top: 1px solid var(--border);
-  background: rgba(0, 0, 0, 0.15);
+  background: rgba(250, 246, 239, 0.95);
 }
 
 .btn-persona-modal-secondary {
@@ -1020,20 +3046,21 @@ body {
 .btn-persona-modal-primary {
   appearance: none;
   border: none;
-  background: linear-gradient(135deg, rgba(99, 130, 247, 0.95) 0%, rgba(99, 102, 241, 0.9) 100%);
-  color: #fff;
+  background: #3a3228;
+  color: #fffef9;
   font-family: 'Manrope', sans-serif;
   font-size: 13px;
   font-weight: 700;
   padding: 10px 18px;
   border-radius: 12px;
   cursor: pointer;
-  box-shadow: 0 4px 16px rgba(99, 102, 241, 0.25);
-  transition: filter 0.15s;
+  box-shadow: 0 2px 12px rgba(45, 35, 25, 0.14);
+  transition: opacity 0.15s, box-shadow 0.15s;
 }
 
 .btn-persona-modal-primary:hover {
-  filter: brightness(1.08);
+  opacity: 0.92;
+  box-shadow: 0 4px 18px rgba(45, 35, 25, 0.18);
 }
 
 .btn-start {
@@ -2234,20 +4261,21 @@ body {
   letter-spacing:0.08em; font-weight:500; margin-bottom:4px;
 }
 .src-value {
-  font-size:22px; font-weight:800; color:#fff; letter-spacing:-0.02em;
+  font-size:22px; font-weight:800; color:#2a2620; letter-spacing:-0.02em;
 }
 .survey-continue {
   display:inline-flex; align-items:center; justify-content:center; gap:8px;
-  background:linear-gradient(135deg, #4f6ef7 0%, #6366f1 100%);
-  color:#fff; font-family:'Manrope',sans-serif; font-size:15px; font-weight:700;
+  background:#3a3228;
+  color:#fffef9; font-family:'Manrope',sans-serif; font-size:15px; font-weight:700;
   border:none; border-radius:999px; padding:14px 36px;
   cursor:pointer; transition:all 0.25s ease;
-  box-shadow:0 4px 20px rgba(99,102,241,0.3);
+  box-shadow:0 2px 14px rgba(45,35,25,0.14);
   max-width:280px; margin:0 auto;
 }
 .survey-continue:hover {
   transform:translateY(-2px);
-  box-shadow:0 8px 32px rgba(99,102,241,0.4);
+  box-shadow:0 6px 22px rgba(45,35,25,0.18);
+  opacity:0.94;
 }
 .survey-continue:active { transform:translateY(0); }
 .survey-continue-arrow { width:18px; height:18px; flex-shrink:0; margin-left:2px; }
@@ -2421,9 +4449,7 @@ body {
 
 /* ── USER BAR ── */
 .user-bar {
-  position:absolute; top:16px; right:20px;
   display:flex; align-items:center; gap:10px;
-  z-index:100;
 }
 .user-avatar {
   width:32px; height:32px; border-radius:50%;
@@ -2442,7 +4468,10 @@ body {
 .btn-sign-out:hover { border-color:var(--red); color:var(--red); background:var(--red-dim); }
 
 /* ── SELECTION ── */
-::selection { background:rgba(126,156,248,0.2); color:#fff; }
+::selection {
+  background: rgba(90, 111, 168, 0.22);
+  color: #2a2620;
+}
 
 /* ═══════════════════════════════════════════════════════════════════════════
    SCRIPT UPLOAD PANEL + HORIZONTAL LAYOUT
@@ -2780,4 +4809,2306 @@ body {
   left: 0;
   color: var(--accent);
   opacity: 0.6;
+}
+
+/* ══════════════════════════════════════════════════════════
+   NV NOTEBOOK OVERRIDE — HomeScreen + LoginScreen 통일
+   랜딩 페이지(.nv-page/.nv-paper) 스타일에 맞춘 오버라이드
+══════════════════════════════════════════════════════════ */
+
+/* ── 1. HomeScreen 배경: nv-page 규칙선 다크 배경 ── */
+#screen-home,
+.screen-home {
+  background-color: #08080a;
+  background-image:
+    radial-gradient(ellipse 78% 62% at 50% 36%, rgba(24, 25, 32, 0.65) 0%, transparent 58%),
+    linear-gradient(
+      90deg,
+      rgba(0, 0, 0, 0.35) 0%,
+      transparent 12%,
+      transparent 88%,
+      rgba(0, 0, 0, 0.35) 100%
+    ),
+    repeating-linear-gradient(
+      to bottom,
+      transparent 0,
+      transparent calc(2rem - 1px),
+      rgba(255, 255, 255, 0.02) calc(2rem - 1px),
+      rgba(255, 255, 255, 0.02) 2rem
+    );
+  background-size: 100% 100%, 100% 100%, 100% 2rem;
+  background-position: 0 0, 0 0, 0 0;
+}
+
+#screen-home::before,
+.screen-home::before {
+  display: none; /* 기존 인디고 그라디언트 제거 */
+}
+
+/* ── 2. Topbar: nv-nav와 동일 ── */
+.coach-select-topbar {
+  background: rgba(25, 25, 25, 0.88);
+  border-bottom: 0.5px solid rgba(255, 255, 255, 0.07);
+}
+
+.coach-select-back {
+  color: rgba(255, 255, 255, 0.52);
+  font-size: 13px;
+}
+
+.coach-select-back:hover {
+  background: rgba(255, 255, 255, 0.07);
+  color: rgba(255, 255, 255, 0.85);
+}
+
+/* Home: 코치 선택 + Your Progress = 한 장의 nv-paper */
+.home-notebook-sheet {
+  position: relative;
+  z-index: 1;
+  box-sizing: border-box;
+  width: min(880px, calc(100vw - 28px));
+  margin: 0 auto 48px;
+  background-color: #1c1d24;
+  background-image:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.03) 0%, transparent 42%),
+    repeating-linear-gradient(
+      to bottom,
+      transparent 0,
+      transparent calc(2rem - 1px),
+      rgba(255, 255, 255, 0.055) calc(2rem - 1px),
+      rgba(255, 255, 255, 0.055) 2rem
+    );
+  background-size: 100% 100%, 100% 2rem;
+  border-radius: 3px;
+  border: 0.5px solid rgba(255, 255, 255, 0.06);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.04) inset,
+    0 24px 80px rgba(0, 0, 0, 0.55),
+    0 4px 16px rgba(0, 0, 0, 0.35);
+  overflow: hidden;
+}
+
+.home-notebook-sheet::before {
+  content: '';
+  position: absolute;
+  left: 44px;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: linear-gradient(
+    180deg,
+    rgba(255, 90, 90, 0) 0%,
+    rgba(255, 75, 75, 0.38) 8%,
+    rgba(255, 75, 75, 0.38) 92%,
+    rgba(255, 90, 90, 0) 100%
+  );
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* ── 3. Persona 섹션: 헤딩 + 카드 전체를 하나의 nv-paper로 통합 ── */
+.home-persona-section {
+  background: none;
+  border-top: none;
+  padding: 24px 0 48px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* 헤딩+CTA+카드를 시트 너비에 맞춤 */
+.home-persona-section > * {
+  width: 100%;
+}
+
+/* 전체 섹션을 nv-paper처럼 단일 카드로 */
+.home-persona-section {
+  position: relative;
+}
+
+.home-persona-section-inner {
+  /* 페이퍼 스타일 제거 — 부모 .home-persona-section이 페이퍼 */
+  position: static;
+  background: none;
+  border-radius: 0;
+  border: none;
+  box-shadow: none;
+  max-width: none;
+  margin: 0;
+  padding: 40px 56px 24px;
+}
+
+/* 페이퍼는 .home-notebook-sheet 한 곳에만 — 섹션은 투명 */
+.home-persona-section--page {
+  position: static;
+  width: 100% !important;
+  background: none;
+  background-image: none;
+  border: none;
+  box-shadow: none;
+  border-radius: 0;
+  padding: 0 0 12px;
+  overflow: visible;
+}
+
+.home-persona-section--page::before {
+  content: none;
+}
+
+/* ── 4. 아이브로: Caveat 손글씨 ── */
+.home-persona-eyebrow {
+  font-family: 'Caveat', cursive;
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  text-transform: none;
+  color: rgba(255, 190, 120, 0.65);
+  margin-bottom: 6px;
+}
+
+/* ── 5. 헤딩: 더 크고 굵게 ── */
+.home-persona-heading {
+  font-size: clamp(34px, 5.5vw, 56px);
+  font-weight: 800;
+  color: rgba(255, 255, 255, 0.92);
+  letter-spacing: -0.04em;
+  margin-bottom: 12px;
+}
+
+/* ── 6. 리드 텍스트: nv-hero-sub와 동일 ── */
+.home-persona-lead {
+  font-size: clamp(13px, 1.5vw, 15px);
+  color: rgba(255, 255, 255, 0.42);
+  line-height: 1.7;
+}
+
+/* ── 7. CTA 버튼: 랜딩 히어로 버튼 스타일 ── */
+.home-cta-primary {
+  background: #fff;
+  color: #111;
+  border: none;
+  box-shadow: none;
+}
+
+.home-cta-primary:hover {
+  filter: none;
+  opacity: 0.88;
+  box-shadow: none;
+  background: #fff;
+}
+
+.home-cta-secondary {
+  background: rgba(255, 255, 255, 0.06);
+  border: 0.5px solid rgba(255, 255, 255, 0.18);
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.home-cta-secondary:hover {
+  background: rgba(255, 255, 255, 0.11);
+  border-color: rgba(255, 255, 255, 0.28);
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.home-cta-primary .home-cta-sub {
+  color: rgba(0, 0, 0, 0.45);
+}
+
+.home-cta-secondary .home-cta-sub {
+  color: rgba(255, 255, 255, 0.42);
+}
+
+/* 카드 스크롤: 페이퍼 안쪽 좌우 여백 통일 */
+.home-persona-section--page .home-persona-scroll {
+  padding-left: 56px;
+  padding-right: 32px;
+  padding-bottom: 20px;
+}
+
+/* 헤딩 영역 구분선 */
+.home-persona-section--page .home-persona-section-inner {
+  border-bottom: 0.5px solid rgba(255, 255, 255, 0.06);
+  margin-bottom: 0;
+  padding-bottom: 32px;
+}
+
+/* ── 8. 코치 카드: 노트북 페이퍼 계열 다크 ── */
+.home-persona-card.home-persona-card--compact {
+  background: #14151c;
+  border-color: rgba(255, 255, 255, 0.07);
+  border-radius: 12px;
+}
+
+.home-persona-card--compact:hover {
+  border-color: rgba(255, 255, 255, 0.18);
+  box-shadow:
+    0 12px 36px rgba(0, 0, 0, 0.5),
+    0 0 0 0.5px rgba(255, 255, 255, 0.1) inset;
+  transform: translateY(-4px);
+}
+
+.hpc-name--compact {
+  color: rgba(255, 255, 255, 0.88);
+}
+
+.hpc-card-tap:hover .hpc-name--compact {
+  color: #fff;
+}
+
+.hpc-meta-inline {
+  color: rgba(255, 190, 120, 0.65);
+  opacity: 1;
+}
+
+.hpc-photo-wrap {
+  background: #0e0f16;
+}
+
+/* ── 9. Select 버튼: 흰 필 → 랜딩 버튼 계열 ── */
+.btn-persona-pick--compact {
+  background: #fff;
+  color: #111;
+  box-shadow: none;
+  border-radius: 8px;
+  margin-bottom: 12px;
+}
+
+.btn-persona-pick--compact:hover {
+  filter: none;
+  opacity: 0.88;
+  transform: translateY(-1px);
+}
+
+/* ── 10. LoginScreen: nv-page + nv-paper 느낌 ── */
+.login-screen {
+  background-color: #08080a;
+  background-image:
+    radial-gradient(ellipse 78% 62% at 50% 36%, rgba(24, 25, 32, 0.65) 0%, transparent 58%),
+    linear-gradient(
+      90deg,
+      rgba(0, 0, 0, 0.35) 0%,
+      transparent 12%,
+      transparent 88%,
+      rgba(0, 0, 0, 0.35) 100%
+    ),
+    repeating-linear-gradient(
+      to bottom,
+      transparent 0,
+      transparent calc(2rem - 1px),
+      rgba(255, 255, 255, 0.02) calc(2rem - 1px),
+      rgba(255, 255, 255, 0.02) 2rem
+    );
+  background-size: 100% 100%, 100% 100%, 100% 2rem;
+  background-position: 0 0, 0 0, 0 0;
+}
+
+.login-card {
+  position: relative;
+  background-color: #1c1d24;
+  background-image:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.03) 0%, transparent 42%),
+    repeating-linear-gradient(
+      to bottom,
+      transparent 0,
+      transparent calc(2rem - 1px),
+      rgba(255, 255, 255, 0.055) calc(2rem - 1px),
+      rgba(255, 255, 255, 0.055) 2rem
+    );
+  background-size: 100% 100%, 100% 2rem;
+  border-color: rgba(255, 255, 255, 0.06);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.04) inset,
+    0 24px 80px rgba(0, 0, 0, 0.55),
+    0 4px 16px rgba(0, 0, 0, 0.35);
+  border-radius: 3px;
+  padding: 52px 48px;
+}
+
+/* 로그인 카드 왼쪽 여백선 */
+.login-card::before {
+  content: '';
+  position: absolute;
+  left: 44px;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: linear-gradient(
+    180deg,
+    rgba(255, 90, 90, 0) 0%,
+    rgba(255, 75, 75, 0.38) 8%,
+    rgba(255, 75, 75, 0.38) 92%,
+    rgba(255, 90, 90, 0) 100%
+  );
+  pointer-events: none;
+}
+
+.login-logo {
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 48px;
+  letter-spacing: -0.04em;
+}
+
+.login-tagline {
+  font-family: 'Caveat', cursive;
+  font-size: 20px;
+  font-weight: 600;
+  color: rgba(255, 190, 120, 0.65);
+  margin-bottom: 4px;
+}
+
+.login-footer {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.28);
+}
+
+/* 히스토리: 같은 시트 안에서 구분선만 */
+.home-content--after-cards {
+  width: 100%;
+  display: block;
+  padding: 0;
+}
+
+.home-content--after-cards .history-loading {
+  padding: 28px 56px 36px;
+  text-align: center;
+}
+
+.history-section {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  margin-top: 0;
+  padding: 28px 56px 40px;
+  border-top: 0.5px solid rgba(255, 255, 255, 0.08);
+  background: none;
+  background-image: none;
+  border-radius: 0;
+  border-left: none;
+  border-right: none;
+  border-bottom: none;
+  box-shadow: none;
+}
+
+.history-section::before {
+  content: none;
+}
+
+.history-title {
+  color: rgba(255, 255, 255, 0.88);
+}
+
+.history-title::before {
+  background: rgba(255, 190, 120, 0.65);
+}
+
+.history-card {
+  background: rgba(255, 255, 255, 0.03);
+  border-color: rgba(255, 255, 255, 0.07);
+  border-radius: 10px;
+}
+
+.history-card:hover {
+  border-color: rgba(255, 255, 255, 0.16);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+
+.hs-val {
+  color: rgba(255, 255, 255, 0.88);
+}
+
+.hs-label {
+  color: rgba(255, 255, 255, 0.3);
+}
+
+/* ══════════════════════════════════════════════════════════
+   NV NOTEBOOK OVERRIDE — 내부 앱 화면 전체 통일
+   Upload / Live / QA·Report 화면을 랜딩 노트북 테마로
+══════════════════════════════════════════════════════════ */
+
+/* ── 공통 변수 재정의 ── */
+:root {
+  --bg:       #08080a;
+  --surface:  #14151c;
+  --surface2: #1c1d24;
+  --surface3: #22232e;
+  --border:   rgba(255, 255, 255, 0.07);
+  --border2:  rgba(255, 255, 255, 0.12);
+}
+
+/* ── 모든 point-screen: nv-page 규칙선 다크 배경 ── */
+.point-screen,
+#screen-upload,
+#screen-live,
+#screen-qa {
+  background-color: #08080a;
+  background-image:
+    radial-gradient(ellipse 78% 62% at 50% 36%, rgba(24, 25, 32, 0.55) 0%, transparent 58%),
+    linear-gradient(90deg, rgba(0,0,0,0.32) 0%, transparent 12%, transparent 88%, rgba(0,0,0,0.32) 100%),
+    repeating-linear-gradient(
+      to bottom,
+      transparent 0,
+      transparent calc(2rem - 1px),
+      rgba(255, 255, 255, 0.02) calc(2rem - 1px),
+      rgba(255, 255, 255, 0.02) 2rem
+    );
+  background-size: 100% 100%, 100% 100%, 100% 2rem;
+  background-position: 0 0, 0 0, 0 0;
+}
+
+/* ── Topbar: nv-nav와 동일 ── */
+.topbar {
+  background: rgba(8, 8, 10, 0.92) !important;
+  border-bottom: 0.5px solid rgba(255, 255, 255, 0.07) !important;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+.live-topbar {
+  background: rgba(8, 8, 10, 0.92) !important;
+  border-bottom: 0.5px solid rgba(255, 255, 255, 0.07) !important;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+/* ── 로고: 흰색 ── */
+.topbar-logo,
+.live-logo {
+  color: rgba(255, 255, 255, 0.92) !important;
+  letter-spacing: -0.03em;
+}
+
+/* ── Step indicator: 중립 흰색 계열 ── */
+.step-dot {
+  border-color: rgba(255, 255, 255, 0.15) !important;
+  color: rgba(255, 255, 255, 0.35) !important;
+  background: transparent !important;
+}
+
+.step-dot.active {
+  background: #fff !important;
+  border-color: #fff !important;
+  color: #111 !important;
+}
+
+.step-dot.done {
+  background: rgba(255, 255, 255, 0.08) !important;
+  border-color: rgba(255, 255, 255, 0.25) !important;
+  color: rgba(255, 255, 255, 0.55) !important;
+}
+
+.step-line {
+  background: rgba(255, 255, 255, 0.1) !important;
+}
+
+/* ── 버튼: 랜딩 스타일로 통일 ── */
+.btn-sm {
+  background: rgba(255, 255, 255, 0.05) !important;
+  border: 0.5px solid rgba(255, 255, 255, 0.15) !important;
+  color: rgba(255, 255, 255, 0.6) !important;
+  border-radius: 8px !important;
+}
+
+.btn-sm:hover {
+  background: rgba(255, 255, 255, 0.1) !important;
+  border-color: rgba(255, 255, 255, 0.28) !important;
+  color: rgba(255, 255, 255, 0.9) !important;
+}
+
+.btn-primary {
+  background: #fff !important;
+  color: #111 !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+.btn-primary:hover {
+  opacity: 0.88 !important;
+  transform: translateY(-1px) !important;
+  box-shadow: none !important;
+}
+
+/* ── Upload 패널: 노트북 페이퍼 계열 ── */
+.upload-main {
+  background: transparent;
+  border-right: 0.5px solid rgba(255, 255, 255, 0.06);
+}
+
+.upload-main h2 {
+  color: rgba(255, 255, 255, 0.92) !important;
+  font-size: 20px !important;
+  font-weight: 800 !important;
+  letter-spacing: -0.03em !important;
+}
+
+.upload-main > p,
+.upload-main p {
+  color: rgba(255, 255, 255, 0.4) !important;
+}
+
+/* ── 퀴즈 패널 (우측): 페이퍼 다크 ── */
+.quiz-panel {
+  background: #14151c !important;
+  border-left: 0.5px solid rgba(255, 255, 255, 0.06) !important;
+}
+
+.quiz-badge {
+  background: rgba(255, 190, 120, 0.1) !important;
+  border-color: rgba(255, 190, 120, 0.2) !important;
+  color: rgba(255, 190, 120, 0.8) !important;
+}
+
+.quiz-grading-spinner {
+  border-top-color: rgba(255, 255, 255, 0.7) !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+  border-top-color: rgba(255, 255, 255, 0.7) !important;
+}
+
+.quiz-card {
+  background: rgba(255, 255, 255, 0.03) !important;
+  border-color: rgba(255, 255, 255, 0.07) !important;
+}
+
+.quiz-card:hover {
+  border-color: rgba(255, 255, 255, 0.14) !important;
+}
+
+.qc-textarea {
+  background: rgba(255, 255, 255, 0.04) !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+  color: rgba(255, 255, 255, 0.88) !important;
+}
+
+.qc-textarea:focus {
+  border-color: rgba(255, 255, 255, 0.3) !important;
+}
+
+.btn-submit-q {
+  background: #fff !important;
+  color: #111 !important;
+  border: none !important;
+}
+
+.btn-submit-q:hover {
+  opacity: 0.88 !important;
+  transform: translateY(-1px) !important;
+}
+
+/* ── FileSubmission, Script 패널 ── */
+.fs-panel,
+.script-panel {
+  background: rgba(255, 255, 255, 0.02) !important;
+  border-color: rgba(255, 255, 255, 0.07) !important;
+}
+
+.fs-dropzone {
+  background: rgba(255, 255, 255, 0.02) !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+.fs-dropzone:hover,
+.fs-dropzone.dragover {
+  border-color: rgba(255, 255, 255, 0.25) !important;
+  background: rgba(255, 255, 255, 0.05) !important;
+}
+
+/* ── Live 화면 패널 ── */
+.camera-area {
+  background: #08080a !important;
+}
+
+.cam-placeholder {
+  background: #14151c !important;
+}
+
+.cam-metric {
+  background: rgba(8, 8, 10, 0.88) !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+.live-feed-panel,
+.coach-panel {
+  background: #14151c !important;
+  border-color: rgba(255, 255, 255, 0.06) !important;
+}
+
+/* Live ticker */
+.live-ticker {
+  background: rgba(8, 8, 10, 0.9) !important;
+  border-top: 0.5px solid rgba(255, 255, 255, 0.07) !important;
+}
+
+/* ── QA/Report 화면 ── */
+.report-side {
+  background: #14151c !important;
+  border-right: 0.5px solid rgba(255, 255, 255, 0.06) !important;
+}
+
+.report-persona-panel {
+  background: rgba(255, 255, 255, 0.03) !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+.report-persona-sub {
+  color: rgba(255, 190, 120, 0.7) !important;
+}
+
+.report-rewrite-card {
+  background: rgba(255, 255, 255, 0.03) !important;
+  border-color: rgba(255, 255, 255, 0.07) !important;
+}
+
+.report-section-title {
+  color: rgba(255, 255, 255, 0.35) !important;
+}
+
+.report-section-title::after {
+  background: rgba(255, 255, 255, 0.06) !important;
+}
+
+/* ── Analysis card ── */
+.analysis-complete-card {
+  background: rgba(255, 255, 255, 0.03) !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+/* ── Error box ── */
+.error-box {
+  background: rgba(232, 112, 112, 0.07) !important;
+  border-color: rgba(232, 112, 112, 0.2) !important;
+}
+
+/* ── Topic panel ── */
+.topic-panel--inline {
+  background: rgba(255, 255, 255, 0.02) !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+/* ── Upload panels row panels ── */
+.upload-panels-row .fs-panel,
+.upload-panels-row .script-panel {
+  border-color: rgba(255, 255, 255, 0.06) !important;
+}
+
+/* ── Live session: 코치 카드(MVC) ── */
+.mvc-header {
+  background: #14151c !important;
+  border-color: rgba(255, 255, 255, 0.07) !important;
+}
+
+/* ── QA 우측 채팅 패널 ── */
+.qa-chat-panel,
+.qa-right {
+  background: #14151c !important;
+  border-color: rgba(255, 255, 255, 0.06) !important;
+}
+
+/* ── 공통 인풋/textarea ── */
+input:not([type="range"]),
+textarea {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.88);
+}
+
+/* ══════════════════════════════════════════════════════════
+   NV NOTEBOOK — 전체 내부 화면 통일 (Upload / Live / QA / Survey)
+══════════════════════════════════════════════════════════ */
+
+/* ─────────────────────────────────────────────────────────
+   공통: nv-paper 믹스인 (ruled lines + 빨간 여백선)
+───────────────────────────────────────────────────────── */
+.nv-panel {
+  position: relative;
+  background-color: #1c1d24;
+  background-image:
+    linear-gradient(180deg, rgba(255,255,255,0.025) 0%, transparent 36%),
+    repeating-linear-gradient(
+      to bottom,
+      transparent 0,
+      transparent calc(2rem - 1px),
+      rgba(255,255,255,0.045) calc(2rem - 1px),
+      rgba(255,255,255,0.045) 2rem
+    );
+  background-size: 100% 100%, 100% 2rem;
+  border: 0.5px solid rgba(255,255,255,0.07);
+}
+
+/* ─────────────────────────────────────────────────────────
+   Upload Screen
+───────────────────────────────────────────────────────── */
+
+/* 좌측 메인: 페이퍼 스타일 */
+.upload-main {
+  position: relative;
+  background-color: #1c1d24 !important;
+  background-image:
+    linear-gradient(180deg, rgba(255,255,255,0.025) 0%, transparent 36%),
+    repeating-linear-gradient(
+      to bottom,
+      transparent 0,
+      transparent calc(2rem - 1px),
+      rgba(255,255,255,0.045) calc(2rem - 1px),
+      rgba(255,255,255,0.045) 2rem
+    ) !important;
+  background-size: 100% 100%, 100% 2rem !important;
+  border-right: 0.5px solid rgba(255,255,255,0.07) !important;
+}
+
+/* 빨간 여백선 */
+.upload-main::before {
+  content: '';
+  position: absolute;
+  left: 44px;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: linear-gradient(
+    180deg,
+    rgba(255,90,90,0) 0%,
+    rgba(255,75,75,0.3) 6%,
+    rgba(255,75,75,0.3) 94%,
+    rgba(255,90,90,0) 100%
+  );
+  pointer-events: none;
+}
+
+.upload-main h2 {
+  font-size: clamp(20px, 2.8vw, 28px) !important;
+  font-weight: 800 !important;
+  color: rgba(255,255,255,0.92) !important;
+  letter-spacing: -0.04em !important;
+  margin-bottom: 10px !important;
+}
+
+.upload-main > p,
+.upload-main p:not(.analysis-detail) {
+  color: rgba(255,255,255,0.4) !important;
+  font-size: 12.5px !important;
+  line-height: 1.7 !important;
+}
+
+/* 퀴즈 패널: 페이퍼 */
+.quiz-panel {
+  background-color: #1c1d24 !important;
+  background-image:
+    repeating-linear-gradient(
+      to bottom,
+      transparent 0,
+      transparent calc(2rem - 1px),
+      rgba(255,255,255,0.04) calc(2rem - 1px),
+      rgba(255,255,255,0.04) 2rem
+    ) !important;
+  background-size: 100% 2rem !important;
+  border-left: 0.5px solid rgba(255,255,255,0.07) !important;
+}
+
+/* 업로드 영역 배경 */
+.upload-area {
+  background: transparent !important;
+}
+
+/* 파일 패널 섹션 제목 */
+.fs-section-title,
+.script-section-title {
+  color: rgba(255,255,255,0.55) !important;
+  font-family: 'Caveat', cursive !important;
+  font-size: 16px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.01em !important;
+}
+
+/* 분석 완료 카드 */
+.analysis-complete-card {
+  background: rgba(255,255,255,0.03) !important;
+  border: 0.5px solid rgba(255,255,255,0.1) !important;
+  border-radius: 8px !important;
+}
+
+.analysis-badge {
+  color: rgba(255,190,120,0.75) !important;
+  font-size: 10px !important;
+  letter-spacing: 0.08em !important;
+}
+
+/* Analyze 버튼 */
+.btn-analyze {
+  margin-top: 20px !important;
+}
+
+/* ─────────────────────────────────────────────────────────
+   Live Session Screen
+───────────────────────────────────────────────────────── */
+
+/* 코칭 패널: 페이퍼 */
+.coaching-panel {
+  background-color: #1c1d24 !important;
+  background-image:
+    repeating-linear-gradient(
+      to bottom,
+      transparent 0,
+      transparent calc(2rem - 1px),
+      rgba(255,255,255,0.04) calc(2rem - 1px),
+      rgba(255,255,255,0.04) 2rem
+    ) !important;
+  background-size: 100% 2rem !important;
+  border-left: 0.5px solid rgba(255,255,255,0.07) !important;
+}
+
+.cp-header {
+  background: rgba(255,255,255,0.02) !important;
+  border-bottom: 0.5px solid rgba(255,255,255,0.07) !important;
+}
+
+.cp-title {
+  color: rgba(255,255,255,0.88) !important;
+  font-size: 13px !important;
+  font-weight: 800 !important;
+  letter-spacing: -0.02em !important;
+}
+
+/* Visual/Voice 토글 */
+.cp-mode-toggle {
+  background: rgba(255,255,255,0.04) !important;
+  border: 0.5px solid rgba(255,255,255,0.1) !important;
+  border-radius: 8px !important;
+}
+
+.mode-btn {
+  color: rgba(255,255,255,0.4) !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  font-family: 'Manrope', sans-serif !important;
+}
+
+.mode-btn.active {
+  background: rgba(255,255,255,0.1) !important;
+  color: rgba(255,255,255,0.92) !important;
+}
+
+/* 메트릭 카드 */
+.metric-card {
+  background: rgba(255,255,255,0.03) !important;
+  border: 0.5px solid rgba(255,255,255,0.08) !important;
+  border-radius: 8px !important;
+}
+
+.metric-card.good  { border-color: rgba(110,201,160,0.3) !important; }
+.metric-card.warn  { border-color: rgba(224,176,110,0.3) !important; }
+.metric-card.alert { border-color: rgba(232,112,112,0.3) !important; }
+
+.mc-label {
+  color: rgba(255,255,255,0.3) !important;
+  font-size: 9px !important;
+  letter-spacing: 0.06em !important;
+}
+
+/* 피드백 피드 */
+.feedback-feed {
+  background: transparent !important;
+}
+
+.fb-item {
+  background: rgba(255,255,255,0.03) !important;
+  border: 0.5px solid rgba(255,255,255,0.07) !important;
+  border-radius: 8px !important;
+}
+
+.fb-item.type-warn  { border-left: 2px solid rgba(224,176,110,0.7) !important; }
+.fb-item.type-alert { border-left: 2px solid rgba(232,112,112,0.7) !important; }
+.fb-item.type-info  { border-left: 2px solid rgba(255,255,255,0.25) !important; }
+.fb-item.type-good  { border-left: 2px solid rgba(110,201,160,0.7) !important; }
+
+.fb-text {
+  color: rgba(255,255,255,0.75) !important;
+  font-size: 12px !important;
+}
+
+/* 카테고리 배지 */
+.cat-voice   { background: rgba(255,255,255,0.06) !important; color: rgba(255,255,255,0.5) !important; }
+.cat-gesture { background: rgba(255,255,255,0.06) !important; color: rgba(255,255,255,0.5) !important; }
+.cat-gaze    { background: rgba(255,255,255,0.06) !important; color: rgba(255,255,255,0.5) !important; }
+.cat-content { background: rgba(255,255,255,0.06) !important; color: rgba(255,255,255,0.5) !important; }
+
+/* 라이브 ticker */
+.live-ticker {
+  background: rgba(8,8,10,0.95) !important;
+  border-top: 0.5px solid rgba(255,255,255,0.06) !important;
+}
+
+.ticker-label {
+  color: rgba(255,190,120,0.65) !important;
+  border-right: 0.5px solid rgba(255,255,255,0.07) !important;
+  font-family: 'Caveat', cursive !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.01em !important;
+}
+
+.ticker-item {
+  color: rgba(255,255,255,0.38) !important;
+  font-size: 11px !important;
+}
+
+/* 코칭 알림 오버레이 */
+.coaching-alert {
+  background: rgba(20,21,28,0.96) !important;
+  border: 0.5px solid rgba(255,255,255,0.12) !important;
+  backdrop-filter: blur(16px) !important;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5) !important;
+}
+
+.ca-text {
+  color: rgba(255,255,255,0.78) !important;
+}
+
+/* 비언어 패널 */
+.nonverbal-panel {
+  border-top: 0.5px solid rgba(255,255,255,0.07) !important;
+}
+
+.nv-title {
+  color: rgba(255,255,255,0.3) !important;
+  font-family: 'Caveat', cursive !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.01em !important;
+  text-transform: none !important;
+}
+
+.nv-label {
+  color: rgba(255,255,255,0.45) !important;
+}
+
+/* ─────────────────────────────────────────────────────────
+   QA / Report Screen
+───────────────────────────────────────────────────────── */
+
+/* 리포트 사이드: 페이퍼 */
+.report-side {
+  position: relative !important;
+  background-color: #1c1d24 !important;
+  background-image:
+    repeating-linear-gradient(
+      to bottom,
+      transparent 0,
+      transparent calc(2rem - 1px),
+      rgba(255,255,255,0.04) calc(2rem - 1px),
+      rgba(255,255,255,0.04) 2rem
+    ) !important;
+  background-size: 100% 2rem !important;
+  border-right: 0.5px solid rgba(255,255,255,0.07) !important;
+}
+
+.report-side::before {
+  content: '';
+  position: absolute;
+  left: 44px;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: linear-gradient(
+    180deg,
+    rgba(255,90,90,0) 0%,
+    rgba(255,75,75,0.28) 6%,
+    rgba(255,75,75,0.28) 94%,
+    rgba(255,90,90,0) 100%
+  );
+  pointer-events: none;
+}
+
+.report-side h2 {
+  color: rgba(255,255,255,0.92) !important;
+  font-size: 22px !important;
+  font-weight: 800 !important;
+  letter-spacing: -0.04em !important;
+}
+
+.report-sub {
+  color: rgba(255,255,255,0.38) !important;
+  font-family: 'Caveat', cursive !important;
+  font-size: 17px !important;
+  font-weight: 600 !important;
+}
+
+/* 점수 링 텍스트 */
+.circle-val {
+  color: rgba(255,255,255,0.92) !important;
+}
+
+.circle-label {
+  color: rgba(255,255,255,0.38) !important;
+}
+
+/* QA 채팅 패널 */
+.qa-chat-area,
+.qa-right,
+.qa-panel {
+  background-color: #1c1d24 !important;
+  border-left: 0.5px solid rgba(255,255,255,0.07) !important;
+}
+
+/* 메시지 버블 */
+.msg.user-msg {
+  background: rgba(255,255,255,0.07) !important;
+  border: 0.5px solid rgba(255,255,255,0.1) !important;
+  color: rgba(255,255,255,0.85) !important;
+}
+
+.msg.ai-msg {
+  background: rgba(255,255,255,0.03) !important;
+  border: 0.5px solid rgba(255,255,255,0.06) !important;
+  color: rgba(255,255,255,0.75) !important;
+}
+
+/* QA 인풋 영역 */
+.qa-input-wrap {
+  background: rgba(8,8,10,0.88) !important;
+  border-top: 0.5px solid rgba(255,255,255,0.07) !important;
+}
+
+/* ─────────────────────────────────────────────────────────
+   PersonaSurvey
+───────────────────────────────────────────────────────── */
+
+/* 설문 화면 전체 배경 */
+.survey-screen,
+#screen-survey {
+  background-color: #08080a;
+  background-image:
+    radial-gradient(ellipse 78% 62% at 50% 36%, rgba(24,25,32,0.65) 0%, transparent 58%),
+    repeating-linear-gradient(
+      to bottom,
+      transparent 0,
+      transparent calc(2rem - 1px),
+      rgba(255,255,255,0.02) calc(2rem - 1px),
+      rgba(255,255,255,0.02) 2rem
+    );
+  background-size: 100% 100%, 100% 2rem;
+}
+
+/* 설문 카드: nv-paper */
+.survey-card {
+  position: relative !important;
+  background-color: #1c1d24 !important;
+  background-image:
+    linear-gradient(180deg, rgba(255,255,255,0.03) 0%, transparent 42%),
+    repeating-linear-gradient(
+      to bottom,
+      transparent 0,
+      transparent calc(2rem - 1px),
+      rgba(255,255,255,0.05) calc(2rem - 1px),
+      rgba(255,255,255,0.05) 2rem
+    ) !important;
+  background-size: 100% 100%, 100% 2rem !important;
+  border: 0.5px solid rgba(255,255,255,0.07) !important;
+  border-radius: 3px !important;
+  box-shadow:
+    0 1px 0 rgba(255,255,255,0.04) inset,
+    0 24px 80px rgba(0,0,0,0.55) !important;
+}
+
+.survey-card::before {
+  content: '';
+  position: absolute;
+  left: 44px;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: linear-gradient(
+    180deg,
+    rgba(255,90,90,0) 0%,
+    rgba(255,75,75,0.35) 8%,
+    rgba(255,75,75,0.35) 92%,
+    rgba(255,90,90,0) 100%
+  );
+  pointer-events: none;
+}
+
+/* 진행 도트 */
+.survey-dot {
+  background: rgba(255,255,255,0.12) !important;
+}
+
+.survey-dot.active {
+  background: #fff !important;
+  transform: scale(1.2) !important;
+}
+
+.survey-dot.done {
+  background: rgba(110,201,160,0.7) !important;
+}
+
+.survey-step-label {
+  color: rgba(255,190,120,0.6) !important;
+  font-family: 'Caveat', cursive !important;
+  font-size: 16px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.01em !important;
+  text-transform: none !important;
+}
+
+.survey-question {
+  color: rgba(255,255,255,0.92) !important;
+  font-size: clamp(18px, 2.5vw, 24px) !important;
+  font-weight: 800 !important;
+  letter-spacing: -0.03em !important;
+}
+
+.survey-subtitle {
+  color: rgba(255,255,255,0.38) !important;
+}
+
+/* 옵션 버튼 */
+.survey-option {
+  background: rgba(255,255,255,0.03) !important;
+  border: 0.5px solid rgba(255,255,255,0.1) !important;
+  color: rgba(255,255,255,0.78) !important;
+  border-radius: 10px !important;
+  font-size: 13.5px !important;
+  transition: all 0.18s ease !important;
+}
+
+.survey-option:hover {
+  background: rgba(255,255,255,0.07) !important;
+  border-color: rgba(255,255,255,0.22) !important;
+  color: rgba(255,255,255,0.92) !important;
+}
+
+.survey-option.selected {
+  background: rgba(255,255,255,0.09) !important;
+  border-color: rgba(255,255,255,0.3) !important;
+  box-shadow: none !important;
+  color: #fff !important;
+}
+
+.so-indicator {
+  background: rgba(255,255,255,0.06) !important;
+  border-color: rgba(255,255,255,0.12) !important;
+  color: rgba(255,255,255,0.55) !important;
+  border-radius: 6px !important;
+}
+
+.survey-option.selected .so-indicator {
+  background: #fff !important;
+  color: #111 !important;
+  border-color: #fff !important;
+}
+
+/* 결과 카드 */
+.survey-result-card {
+  background: #1c1d24 !important;
+  border: 0.5px solid rgba(255,255,255,0.08) !important;
+  box-shadow: 0 24px 80px rgba(0,0,0,0.55) !important;
+  border-radius: 3px !important;
+}
+
+.survey-result-badge {
+  background: rgba(255,190,120,0.1) !important;
+  border-color: rgba(255,190,120,0.25) !important;
+  color: rgba(255,190,120,0.85) !important;
+  font-family: 'Caveat', cursive !important;
+  font-size: 17px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.01em !important;
+}
+
+.survey-result-title {
+  color: rgba(255,255,255,0.92) !important;
+  font-weight: 800 !important;
+  letter-spacing: -0.04em !important;
+}
+
+.survey-result-desc {
+  color: rgba(255,255,255,0.42) !important;
+}
+
+/* 설문 완료 후 시작 버튼 */
+.btn-survey-start,
+.survey-result-card .btn-primary {
+  background: #fff !important;
+  color: #111 !important;
+  border: none !important;
+  font-weight: 800 !important;
+}
+
+/* 카메라 플레이스홀더 개선 */
+.cam-label {
+  color: rgba(255,255,255,0.38) !important;
+  font-size: 12.5px !important;
+}
+
+/* End Session 버튼 스타일 유지 (빨간 계열) */
+.btn-end {
+  background: rgba(232,112,112,0.08) !important;
+  border: 0.5px solid rgba(232,112,112,0.25) !important;
+  color: rgba(232,112,112,0.85) !important;
+  font-weight: 700 !important;
+}
+
+.btn-end:hover {
+  background: rgba(232,112,112,0.15) !important;
+}
+
+/* 퀴즈 뱃지 */
+.quiz-badge {
+  background: rgba(255,190,120,0.08) !important;
+  border-color: rgba(255,190,120,0.2) !important;
+  color: rgba(255,190,120,0.75) !important;
+  font-family: 'Caveat', cursive !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.02em !important;
+}
+
+.quiz-title {
+  color: rgba(255,255,255,0.88) !important;
+  font-size: 16px !important;
+  font-weight: 800 !important;
+  letter-spacing: -0.02em !important;
+}
+
+.quiz-sub {
+  color: rgba(255,255,255,0.38) !important;
+}
+
+/* QA 답변 제출 버튼 */
+.btn-submit-q {
+  background: #fff !important;
+  color: #111 !important;
+  border-radius: 8px !important;
+  font-weight: 700 !important;
+}
+
+/* 미포함 섹션 타이틀도 통일 */
+.section-title,
+.report-label {
+  color: rgba(255,255,255,0.35) !important;
+  font-family: 'Caveat', cursive !important;
+  font-size: 15px !important;
+  font-weight: 600 !important;
+}
+
+/* ══════════════════════════════════════════════════════════
+   LIGHT BEIGE THEME — 앱 전체 (랜딩 + 로그인 + 내부 화면)
+   이 블록은 파일 맨 아래에 두어 기존 다크 오버라이드를 덮습니다.
+══════════════════════════════════════════════════════════ */
+
+:root {
+  --bg: #e8e1d6;
+  --surface: #fffef9;
+  --surface2: #faf6ef;
+  --surface3: #f2ebe0;
+  --border: rgba(55, 45, 35, 0.14);
+  --border2: rgba(55, 45, 35, 0.2);
+  --text: #1a1714;
+  --muted: #524a42;
+  --muted2: #5c544a;
+  --accent: #5a6fa8;
+  --accent-dim: rgba(90, 111, 168, 0.12);
+  --accent-hover: rgba(90, 111, 168, 0.2);
+  --green: #3d8f6a;
+  --green-dim: rgba(61, 143, 106, 0.12);
+  --red: #c44d4d;
+  --red-dim: rgba(196, 77, 77, 0.12);
+  --amber: #b8860b;
+  --amber-dim: rgba(184, 134, 11, 0.14);
+  --violet: #7a6aa8;
+  --violet-dim: rgba(122, 106, 168, 0.12);
+  --cyan: #4a8fa8;
+  --cyan-dim: rgba(74, 143, 168, 0.12);
+}
+
+body {
+  background: var(--bg) !important;
+  color: var(--text) !important;
+}
+
+/* ── 랜딩: 책상(베이지) + 옅은 줄 ── */
+.nv-page {
+  color: #1a1714 !important;
+  background-color: #e8e1d6 !important;
+  background-image:
+    radial-gradient(ellipse 72% 58% at 50% 32%, rgba(255, 252, 245, 0.55) 0%, transparent 55%),
+    linear-gradient(
+      90deg,
+      rgba(0, 0, 0, 0.04) 0%,
+      transparent 10%,
+      transparent 90%,
+      rgba(0, 0, 0, 0.04) 100%
+    ),
+    repeating-linear-gradient(
+      to bottom,
+      transparent 0,
+      transparent calc(var(--nv-page-line, 2rem) - 1px),
+      rgba(60, 45, 35, 0.06) calc(var(--nv-page-line, 2rem) - 1px),
+      rgba(60, 45, 35, 0.06) var(--nv-page-line, 2rem)
+    ) !important;
+  background-size: 100% 100%, 100% 100%, 100% var(--nv-page-line, 2rem) !important;
+}
+
+.nv-nav {
+  background: rgba(253, 251, 246, 0.92) !important;
+  border-bottom: 0.5px solid rgba(55, 45, 35, 0.1) !important;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+.nv-nav-logo {
+  color: #2a2620 !important;
+}
+
+.nv-nav-cta {
+  background: rgba(42, 38, 32, 0.06) !important;
+  border: 0.5px solid rgba(55, 45, 35, 0.18) !important;
+  color: rgba(42, 38, 32, 0.78) !important;
+}
+
+.nv-nav-cta:hover {
+  background: rgba(42, 38, 32, 0.1) !important;
+  border-color: rgba(55, 45, 35, 0.28) !important;
+}
+
+/* 페이퍼: 크림 + 파란 규칙선 느낌 */
+.nv-paper {
+  background-color: #fffef9 !important;
+  background-image:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.7) 0%, transparent 38%),
+    repeating-linear-gradient(
+      to bottom,
+      transparent 0,
+      transparent calc(var(--nv-line, 2rem) - 1px),
+      rgba(70, 120, 180, 0.09) calc(var(--nv-line, 2rem) - 1px),
+      rgba(70, 120, 180, 0.09) var(--nv-line, 2rem)
+    ) !important;
+  border: 0.5px solid rgba(55, 45, 35, 0.12) !important;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.85) inset,
+    0 18px 48px rgba(45, 35, 25, 0.08),
+    0 2px 12px rgba(45, 35, 25, 0.06) !important;
+}
+
+.nv-paper-margin {
+  background: linear-gradient(
+    180deg,
+    rgba(200, 90, 90, 0) 0%,
+    rgba(200, 75, 75, 0.35) 8%,
+    rgba(200, 75, 75, 0.35) 92%,
+    rgba(200, 90, 90, 0) 100%
+  ) !important;
+}
+
+.nv-hero-title {
+  color: #2a2620 !important;
+}
+
+.nv-hero-letter--on {
+  color: #2a2620 !important;
+}
+
+.nv-hero-title-caret {
+  background: #c45c2e !important;
+}
+
+.nv-hero-tagline {
+  color: #3d362c !important;
+}
+
+.nv-hero-sub {
+  color: #3d362c !important;
+}
+
+.nv-hero-btn {
+  background: #3a3228 !important;
+  color: #fffef9 !important;
+}
+
+.nv-hero-btn:hover {
+  opacity: 0.9 !important;
+}
+
+.nv-h2-text {
+  color: #2a2620 !important;
+}
+
+.nv-h2--scribble::after {
+  filter: brightness(0.35) saturate(1.2);
+}
+
+.nv-footer--paper {
+  color: #5c544a !important;
+}
+
+.nv-scribble {
+  color: #9a4d26 !important;
+  opacity: 0.95 !important;
+}
+
+/* 콜아웃 본문: 기본 .nv-callout p 가 밝은색이라 라이트에서 반드시 덮음 */
+.nv-callout p {
+  color: #2a2620 !important;
+}
+
+.nv-callout strong {
+  color: #141210 !important;
+}
+
+.nv-callout--amber {
+  background: rgba(255, 210, 140, 0.35) !important;
+  border-left: 3px solid rgba(200, 120, 30, 0.75) !important;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.6) inset !important;
+}
+
+.nv-callout--blue {
+  background: rgba(200, 220, 255, 0.45) !important;
+  border-left: 3px solid rgba(70, 110, 180, 0.65) !important;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.55) inset !important;
+}
+
+.nv-callout--cta {
+  background: rgba(255, 236, 180, 0.4) !important;
+  border: 0.5px solid rgba(160, 110, 40, 0.35) !important;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.5) inset !important;
+}
+
+.nv-callout--cta .nv-cta-heading {
+  color: #1a1714 !important;
+}
+
+.nv-callout--cta .nv-cta-sub {
+  color: #4a4338 !important;
+}
+
+.nv-h2 {
+  color: #1a1714 !important;
+}
+
+.nv-checklist,
+.nv-steps,
+.nv-features {
+  color: #2a2620;
+}
+
+.nv-check,
+.nv-step-desc,
+.nv-feature-desc {
+  color: #3d362c !important;
+}
+
+.nv-step-title,
+.nv-feature-title {
+  color: #1a1714 !important;
+}
+
+.nv-step-num {
+  color: #7a7064 !important;
+}
+
+.nv-feature-callout {
+  background: rgba(255, 254, 249, 0.9) !important;
+  border: 0.5px solid rgba(55, 45, 35, 0.14) !important;
+}
+
+.nv-feature-callout:hover {
+  background: #fffef9 !important;
+  border-color: rgba(55, 45, 35, 0.22) !important;
+}
+
+.nv-check-note {
+  color: #9a4d26 !important;
+}
+
+.nv-step-comment {
+  color: #9a4d26 !important;
+}
+
+.nv-marker {
+  background: linear-gradient(
+    180deg,
+    transparent 52%,
+    rgba(255, 200, 80, 0.55) 52%,
+    rgba(255, 200, 80, 0.55) 88%,
+    transparent 88%
+  ) !important;
+}
+
+.nv-cta-block .nv-cta-heading {
+  color: #1a1714 !important;
+}
+
+.nv-cta-sub {
+  color: #4a4338 !important;
+}
+
+.nv-cta-btn {
+  background: #3a3228 !important;
+  color: #fffef9 !important;
+}
+
+.nv-footer {
+  color: #6b6155 !important;
+  border-top-color: rgba(55, 45, 35, 0.12) !important;
+}
+
+.nv-divider {
+  border-top-color: rgba(55, 45, 35, 0.1) !important;
+}
+
+/* ── 공통 화면 배경 ── */
+#screen-home,
+.screen-home,
+.point-screen,
+#screen-upload,
+#screen-live,
+#screen-qa {
+  background-color: #e8e1d6 !important;
+  background-image:
+    radial-gradient(ellipse 72% 58% at 50% 32%, rgba(255, 252, 245, 0.55) 0%, transparent 55%),
+    linear-gradient(90deg, rgba(0, 0, 0, 0.03) 0%, transparent 10%, transparent 90%, rgba(0, 0, 0, 0.03) 100%),
+    repeating-linear-gradient(
+      to bottom,
+      transparent 0,
+      transparent calc(2rem - 1px),
+      rgba(60, 45, 35, 0.055) calc(2rem - 1px),
+      rgba(60, 45, 35, 0.055) 2rem
+    ) !important;
+  background-size: 100% 100%, 100% 100%, 100% 2rem !important;
+}
+
+.coach-select-topbar,
+.topbar,
+.live-topbar {
+  background: rgba(253, 251, 246, 0.94) !important;
+  border-bottom: 0.5px solid rgba(55, 45, 35, 0.1) !important;
+}
+
+.topbar-logo,
+.live-logo {
+  color: #2a2620 !important;
+}
+
+.coach-select-back {
+  color: rgba(42, 38, 32, 0.55) !important;
+}
+
+.coach-select-back:hover {
+  background: rgba(42, 38, 32, 0.06) !important;
+  color: #2a2620 !important;
+}
+
+/* 스텝 도트 */
+.step-dot {
+  border-color: rgba(55, 45, 35, 0.18) !important;
+  color: #5c544a !important;
+  background: transparent !important;
+}
+
+.step-dot.active {
+  background: #3a3228 !important;
+  border-color: #3a3228 !important;
+  color: #fffef9 !important;
+}
+
+.step-dot.done {
+  background: rgba(61, 143, 106, 0.18) !important;
+  border-color: rgba(61, 143, 106, 0.45) !important;
+  color: #3d8f6a !important;
+}
+
+.step-line {
+  background: rgba(55, 45, 35, 0.12) !important;
+}
+
+.btn-sm {
+  background: rgba(42, 38, 32, 0.04) !important;
+  border: 0.5px solid rgba(55, 45, 35, 0.16) !important;
+  color: rgba(42, 38, 32, 0.65) !important;
+}
+
+.btn-sm:hover {
+  background: rgba(42, 38, 32, 0.08) !important;
+  border-color: rgba(55, 45, 35, 0.26) !important;
+  color: #2a2620 !important;
+}
+
+.btn-primary,
+.btn-analyze,
+.btn-submit-q,
+.home-cta-primary,
+.btn-persona-pick--compact {
+  background: #3a3228 !important;
+  color: #fffef9 !important;
+  border: none !important;
+  box-shadow: 0 2px 10px rgba(45, 35, 25, 0.12) !important;
+}
+
+.btn-primary:hover,
+.btn-analyze:hover,
+.btn-submit-q:hover,
+.home-cta-primary:hover,
+.btn-persona-pick--compact:hover {
+  opacity: 0.92 !important;
+  filter: none !important;
+}
+
+.home-cta-primary .home-cta-sub {
+  color: rgba(255, 254, 249, 0.65) !important;
+}
+
+.home-cta-secondary {
+  background: rgba(255, 254, 249, 0.55) !important;
+  border: 0.5px solid rgba(55, 45, 35, 0.18) !important;
+  color: rgba(42, 38, 32, 0.72) !important;
+}
+
+.home-cta-secondary:hover {
+  background: rgba(255, 254, 249, 0.85) !important;
+  border-color: rgba(55, 45, 35, 0.28) !important;
+  color: #2a2620 !important;
+}
+
+.home-cta-secondary .home-cta-sub {
+  color: #5c544a !important;
+}
+
+/* Home: 한 장의 노트 시트(크림 페이퍼) */
+.home-notebook-sheet {
+  background-color: #fffef9 !important;
+  background-image:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.65) 0%, transparent 38%),
+    repeating-linear-gradient(
+      to bottom,
+      transparent 0,
+      transparent calc(2rem - 1px),
+      rgba(70, 120, 180, 0.08) calc(2rem - 1px),
+      rgba(70, 120, 180, 0.08) 2rem
+    ) !important;
+  background-size: 100% 100%, 100% 2rem !important;
+  border: 0.5px solid rgba(55, 45, 35, 0.12) !important;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.85) inset,
+    0 18px 48px rgba(45, 35, 25, 0.08) !important;
+}
+
+.home-notebook-sheet::before {
+  background: linear-gradient(
+    180deg,
+    rgba(200, 90, 90, 0) 0%,
+    rgba(200, 75, 75, 0.32) 8%,
+    rgba(200, 75, 75, 0.32) 92%,
+    rgba(200, 90, 90, 0) 100%
+  ) !important;
+}
+
+.home-persona-section--page {
+  background: transparent !important;
+  background-image: none !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+.home-persona-section--page::before {
+  content: none !important;
+}
+
+.home-persona-eyebrow {
+  color: #8b4513 !important;
+}
+
+.home-persona-heading {
+  color: #1a1714 !important;
+}
+
+.home-persona-lead {
+  color: #3d362c !important;
+}
+
+.home-persona-section--page .home-persona-scroll {
+  border-top-color: rgba(55, 45, 35, 0.08) !important;
+}
+
+.home-persona-card.home-persona-card--compact {
+  background: #faf6ef !important;
+  border-color: rgba(55, 45, 35, 0.12) !important;
+}
+
+.home-persona-card--compact:hover {
+  border-color: rgba(55, 45, 35, 0.22) !important;
+  box-shadow: 0 10px 28px rgba(45, 35, 25, 0.1) !important;
+}
+
+.hpc-name--compact {
+  color: #2a2620 !important;
+}
+
+.hpc-desc--compact {
+  color: #4a4338 !important;
+}
+
+.hpc-meta-inline {
+  color: #8b4513 !important;
+}
+
+.hpc-photo-wrap {
+  background: #ebe4d8 !important;
+}
+
+/* 히스토리: 시트 연속 — 별도 카드 제거 */
+.history-section {
+  background: transparent !important;
+  background-image: none !important;
+  border-left: none !important;
+  border-right: none !important;
+  border-bottom: none !important;
+  box-shadow: none !important;
+  border-top: 0.5px solid rgba(55, 45, 35, 0.12) !important;
+}
+
+.history-section::before {
+  content: none !important;
+}
+
+.history-title {
+  color: #2a2620 !important;
+}
+
+.history-card {
+  background: #faf6ef !important;
+  border-color: rgba(55, 45, 35, 0.1) !important;
+}
+
+.hs-val {
+  color: #3a3228 !important;
+}
+
+.hs-label {
+  color: #5c544a !important;
+}
+
+/* 로그인 */
+.login-screen {
+  background-color: #e8e1d6 !important;
+  background-image:
+    repeating-linear-gradient(
+      to bottom,
+      transparent 0,
+      transparent calc(2rem - 1px),
+      rgba(60, 45, 35, 0.055) calc(2rem - 1px),
+      rgba(60, 45, 35, 0.055) 2rem
+    ) !important;
+}
+
+.login-card {
+  background-color: #fffef9 !important;
+  background-image:
+    repeating-linear-gradient(
+      to bottom,
+      transparent 0,
+      transparent calc(2rem - 1px),
+      rgba(70, 120, 180, 0.08) calc(2rem - 1px),
+      rgba(70, 120, 180, 0.08) 2rem
+    ) !important;
+  border-color: rgba(55, 45, 35, 0.12) !important;
+  box-shadow: 0 18px 48px rgba(45, 35, 25, 0.1) !important;
+}
+
+.login-card::before {
+  background: linear-gradient(
+    180deg,
+    rgba(200, 90, 90, 0) 0%,
+    rgba(200, 75, 75, 0.3) 8%,
+    rgba(200, 75, 75, 0.3) 92%,
+    rgba(200, 90, 90, 0) 100%
+  ) !important;
+}
+
+.login-logo {
+  color: #2a2620 !important;
+}
+
+.login-tagline {
+  color: rgba(180, 95, 45, 0.75) !important;
+}
+
+.login-footer {
+  color: #5c544a !important;
+}
+
+/* Upload / Quiz / Live / Report 패널 */
+.upload-main {
+  background-color: #fffef9 !important;
+  background-image:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.65) 0%, transparent 36%),
+    repeating-linear-gradient(
+      to bottom,
+      transparent 0,
+      transparent calc(2rem - 1px),
+      rgba(70, 120, 180, 0.08) calc(2rem - 1px),
+      rgba(70, 120, 180, 0.08) 2rem
+    ) !important;
+  border-right-color: rgba(55, 45, 35, 0.1) !important;
+}
+
+.upload-main::before {
+  background: linear-gradient(
+    180deg,
+    rgba(200, 90, 90, 0) 0%,
+    rgba(200, 75, 75, 0.28) 6%,
+    rgba(200, 75, 75, 0.28) 94%,
+    rgba(200, 90, 90, 0) 100%
+  ) !important;
+}
+
+.upload-main h2 {
+  color: #2a2620 !important;
+}
+
+.upload-main > p,
+.upload-main p:not(.analysis-detail) {
+  color: #3d362c !important;
+}
+
+.quiz-panel {
+  background-color: #faf6ef !important;
+  background-image:
+    repeating-linear-gradient(
+      to bottom,
+      transparent 0,
+      transparent calc(2rem - 1px),
+      rgba(70, 120, 180, 0.06) calc(2rem - 1px),
+      rgba(70, 120, 180, 0.06) 2rem
+    ) !important;
+  border-left-color: rgba(55, 45, 35, 0.1) !important;
+}
+
+.quiz-badge {
+  background: rgba(180, 95, 45, 0.1) !important;
+  border-color: rgba(180, 95, 45, 0.22) !important;
+  color: rgba(140, 70, 30, 0.85) !important;
+}
+
+.quiz-title {
+  color: #2a2620 !important;
+}
+
+.quiz-sub {
+  color: #3d362c !important;
+}
+
+.quiz-card {
+  background: rgba(255, 254, 249, 0.9) !important;
+  border-color: rgba(55, 45, 35, 0.1) !important;
+}
+
+.qc-textarea {
+  background: #fffef9 !important;
+  border-color: rgba(55, 45, 35, 0.14) !important;
+  color: #2a2620 !important;
+}
+
+.topic-panel--inline,
+.fs-panel,
+.script-panel,
+.fs-dropzone {
+  background: rgba(255, 254, 249, 0.75) !important;
+  border-color: rgba(55, 45, 35, 0.12) !important;
+}
+
+.error-box {
+  background: rgba(196, 77, 77, 0.08) !important;
+  border-color: rgba(196, 77, 77, 0.22) !important;
+  color: #5c2a2a !important;
+}
+
+.analysis-complete-card {
+  background: rgba(250, 246, 239, 0.95) !important;
+  border-color: rgba(55, 45, 35, 0.12) !important;
+}
+
+.analysis-badge {
+  color: rgba(140, 70, 30, 0.85) !important;
+}
+
+/* Live */
+.camera-area {
+  background: #ebe4d8 !important;
+}
+
+.cam-placeholder {
+  background: #faf6ef !important;
+}
+
+.cam-label {
+  color: #3d362c !important;
+}
+
+.coaching-panel {
+  background-color: #fffef9 !important;
+  background-image:
+    repeating-linear-gradient(
+      to bottom,
+      transparent 0,
+      transparent calc(2rem - 1px),
+      rgba(70, 120, 180, 0.07) calc(2rem - 1px),
+      rgba(70, 120, 180, 0.07) 2rem
+    ) !important;
+  border-left-color: rgba(55, 45, 35, 0.1) !important;
+}
+
+.cp-header {
+  background: rgba(255, 254, 249, 0.6) !important;
+  border-bottom-color: rgba(55, 45, 35, 0.08) !important;
+}
+
+.cp-title {
+  color: #2a2620 !important;
+}
+
+.cp-mode-toggle {
+  background: rgba(42, 38, 32, 0.04) !important;
+  border-color: rgba(55, 45, 35, 0.12) !important;
+}
+
+.mode-btn {
+  color: #5c544a !important;
+}
+
+.mode-btn.active {
+  background: rgba(42, 38, 32, 0.08) !important;
+  color: #2a2620 !important;
+}
+
+.metric-card {
+  background: #faf6ef !important;
+  border-color: rgba(55, 45, 35, 0.1) !important;
+}
+
+.mc-label {
+  color: #5c544a !important;
+}
+
+.fb-item {
+  background: #faf6ef !important;
+  border-color: rgba(55, 45, 35, 0.1) !important;
+}
+
+.fb-text {
+  color: rgba(42, 38, 32, 0.78) !important;
+}
+
+.cat-voice,
+.cat-gesture,
+.cat-gaze,
+.cat-content {
+  background: rgba(42, 38, 32, 0.08) !important;
+  color: #3d362c !important;
+}
+
+.live-ticker {
+  background: rgba(253, 251, 246, 0.96) !important;
+  border-top-color: rgba(55, 45, 35, 0.1) !important;
+}
+
+.ticker-label {
+  color: rgba(140, 70, 30, 0.8) !important;
+  border-right-color: rgba(55, 45, 35, 0.1) !important;
+}
+
+.ticker-item {
+  color: #3d362c !important;
+}
+
+.coaching-alert {
+  background: rgba(255, 254, 249, 0.97) !important;
+  border-color: rgba(55, 45, 35, 0.14) !important;
+}
+
+.ca-text {
+  color: rgba(42, 38, 32, 0.82) !important;
+}
+
+.cam-metric {
+  background: rgba(255, 254, 249, 0.92) !important;
+  border-color: rgba(55, 45, 35, 0.12) !important;
+}
+
+.nonverbal-panel {
+  border-top-color: rgba(55, 45, 35, 0.08) !important;
+}
+
+.nv-title {
+  color: rgba(140, 70, 30, 0.75) !important;
+}
+
+.nv-label {
+  color: rgba(42, 38, 32, 0.5) !important;
+}
+
+/* QA Report */
+.report-side {
+  background-color: #fffef9 !important;
+  background-image:
+    repeating-linear-gradient(
+      to bottom,
+      transparent 0,
+      transparent calc(2rem - 1px),
+      rgba(70, 120, 180, 0.07) calc(2rem - 1px),
+      rgba(70, 120, 180, 0.07) 2rem
+    ) !important;
+  border-right-color: rgba(55, 45, 35, 0.1) !important;
+}
+
+.report-side::before {
+  background: linear-gradient(
+    180deg,
+    rgba(200, 90, 90, 0) 0%,
+    rgba(200, 75, 75, 0.28) 6%,
+    rgba(200, 75, 75, 0.28) 94%,
+    rgba(200, 90, 90, 0) 100%
+  ) !important;
+}
+
+.report-side h2 {
+  color: #2a2620 !important;
+}
+
+.report-sub {
+  color: #7a3d18 !important;
+}
+
+.report-persona-panel,
+.report-rewrite-card {
+  background: #faf6ef !important;
+  border-color: rgba(55, 45, 35, 0.1) !important;
+}
+
+.report-persona-sub {
+  color: rgba(140, 70, 30, 0.8) !important;
+}
+
+.report-section-title {
+  color: #5c544a !important;
+}
+
+.report-section-title::after {
+  background: rgba(55, 45, 35, 0.1) !important;
+}
+
+.circle-val {
+  color: #2a2620 !important;
+}
+
+.circle-label {
+  color: #5c544a !important;
+}
+
+.qa-chat-panel,
+.qa-right,
+.qa-panel,
+.qa-chat-area {
+  background-color: #faf6ef !important;
+  border-color: rgba(55, 45, 35, 0.1) !important;
+}
+
+.msg.user-msg {
+  background: rgba(42, 38, 32, 0.07) !important;
+  border-color: rgba(55, 45, 35, 0.12) !important;
+  color: #2a2620 !important;
+}
+
+.msg.ai-msg {
+  background: rgba(255, 254, 249, 0.95) !important;
+  border-color: rgba(55, 45, 35, 0.1) !important;
+  color: #2a2620 !important;
+}
+
+.qa-input-wrap {
+  background: rgba(253, 251, 246, 0.96) !important;
+  border-top-color: rgba(55, 45, 35, 0.1) !important;
+}
+
+/* PersonaSurvey */
+.survey-screen,
+#screen-survey {
+  background-color: #e8e1d6 !important;
+  background-image:
+    repeating-linear-gradient(
+      to bottom,
+      transparent 0,
+      transparent calc(2rem - 1px),
+      rgba(60, 45, 35, 0.055) calc(2rem - 1px),
+      rgba(60, 45, 35, 0.055) 2rem
+    ) !important;
+}
+
+.survey-card {
+  background-color: #fffef9 !important;
+  background-image:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.65) 0%, transparent 40%),
+    repeating-linear-gradient(
+      to bottom,
+      transparent 0,
+      transparent calc(2rem - 1px),
+      rgba(70, 120, 180, 0.08) calc(2rem - 1px),
+      rgba(70, 120, 180, 0.08) 2rem
+    ) !important;
+  border-color: rgba(55, 45, 35, 0.12) !important;
+  box-shadow: 0 18px 48px rgba(45, 35, 25, 0.08) !important;
+}
+
+.survey-card::before {
+  background: linear-gradient(
+    180deg,
+    rgba(200, 90, 90, 0) 0%,
+    rgba(200, 75, 75, 0.3) 8%,
+    rgba(200, 75, 75, 0.3) 92%,
+    rgba(200, 90, 90, 0) 100%
+  ) !important;
+}
+
+.survey-dot {
+  background: rgba(55, 45, 35, 0.15) !important;
+}
+
+.survey-dot.active {
+  background: #3a3228 !important;
+}
+
+.survey-dot.done {
+  background: rgba(61, 143, 106, 0.55) !important;
+}
+
+.survey-step-label {
+  color: #7a3d18 !important;
+}
+
+.survey-question {
+  color: #2a2620 !important;
+}
+
+.survey-subtitle {
+  color: #4a4338 !important;
+}
+
+.survey-option {
+  background: #faf6ef !important;
+  border-color: rgba(55, 45, 35, 0.12) !important;
+  color: rgba(42, 38, 32, 0.82) !important;
+}
+
+.survey-option:hover {
+  background: rgba(255, 254, 249, 0.95) !important;
+  border-color: rgba(55, 45, 35, 0.22) !important;
+  color: #2a2620 !important;
+}
+
+.survey-option.selected {
+  background: rgba(42, 38, 32, 0.06) !important;
+  border-color: rgba(55, 45, 35, 0.28) !important;
+  color: #2a2620 !important;
+}
+
+.so-indicator {
+  background: rgba(42, 38, 32, 0.06) !important;
+  border-color: rgba(55, 45, 35, 0.12) !important;
+  color: rgba(42, 38, 32, 0.55) !important;
+}
+
+.survey-option.selected .so-indicator {
+  background: #3a3228 !important;
+  color: #fffef9 !important;
+  border-color: #3a3228 !important;
+}
+
+.survey-result-card {
+  background: #fffef9 !important;
+  border-color: rgba(55, 45, 35, 0.12) !important;
+}
+
+.survey-result-badge {
+  background: rgba(180, 95, 45, 0.12) !important;
+  border-color: rgba(180, 95, 45, 0.28) !important;
+  color: rgba(120, 60, 25, 0.9) !important;
+}
+
+.survey-result-title {
+  color: #2a2620 !important;
+}
+
+.survey-result-desc {
+  color: #3d362c !important;
+}
+
+.survey-result-card .btn-primary,
+.btn-survey-start {
+  background: #3a3228 !important;
+  color: #fffef9 !important;
+}
+
+/* 공통 입력 */
+input:not([type="range"]),
+textarea {
+  background: #fffef9 !important;
+  border-color: rgba(55, 45, 35, 0.16) !important;
+  color: #2a2620 !important;
+}
+
+/* 유저 바 */
+.user-name {
+  color: #3d362c !important;
+}
+
+.btn-sign-out {
+  color: rgba(42, 38, 32, 0.55) !important;
+  border-color: rgba(55, 45, 35, 0.14) !important;
+}
+
+.btn-sign-out:hover {
+  color: #c44d4d !important;
+  border-color: rgba(196, 77, 77, 0.35) !important;
+}
+
+/* 섹션 타이틀 */
+.section-title,
+.report-label {
+  color: rgba(140, 70, 30, 0.72) !important;
+}
+
+/* 커서: 밝은 배경에서도 잘 보이게 */
+.cursor-dot-core {
+  background: #c44d4d !important;
+  box-shadow:
+    0 0 6px 2px rgba(196, 77, 77, 0.45),
+    0 0 14px 4px rgba(196, 77, 77, 0.22) !important;
+}
+
+.cursor-dot-ring {
+  border-color: rgba(196, 77, 77, 0.4) !important;
+}
+
+/* 로딩 카드 */
+.login-screen .login-tagline {
+  color: #4a4338 !important;
+}
+
+/* 히어로 선택 블록: 라이트에서도 파란 선택 느낌 */
+.nv-hero-letter--selected {
+  color: #fff !important;
+}
+
+/* 손글씨 주석: 위치별 클래스가 더 연한 색을 쓰므로 라이트에서 통일 강조 */
+.nv-scribble--hero,
+.nv-scribble--side1,
+.nv-scribble--side2,
+.nv-scribble--side3,
+.nv-scribble--cta,
+.nv-scribble--steps,
+.nv-scribble--tracks {
+  color: #9a4d26 !important;
+  opacity: 1 !important;
+}
+
+/* reduced motion nv-block */
+@media (prefers-reduced-motion: reduce) {
+  .nv-block {
+    opacity: 1 !important;
+  }
 }

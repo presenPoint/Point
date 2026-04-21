@@ -21,28 +21,16 @@ const QUESTIONS: Question[] = [
     subtitle: 'Pick the one that resonates most.',
     options: [
       {
-        label: 'Inspire the audience to see a bold new vision',
-        weights: { visionary: 3, powerhouse: 1, elon_musk: 1 },
+        label: 'Inspire the audience with a bold, unforgettable vision',
+        weights: { visionary: 3, orator: 1 },
       },
       {
-        label: 'Persuade with a compelling, logical narrative',
-        weights: { orator: 3, analyst: 1, elon_musk: 1 },
+        label: 'Move people emotionally and build momentum in the room',
+        weights: { orator: 3, connector: 1 },
       },
       {
-        label: 'Deliver precise data and actionable insights',
-        weights: { analyst: 3, orator: 1, elon_musk: 2 },
-      },
-      {
-        label: 'Sell a moonshot or technical thesis — first principles, numbers, stakes',
-        weights: { elon_musk: 3, analyst: 2, visionary: 1 },
-      },
-      {
-        label: 'Build trust through authentic personal stories',
-        weights: { connector: 3, powerhouse: 1 },
-      },
-      {
-        label: 'Energize the room and leave a lasting impression',
-        weights: { powerhouse: 3, visionary: 1 },
+        label: 'Build genuine trust through authentic personal stories',
+        weights: { connector: 3, visionary: 1 },
       },
     ],
   },
@@ -52,28 +40,16 @@ const QUESTIONS: Question[] = [
     subtitle: 'Think about how you naturally communicate.',
     options: [
       {
-        label: 'Minimal words, dramatic pauses, every line lands',
-        weights: { visionary: 3, analyst: 1 },
+        label: 'Minimal — every word earns its place, silence is a tool',
+        weights: { visionary: 3, orator: 1 },
       },
       {
-        label: 'Rhythmic and dynamic — building momentum over time',
+        label: 'Rhythmic and dynamic — building energy through cadence',
         weights: { orator: 3, connector: 1 },
       },
       {
-        label: 'Conversational and raw — thinking visible, numbers carry the argument',
-        weights: { elon_musk: 3, analyst: 1, connector: 1 },
-      },
-      {
-        label: 'Measured and structured — facts first, opinion second',
-        weights: { analyst: 3, visionary: 1, elon_musk: 1 },
-      },
-      {
-        label: 'Conversational and warm — like talking to a friend',
+        label: 'Conversational and warm — like talking to a close friend',
         weights: { connector: 3, orator: 1 },
-      },
-      {
-        label: 'Big energy, vocal variety, commanding the stage',
-        weights: { powerhouse: 3, connector: 1 },
       },
     ],
   },
@@ -83,24 +59,16 @@ const QUESTIONS: Question[] = [
     subtitle: 'Imagine yourself on stage right now.',
     options: [
       {
-        label: 'Still and composed — let the words do the work',
-        weights: { visionary: 2, analyst: 2, elon_musk: 2 },
+        label: 'Still and deliberate — gestures that land like punctuation',
+        weights: { visionary: 3, orator: 1 },
       },
       {
-        label: 'Purposeful hand gestures that punctuate key points',
-        weights: { orator: 3, visionary: 1 },
+        label: 'Sweeping eye contact and natural hand movements',
+        weights: { orator: 3, connector: 1 },
       },
       {
-        label: 'Almost no movement — stillness is authority',
-        weights: { analyst: 3, elon_musk: 2 },
-      },
-      {
-        label: 'Natural and relaxed — gesturing like in conversation',
-        weights: { connector: 3, orator: 1 },
-      },
-      {
-        label: 'Full-body expressiveness — walk, gesture, own the space',
-        weights: { powerhouse: 3, connector: 1 },
+        label: 'Open and relaxed — gesturing like in everyday conversation',
+        weights: { connector: 3, visionary: 1 },
       },
     ],
   },
@@ -110,10 +78,7 @@ function calcPersona(answers: Record<string, number>): PersonaType {
   const scores: Record<PersonaType, number> = {
     visionary: 0,
     orator: 0,
-    analyst: 0,
     connector: 0,
-    powerhouse: 0,
-    elon_musk: 0,
   };
 
   for (const [qId, optIdx] of Object.entries(answers)) {

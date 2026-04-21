@@ -3,6 +3,7 @@ import { useSpeechToText } from '../hooks/useSpeechToText';
 import { useSessionStore } from '../store/sessionStore';
 import { ScoreRing } from './ScoreRing';
 import { ReportTranscriptSection } from './ReportTranscriptSection';
+import { AnimatedPointLogo } from './AnimatedPointLogo';
 
 function QaTopBar({ sessionDone }: { sessionDone: boolean }) {
   const resetSession = useSessionStore((s) => s.resetSession);
@@ -11,7 +12,9 @@ function QaTopBar({ sessionDone }: { sessionDone: boolean }) {
 
   return (
     <div className="topbar">
-      <div className="topbar-logo">Point</div>
+      <div className="topbar-logo" aria-label="Point">
+        <AnimatedPointLogo />
+      </div>
       <div className="topbar-steps">
         <div className="step-dot done">✓</div>
         <div className="step-line" />

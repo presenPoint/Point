@@ -1,44 +1,84 @@
-import { useEffect } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { useSessionStore } from './store/sessionStore';
 import { useAuth } from './hooks/useAuth';
 import { useAppHistorySync } from './hooks/useAppHistorySync';
 import { LoginScreen } from './components/LoginScreen';
+import { LandingScreen } from './components/LandingScreen';
 import { HomeScreen } from './components/HomeScreen';
 import { PersonaSurvey } from './components/PersonaSurvey';
 import { UploadWorkspace } from './components/UploadWorkspace';
 import { LiveSessionScreen } from './components/LiveSessionScreen';
 import { QaReportScreen } from './components/QaReportScreen';
+import { AnimatedPointLogo } from './components/AnimatedPointLogo';
+import { CursorDot } from './components/CursorDot';
 
+/**
+ * 앱 플로우:
+ *  랜딩 → "포인트 시작하기" → 로그인 → 코치 선택(Home) → 발표 준비(Upload) → 발표(Live) → 결과(QA)
+ */
 export default function App() {
   const { user, loading, signOut } = useAuth();
-  const appStarted = useSessionStore((s) => s.appStarted);
-  const skipPersonaSurvey = useSessionStore((s) => s.skipPersonaSurvey);
-  const selectedPersona = useSessionStore((s) => s.selectedPersona);
-  const status = useSessionStore((s) => s.session.status);
-  const setUserId = useSessionStore((s) => s.setUserId);
+  const appStarted          = useSessionStore((s) => s.appStarted);
+  const skipPersonaSurvey   = useSessionStore((s) => s.skipPersonaSurvey);
+  const selectedPersona     = useSessionStore((s) => s.selectedPersona);
+  const status              = useSessionStore((s) => s.session.status);
+  const setUserId           = useSessionStore((s) => s.setUserId);
+  const startPersonaStyleQuiz     = useSessionStore((s) => s.startPersonaStyleQuiz);
+  const startWithDefaultCoaching  = useSessionStore((s) => s.startWithDefaultCoaching);
+
+  /** 랜딩 "시작하기" 버튼을 눌렀는지 여부 */
+  const [landingDone, setLandingDone] = useState(false);
 
   useEffect(() => {
     if (user) setUserId(user.id);
   }, [user, setUserId]);
 
+  /* 세션 리셋 시 랜딩으로 복귀 */
+  useEffect(() => {
+    if (!appStarted) setLandingDone(false);
+  }, [appStarted]);
+
   useAppHistorySync(!!user && !loading);
 
-  if (loading) {
+  /* ── 1단계: 랜딩 ── */
+  if (!landingDone && !appStarted) {
     return (
-      <main className="login-screen">
-        <div className="login-card">
-          <h1 className="login-logo">Point</h1>
-          <p className="login-tagline">Loading…</p>
-        </div>
-      </main>
+      <>
+        <CursorDot />
+        <LandingScreen onStart={() => setLandingDone(true)} />
+      </>
     );
   }
 
-  if (!user) {
-    return <LoginScreen />;
+  /* ── 2단계: 인증 로딩 ── */
+  if (loading) {
+    return (
+      <>
+        <CursorDot />
+        <main className="login-screen">
+          <div className="login-card">
+            <h1 className="login-logo" aria-label="Point">
+              <AnimatedPointLogo />
+            </h1>
+            <p className="login-tagline">Loading…</p>
+          </div>
+        </main>
+      </>
+    );
   }
 
-  const userBar = (
+  /* ── 3단계: 미로그인 → 로그인 화면 ── */
+  if (!user) {
+    return (
+      <>
+        <CursorDot />
+        <LoginScreen />
+      </>
+    );
+  }
+
+  /* ── 4단계: 코치 선택 → 발표 플로우 ── */
+  const userBar: ReactNode = (
     <div className="user-bar">
       {user.user_metadata?.avatar_url && (
         <img
@@ -57,25 +97,34 @@ export default function App() {
     </div>
   );
 
+  let screen: ReactNode;
+
   if (!appStarted) {
-    return <HomeScreen userBar={userBar} userId={user.id} />;
+    /* 코치 선택 화면 */
+    screen = (
+      <HomeScreen
+        userBar={userBar}
+        userId={user.id}
+        onBack={() => setLandingDone(false)}
+        startPersonaStyleQuiz={startPersonaStyleQuiz}
+        startWithDefaultCoaching={startWithDefaultCoaching}
+      />
+    );
+  } else if (!selectedPersona && !skipPersonaSurvey) {
+    screen = <PersonaSurvey />;
+  } else if (status === 'PRESENTING') {
+    screen = <LiveSessionScreen />;
+  } else if (status === 'POST_QA' || status === 'REPORT' || status === 'DONE') {
+    screen = <QaReportScreen />;
+  } else {
+    /* IDLE / PRE_QUIZ → 발표 준비 */
+    screen = <UploadWorkspace />;
   }
 
-  if (!selectedPersona && !skipPersonaSurvey) {
-    return <PersonaSurvey />;
-  }
-
-  if (status === 'IDLE' || status === 'PRE_QUIZ') {
-    return <UploadWorkspace />;
-  }
-
-  if (status === 'PRESENTING') {
-    return <LiveSessionScreen />;
-  }
-
-  if (status === 'POST_QA' || status === 'REPORT' || status === 'DONE') {
-    return <QaReportScreen />;
-  }
-
-  return <UploadWorkspace />;
+  return (
+    <>
+      <CursorDot />
+      {screen}
+    </>
+  );
 }

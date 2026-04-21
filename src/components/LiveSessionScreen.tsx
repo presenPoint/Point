@@ -4,6 +4,7 @@ import { useLivePresenting } from '../hooks/useLivePresenting';
 import { cancelFeedbackSpeech, primeFeedbackAudio, speakFeedbackMessage } from '../lib/feedbackTts';
 import { useSessionStore } from '../store/sessionStore';
 import type { FeedbackItem, FeedbackLevel } from '../types/session';
+import { AnimatedPointLogo } from './AnimatedPointLogo';
 
 function formatMmSs(sec: number): string {
   const m = String(Math.floor(sec / 60)).padStart(2, '0');
@@ -167,7 +168,9 @@ export function LiveSessionScreen() {
 
       <div className="live-shell">
         <div className="live-topbar">
-          <div className="live-logo">Point</div>
+          <div className="live-logo" aria-label="Point">
+            <AnimatedPointLogo />
+          </div>
           <div className="rec-indicator">
             <div className="rec-dot" />
             <div className="rec-text">LIVE SESSION</div>

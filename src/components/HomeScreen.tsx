@@ -4,6 +4,8 @@ import { PERSONA_LIST, PERSONAS } from '../constants/personas';
 import { PersonaInfoModal } from './PersonaInfoModal';
 import type { ReactNode } from 'react';
 
+// startPersonaStyleQuiz / startWithDefaultCoaching 는 App.tsx 에서 props로 전달됩니다.
+
 function coachInitials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
   if (parts.length >= 2) {
@@ -89,11 +91,17 @@ function HistorySection({ userId }: { userId: string }) {
   );
 }
 
-export function HomeScreen({ userBar, userId }: { userBar?: ReactNode; userId?: string }) {
+interface HomeScreenProps {
+  userBar?: ReactNode;
+  userId?: string;
+  onBack?: () => void;
+  startPersonaStyleQuiz: () => void;
+  startWithDefaultCoaching: () => void;
+}
+
+export function HomeScreen({ userBar, userId, onBack, startPersonaStyleQuiz, startWithDefaultCoaching }: HomeScreenProps) {
   const setAppStarted = useSessionStore((s) => s.setAppStarted);
-  const setPersona = useSessionStore((s) => s.setPersona);
-  const startPersonaStyleQuiz = useSessionStore((s) => s.startPersonaStyleQuiz);
-  const startWithDefaultCoaching = useSessionStore((s) => s.startWithDefaultCoaching);
+  const setPersona   = useSessionStore((s) => s.setPersona);
   const [detailPersonaId, setDetailPersonaId] = useState<PersonaType | null>(null);
 
   const selectPersonaAndStart = (id: PersonaType) => {
@@ -111,90 +119,76 @@ export function HomeScreen({ userBar, userId }: { userBar?: ReactNode; userId?: 
 
   return (
     <main id="screen-home" className="point-screen screen-home" role="main">
-      {userBar}
-      <div className="home-content">
-        <h1 className="home-logo">Point</h1>
-        <p className="home-tagline">AI helps you beat presentation anxiety</p>
-        <p className="home-sub">
-          Live voice &amp; nonverbal coaching · Pre-learn your material · AI Q&amp;A
-          <br />
-          Feedback in the moment—no need to rewatch the recording.
-        </p>
-
-        <ul className="home-features" aria-label="Key features">
-          <li className="hf-chip">
-            <span className="dot dot-cyan" aria-hidden="true" />
-            Real-time nonverbal coaching
-          </li>
-          <li className="hf-chip">
-            <span className="dot dot-violet" aria-hidden="true" />
-            Pre-learn your presentation
-          </li>
-          <li className="hf-chip">
-            <span className="dot dot-green" aria-hidden="true" />
-            AI Q&amp;A
-          </li>
-        </ul>
-
-        <div className="home-cta-row" role="group" aria-label="시작 옵션">
-          <button type="button" className="home-cta-primary" onClick={startPersonaStyleQuiz}>
-            Suggested match
-            <span className="home-cta-sub">Solve the Quiz</span>
+      {/* 최상단 nav 줄 */}
+      <div className="coach-select-topbar">
+        {onBack && (
+          <button type="button" className="coach-select-back" onClick={onBack} aria-label="Back to landing">
+            ← Back
           </button>
-          <button type="button" className="home-cta-secondary" onClick={startWithDefaultCoaching}>
-            quick start
-            <span className="home-cta-sub">Default scoring</span>
-          </button>
-        </div>
+        )}
+        <div className="coach-select-topbar-right">{userBar}</div>
       </div>
 
-      <section className="home-persona-section" aria-labelledby="home-persona-heading">
-        <div className="home-persona-section-inner">
-          <p className="home-persona-eyebrow">Coach profiles</p>
-          <h2 id="home-persona-heading" className="home-persona-heading">
-            Browse styles
-          </h2>
-          <p className="home-persona-lead">
-            Tap a card to read how they present. Use <strong>Select</strong> to jump straight into a session with that style.
-          </p>
-        </div>
-        <div className="home-persona-strip">
-          <div className="home-persona-scroll">
-            <div className="home-persona-scroll-inner" role="list" aria-label="Coach style cards">
-              {PERSONA_LIST.map((p) => (
-                <article key={p.id} className="home-persona-card home-persona-card--compact" role="listitem">
-                  <button
-                    type="button"
-                    className="hpc-card-tap"
-                    onClick={() => setDetailPersonaId(p.id)}
-                    aria-label={`View ${p.name} presentation style`}
-                  >
-                    <PersonaCardPhoto name={p.name} src={p.cardImage} />
-                    <div className="hpc-card-body hpc-card-body--compact">
-                      <h3 className="hpc-name hpc-name--compact">{p.name}</h3>
-                      <p className="hpc-desc hpc-desc--compact">{p.description}</p>
-                      <p className="hpc-meta-inline">
-                        {p.config.wpmRange[0]}–{p.config.wpmRange[1]} WPM ·{' '}
-                        <span className="hpc-meta-tone">{p.config.feedbackTone}</span>
-                      </p>
-                    </div>
-                  </button>
-                  <button
-                    type="button"
-                    className="btn-persona-pick btn-persona-pick--compact"
-                    onClick={() => selectPersonaAndStart(p.id)}
-                  >
-                    Select
-                  </button>
-                </article>
-              ))}
+      {/* 코치 선택 + 진행 기록을 한 장의 노트 시트로 */}
+      <div className="home-notebook-sheet">
+        <section className="home-persona-section home-persona-section--page" aria-labelledby="home-persona-heading">
+          <div className="home-persona-section-inner">
+            <p className="home-persona-eyebrow">Coaching styles</p>
+            <h1 id="home-persona-heading" className="home-persona-heading">
+              Pick your coach
+            </h1>
+            <p className="home-persona-lead">
+              Each coach brings a different energy. Choose the style that fits your presentation.
+            </p>
+            <div className="coach-select-cta-row" role="group" aria-label="빠른 시작 옵션">
+              <button type="button" className="home-cta-primary" onClick={startPersonaStyleQuiz}>
+                Find My Match
+                <span className="home-cta-sub">Take the quiz · 30 sec</span>
+              </button>
+              <button type="button" className="home-cta-secondary" onClick={startWithDefaultCoaching}>
+                Quick Start
+                <span className="home-cta-sub">Skip to default coaching</span>
+              </button>
             </div>
           </div>
-        </div>
-      </section>
 
-      <div className="home-content home-content--after-cards">
-        {userId && <HistorySection userId={userId} />}
+          <div className="home-persona-strip">
+            <div className="home-persona-scroll">
+              <div className="home-persona-scroll-inner" role="list" aria-label="Coach style cards">
+                {PERSONA_LIST.map((p) => (
+                  <article key={p.id} className="home-persona-card home-persona-card--compact" role="listitem">
+                    <button
+                      type="button"
+                      className="hpc-card-tap"
+                      onClick={() => setDetailPersonaId(p.id)}
+                      aria-label={`View ${p.name} presentation style`}
+                    >
+                      <PersonaCardPhoto name={p.name} src={p.cardImage} />
+                      <div className="hpc-card-body hpc-card-body--compact">
+                        <h3 className="hpc-name hpc-name--compact">{p.name}</h3>
+                        <p className="hpc-desc hpc-desc--compact">{p.description}</p>
+                        <p className="hpc-meta-inline">
+                          {p.presentationInfo.archetype}
+                        </p>
+                      </div>
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-persona-pick btn-persona-pick--compact"
+                      onClick={() => selectPersonaAndStart(p.id)}
+                    >
+                      Select
+                    </button>
+                  </article>
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <div className="home-content home-content--after-cards">
+          {userId && <HistorySection userId={userId} />}
+        </div>
       </div>
 
       {detailPersonaId && (

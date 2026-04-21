@@ -1,5 +1,6 @@
 import { useAuth } from '../hooks/useAuth';
 import { hasSupabase } from '../lib/supabase';
+import { AnimatedPointLogo } from './AnimatedPointLogo';
 
 export function LoginScreen() {
   const { signInWithGoogle, loading } = useAuth();
@@ -8,7 +9,9 @@ export function LoginScreen() {
     return (
       <main className="login-screen">
         <div className="login-card">
-          <h1 className="login-logo">Point</h1>
+          <h1 className="login-logo" aria-label="Point">
+            <AnimatedPointLogo />
+          </h1>
           <p className="login-error">
             Supabase is not configured. Please set <code>VITE_SUPABASE_URL</code> and{' '}
             <code>VITE_SUPABASE_ANON_KEY</code> in your <code>.env.local</code> file.
@@ -21,7 +24,9 @@ export function LoginScreen() {
   return (
     <main className="login-screen">
       <div className="login-card">
-        <h1 className="login-logo">Point</h1>
+        <h1 className="login-logo" aria-label="Point">
+          <AnimatedPointLogo />
+        </h1>
         <p className="login-tagline">AI-Powered Presentation Coach</p>
 
         <button
