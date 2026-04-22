@@ -130,8 +130,13 @@ export interface SessionContext {
     dynamism_log: DynamismEntry[];
   };
 
+  /** True when the user chose to skip the practice Q&A and generate the report from speech/nonverbal only. */
+  qa_skipped?: boolean;
+
   qa: {
     exchanges: QaExchange[];
+    /** 이 세션에서 진행할 Q&A 질문 수(3–5), 세션 생성 시 무작위 고정 */
+    planned_rounds: number;
     final_score: number;
     best_answer_turn: number;
     worst_answer_turn: number;
@@ -166,8 +171,12 @@ export interface ActionableFeedback {
 
 /** Persona-benchmark delivery & rhetoric section (report only; optional for older sessions). */
 export interface PersonaPhraseRewrite {
+  /** 실제 발화·전사에서 인용한 한 덩어리 */
   from_session: string;
+  /** 선택한 코치 톤으로 다시 말한 예시(말하는 방식 위주) */
   persona_aligned_example: string;
+  /** 선택: 왜 이렇게 바꾸는지 한 줄(호흡·띄어읽기·근거 제시 방식 등) */
+  why?: string;
 }
 
 export interface PersonaStyleCoaching {

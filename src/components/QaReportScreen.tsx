@@ -1,11 +1,20 @@
 import { useEffect, useRef, useState } from 'react';
 import { useSpeechToText } from '../hooks/useSpeechToText';
 import { useSessionStore } from '../store/sessionStore';
+import { downloadReportPdfFromElement } from '../lib/reportPdf';
 import { ScoreRing } from './ScoreRing';
 import { ReportTranscriptSection } from './ReportTranscriptSection';
 import { AnimatedPointLogo } from './AnimatedPointLogo';
 
-function QaTopBar({ sessionDone }: { sessionDone: boolean }) {
+function QaTopBar({
+  sessionDone,
+  onExportPdf,
+  pdfExporting,
+}: {
+  sessionDone: boolean;
+  onExportPdf?: () => void | Promise<void>;
+  pdfExporting?: boolean;
+}) {
   const resetSession = useSessionStore((s) => s.resetSession);
   const setAppStarted = useSessionStore((s) => s.setAppStarted);
   const persistSession = useSessionStore((s) => s.persistSession);
@@ -27,6 +36,16 @@ function QaTopBar({ sessionDone }: { sessionDone: boolean }) {
         </div>
       </div>
       <div className="topbar-right">
+        {sessionDone && onExportPdf && (
+          <button
+            type="button"
+            className="btn-sm qa-pdf-export-btn"
+            disabled={pdfExporting}
+            onClick={() => void onExportPdf()}
+          >
+            {pdfExporting ? 'PDF 준비 중…' : '📄 PDF 다운로드'}
+          </button>
+        )}
         <button type="button" className="btn-sm" onClick={() => void persistSession()}>
           📥 Save Report
         </button>
@@ -58,24 +77,36 @@ export function QaReportScreen() {
   const busy = useSessionStore((s) => s.busy);
   const startQa = useSessionStore((s) => s.startQa);
   const submitQaAnswer = useSessionStore((s) => s.submitQaAnswer);
+  const skipQaAndRunReport = useSessionStore((s) => s.skipQaAndRunReport);
   const { transcript, listening, transcribing, error: sttError, start: startSTT, stop: stopSTT, reset: resetSTT } = useSpeechToText();
   const [textFallback, setTextFallback] = useState(false);
   const [textAnswer, setTextAnswer] = useState('');
+  const [pdfExporting, setPdfExporting] = useState(false);
   const qaInit = useRef(false);
+  const reportPdfRootRef = useRef<HTMLDivElement>(null);
 
   const done = session.status === 'DONE';
   const reporting = session.status === 'REPORT';
+  /** Step 2: Q&A 채점 중이거나 최종 보고서 생성 중 */
+  const showGenerating =
+    session.status === 'REPORT' || (session.status === 'POST_QA' && busy === 'Grading Q&A…');
+  const showQaPass =
+    !done && session.status === 'POST_QA' && !session.qa_skipped && !showGenerating;
+
+  const reportSubLine = done
+    ? `Total duration ${formatDuration(session.speech_coaching.total_duration_sec)} · ${new Date(session.report.generated_at || Date.now()).toLocaleString('en-US')}`
+    : '';
 
   useEffect(() => {
     qaInit.current = false;
   }, [session.session_id]);
 
   useEffect(() => {
-    if (done || reporting) return;
+    if (done || reporting || session.qa_skipped) return;
     if (qaInit.current) return;
     qaInit.current = true;
     void startQa();
-  }, [startQa, done, reporting]);
+  }, [startQa, done, reporting, session.qa_skipped, session.session_id]);
 
   const onSend = () => {
     const text = textFallback ? textAnswer.trim() : transcript.trim();
@@ -99,23 +130,24 @@ export function QaReportScreen() {
     }
   };
 
-  const subLine = done
-    ? `Total duration ${formatDuration(session.speech_coaching.total_duration_sec)} · ${new Date(session.report.generated_at || Date.now()).toLocaleString('en-US')}`
-    : `Q&A in progress · Total duration ${formatDuration(session.speech_coaching.total_duration_sec)}`;
+  const handleExportPdf = async () => {
+    setPdfExporting(true);
+    try {
+      await downloadReportPdfFromElement(reportPdfRootRef.current, session.session_id);
+    } catch (err) {
+      console.error('[Point] PDF export failed', err);
+      window.alert(err instanceof Error ? err.message : 'PDF를 만들지 못했습니다. 잠시 후 다시 시도해 주세요.');
+    } finally {
+      setPdfExporting(false);
+    }
+  };
 
-  return (
-    <div id="screen-qa" className="point-screen">
-      <div className="qa-shell">
-        <QaTopBar sessionDone={done} />
+  const wizardStep = done ? 3 : showGenerating ? 2 : 1;
+  const wizardStepName = done ? 'Your report' : showGenerating ? 'Building report' : 'Audience Q&A';
 
-        <div className="qa-main">
-          <div className="report-side">
-            <h2>{done ? 'Presentation Report' : 'Report Preview'}</h2>
-            <div className="report-sub">{subLine}</div>
-
-            {done ? (
-              <>
-                <div className="score-row">
+  const reportScoresAndBody = (
+    <>
+      <div className="score-row">
                   <div className="score-circle">
                     <ScoreRing value={session.report.speech_score} colorVar="var(--cyan)" />
                     <div className="circle-label">
@@ -133,7 +165,14 @@ export function QaReportScreen() {
                     </div>
                   </div>
                   <div className="score-circle">
-                    <ScoreRing value={session.report.qa_score} colorVar="var(--green)" />
+                    {session.qa_skipped ? (
+                      <div className="score-ring-skipped" aria-label="Q&A skipped">
+                        <span className="score-ring-skipped-label">—</span>
+                        <span className="score-ring-skipped-sub">Skipped</span>
+                      </div>
+                    ) : (
+                      <ScoreRing value={session.report.qa_score} colorVar="var(--green)" />
+                    )}
                     <div className="circle-label">
                       Q&A
                       <br />
@@ -149,6 +188,39 @@ export function QaReportScreen() {
                     </div>
                   </div>
                 </div>
+
+                {selectedPersona && session.report.persona_style_coaching && (
+                  <>
+                    <div className="report-section-title">Concrete delivery fixes</div>
+                    <p className="report-corrections-lead">
+                      {session.material.script_text.trim().length >= 20
+                        ? 'Your uploaded manuscript vs what you actually said — same ideas, reshaped in your coach’s speaking style (pace, framing, signposting).'
+                        : 'From your spoken transcript only (no manuscript on file) — delivery and wording in your coach’s voice, without inventing a script you did not provide.'}
+                    </p>
+                    {(session.report.persona_style_coaching.phrase_rewrites?.length ?? 0) > 0 ? (
+                      <div className="report-rewrite-list report-rewrite-list--featured">
+                        {session.report.persona_style_coaching.phrase_rewrites!.map((rw, i) => (
+                          <div key={i} className="report-rewrite-card">
+                            <div className="report-rewrite-label">What you said</div>
+                            <p className="report-rewrite-from">{rw.from_session}</p>
+                            <div className="report-rewrite-label report-rewrite-label-alt">Coach-style phrasing</div>
+                            <p className="report-rewrite-to">{rw.persona_aligned_example}</p>
+                            {rw.why && (
+                              <>
+                                <div className="report-rewrite-label report-rewrite-label-why">Why</div>
+                                <p className="report-rewrite-why">{rw.why}</p>
+                              </>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="report-corrections-empty">
+                        No line-level rewrites were generated for this session (often when the transcript was too short for fair quotes).
+                      </div>
+                    )}
+                  </>
+                )}
 
                 <div className="report-section-title">Strengths 👍</div>
                 <div className="insight-list">
@@ -176,22 +248,6 @@ export function QaReportScreen() {
                           <li key={i}>{line}</li>
                         ))}
                       </ul>
-                      {session.report.persona_style_coaching.phrase_rewrites &&
-                        session.report.persona_style_coaching.phrase_rewrites.length > 0 && (
-                          <>
-                            <h4 className="report-persona-sub">Line-level examples</h4>
-                            <div className="report-rewrite-list">
-                              {session.report.persona_style_coaching.phrase_rewrites.map((rw, i) => (
-                                <div key={i} className="report-rewrite-card">
-                                  <div className="report-rewrite-label">From your session</div>
-                                  <p className="report-rewrite-from">{rw.from_session}</p>
-                                  <div className="report-rewrite-label report-rewrite-label-alt">Persona-aligned alternative</div>
-                                  <p className="report-rewrite-to">{rw.persona_aligned_example}</p>
-                                </div>
-                              ))}
-                            </div>
-                          </>
-                        )}
                     </div>
                   </>
                 )}
@@ -249,159 +305,227 @@ export function QaReportScreen() {
                   })}
                 </div>
 
-                <ReportTranscriptSection
-                  transcriptLog={session.speech_coaching.transcript_log}
-                  sessionStartedAt={session.started_at}
-                  sessionId={session.session_id}
-                  selectedPersona={selectedPersona}
-                />
-              </>
-            ) : (
-              <div className="insight-list">
-                <div className="insight-item insight-item-pending">
-                  <div className="insight-icon" aria-hidden="true">⏳</div>
-                  <div className="insight-content">
-                    <div className="insight-title">Generated after Q&A</div>
-                    <div className="insight-desc">
-                      Answer 5 questions in the chat and your overall score and feedback will appear here.
-                    </div>
-                  </div>
-                </div>
-                {reporting && (
-                  <div className="insight-item insight-item-reporting">
-                    <div className="insight-icon" aria-hidden="true">✨</div>
-                    <div className="insight-content">
-                      <div className="insight-title">Generating report...</div>
-                      <div className="insight-desc">{busy || 'Please wait.'}</div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
+      <ReportTranscriptSection
+        transcriptLog={session.speech_coaching.transcript_log}
+        sessionStartedAt={session.started_at}
+        sessionId={session.session_id}
+        selectedPersona={selectedPersona}
+      />
+    </>
+  );
+
+  const generatingTitle =
+    busy === 'Grading Q&A…' ? 'Scoring your Q&A answers…' : 'Generating your presentation report…';
+
+  return (
+    <div id="screen-qa" className="point-screen">
+      <div className="qa-shell qa-shell--wizard">
+        <QaTopBar
+          sessionDone={done}
+          onExportPdf={handleExportPdf}
+          pdfExporting={pdfExporting}
+        />
+
+        <div className="qa-wizard-stage-wrap">
+          <div className="qa-wizard-top-meta" aria-live="polite">
+            <span className="qa-wizard-pill">Wrap-up</span>
+            <span className="qa-wizard-stepcount">Step {wizardStep} of 3</span>
+            <span className="qa-wizard-stepname">{wizardStepName}</span>
           </div>
 
-          <div className="qa-chat-side">
-            <div className="qac-header">
-              <div className="qac-title">🤖 AI Q&A</div>
-              <div className="qac-sub">AI asks questions as your audience ({session.qa.exchanges.length}/5)</div>
-            </div>
-
-            <div className="chat-messages">
-              <div className="msg ai">
-                <div className="msg-bubble">
-                  Great presentation! I'll ask a few questions based on your materials. 🎤
-                </div>
-                <div className="msg-meta">Point AI</div>
+          {showGenerating ? (
+            <div className="qa-wizard-stage qa-wizard-stage--center">
+              <div className="qa-generating-card">
+                <div className="quiz-grading-spinner" aria-hidden />
+                <p className="qa-generating-title">{generatingTitle}</p>
+                <p className="qa-generating-sub">{busy || 'Please wait…'}</p>
               </div>
-              {session.qa.exchanges.map((ex) => (
-                <div key={ex.turn}>
-                  <div className="msg ai">
-                    <div className="msg-bubble">{ex.question}</div>
-                    <div className="msg-meta">Point AI · Q{ex.turn}</div>
-                  </div>
-                  <div className="msg user">
-                    <div className="msg-bubble">{ex.answer}</div>
-                    <div className="msg-meta">You</div>
-                  </div>
+            </div>
+          ) : done ? (
+            <div className="qa-wizard-stage qa-wizard-stage--report">
+              <div className="report-pdf-toolbar">
+                <button
+                  type="button"
+                  className="btn-sm qa-pdf-export-btn"
+                  disabled={pdfExporting}
+                  onClick={() => void handleExportPdf()}
+                >
+                  {pdfExporting ? 'PDF 준비 중…' : '📄 보고서 PDF 저장'}
+                </button>
+              </div>
+              <div ref={reportPdfRootRef} className="report-side report-side--wizard-solo report-side--pdf-root">
+                <h2>Presentation Report</h2>
+                <div className="report-sub">{reportSubLine}</div>
+                {reportScoresAndBody}
+              </div>
+            </div>
+          ) : (
+            <div className="qa-wizard-stage qa-wizard-stage--qa">
+              <div className="qa-chat-side qa-chat-side--wizard-solo">
+                <div className="qa-wizard-qa-toolbar">
+                  {showQaPass && (
+                    <button
+                      type="button"
+                      className="btn-sm qa-skip-report-btn"
+                      onClick={() => void skipQaAndRunReport()}
+                    >
+                      Skip Q&amp;A — get report
+                    </button>
+                  )}
                 </div>
-              ))}
-              {!done &&
-                !busy &&
-                qaCurrentQuestion &&
-                session.qa.exchanges.length < 5 &&
-                session.qa.exchanges.at(-1)?.question !== qaCurrentQuestion && (
+                <div className="qac-header">
+                  <div className="qac-title">🤖 AI Q&A</div>
+                  <div className="qac-sub">
+                    AI asks questions as your audience ({session.qa.exchanges.length}/{session.qa.planned_rounds ?? 5})
+                  </div>
+                  <p className="qac-lead">
+                    Answer {session.qa.planned_rounds ?? 5} questions, or use <strong>Pass</strong> by the mic to jump
+                    straight to your report.
+                  </p>
+                </div>
+
+                <div className="chat-messages">
                   <div className="msg ai">
-                    <div className="msg-bubble">{qaCurrentQuestion}</div>
+                    <div className="msg-bubble">
+                      Great presentation! I&apos;ll ask a few questions based on your materials. 🎤
+                    </div>
                     <div className="msg-meta">Point AI</div>
                   </div>
-                )}
-              {busy && !done && (
-                <div className="msg ai">
-                  <div className="msg-bubble">
-                    <div className="ai-typing">
-                      <div className="typing-dot" />
-                      <div className="typing-dot" />
-                      <div className="typing-dot" />
+                  {session.qa.exchanges.map((ex) => (
+                    <div key={ex.turn}>
+                      <div className="msg ai">
+                        <div className="msg-bubble">{ex.question}</div>
+                        <div className="msg-meta">Point AI · Q{ex.turn}</div>
+                      </div>
+                      <div className="msg user">
+                        <div className="msg-bubble">{ex.answer}</div>
+                        <div className="msg-meta">You</div>
+                      </div>
                     </div>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div className="chat-input-area voice-input-area">
-              {done ? (
-                <div className="voice-done-msg">Q&A session has ended.</div>
-              ) : textFallback ? (
-                <>
-                  <div className="text-input-row">
-                    <textarea
-                      className="chat-input"
-                      placeholder="Type your answer..."
-                      rows={2}
-                      value={textAnswer}
-                      disabled={reporting || !qaCurrentQuestion || !!busy}
-                      onChange={(e) => setTextAnswer(e.target.value)}
-                      onKeyDown={onKeyDown}
-                    />
-                    <button
-                      type="button"
-                      className="btn-send"
-                      disabled={!textAnswer.trim() || reporting || !qaCurrentQuestion || !!busy}
-                      onClick={onSend}
-                      aria-label="Send"
-                    >
-                      Send ↑
-                    </button>
-                  </div>
-                  <button type="button" className="voice-mode-toggle" onClick={() => setTextFallback(false)}>
-                    🎙 Switch to voice input
-                  </button>
-                </>
-              ) : (
-                <>
-                  <div className="voice-transcript-box">
-                    {transcript ? (
-                      <span className="voice-transcript-text">{transcript}</span>
-                    ) : (
-                      <span className="voice-placeholder">
-                        {listening ? 'Recording...' : transcribing ? 'Transcribing...' : '🎙 Press mic to answer with voice'}
-                      </span>
+                  ))}
+                  {!showGenerating &&
+                    !busy &&
+                    qaCurrentQuestion &&
+                    session.qa.exchanges.length < (session.qa.planned_rounds ?? 5) &&
+                    session.qa.exchanges.at(-1)?.question !== qaCurrentQuestion && (
+                      <div className="msg ai">
+                        <div className="msg-bubble">{qaCurrentQuestion}</div>
+                        <div className="msg-meta">Point AI</div>
+                      </div>
                     )}
-                    {listening && <span className="voice-pulse" />}
-                    {transcribing && <span className="voice-spinner" />}
-                  </div>
-                  {sttError && (
-                    <div className="voice-error">
-                      {sttError}
-                      <button type="button" className="voice-fallback-btn" onClick={() => setTextFallback(true)}>
-                        ⌨ Switch to text input
-                      </button>
+                  {busy && !showGenerating && (
+                    <div className="msg ai">
+                      <div className="msg-bubble">
+                        <div className="ai-typing">
+                          <div className="typing-dot" />
+                          <div className="typing-dot" />
+                          <div className="typing-dot" />
+                        </div>
+                      </div>
                     </div>
                   )}
-                  <div className="voice-actions">
-                    <button
-                      type="button"
-                      className={`btn-mic${listening ? ' recording' : ''}`}
-                      disabled={reporting || !qaCurrentQuestion || !!busy || transcribing}
-                      onClick={toggleMic}
-                      aria-label={listening ? 'Stop recording' : 'Voice recording'}
-                    >
-                      {listening ? '⏹' : transcribing ? '...' : '🎙'}
-                    </button>
-                    <button
-                      type="button"
-                      className="btn-send"
-                      disabled={!transcript.trim() || reporting || !qaCurrentQuestion || !!busy || transcribing}
-                      onClick={onSend}
-                      aria-label="Send"
-                    >
-                      Send ↑
-                    </button>
-                  </div>
-                </>
-              )}
+                </div>
+
+                <div className="chat-input-area voice-input-area">
+                  {textFallback ? (
+                    <>
+                      <div className="text-input-row">
+                        <textarea
+                          className="chat-input"
+                          placeholder="Type your answer..."
+                          rows={2}
+                          value={textAnswer}
+                          disabled={!qaCurrentQuestion || !!busy}
+                          onChange={(e) => setTextAnswer(e.target.value)}
+                          onKeyDown={onKeyDown}
+                        />
+                        <div className="text-input-side-actions">
+                          {showQaPass && (
+                            <button
+                              type="button"
+                              className="btn-sm qa-input-skip-btn"
+                              title="Skip remaining Q&A and generate your report"
+                              onClick={() => void skipQaAndRunReport()}
+                            >
+                              Pass
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            className="btn-send"
+                            disabled={!textAnswer.trim() || !qaCurrentQuestion || !!busy}
+                            onClick={onSend}
+                            aria-label="Send"
+                          >
+                            Send ↑
+                          </button>
+                        </div>
+                      </div>
+                      <button type="button" className="voice-mode-toggle" onClick={() => setTextFallback(false)}>
+                        🎙 Switch to voice input
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <div className="voice-transcript-box">
+                        {transcript ? (
+                          <span className="voice-transcript-text">{transcript}</span>
+                        ) : (
+                          <span className="voice-placeholder">
+                            {listening
+                              ? 'Recording...'
+                              : transcribing
+                                ? 'Transcribing...'
+                                : '🎙 Press mic to answer with voice'}
+                          </span>
+                        )}
+                        {listening && <span className="voice-pulse" />}
+                        {transcribing && <span className="voice-spinner" />}
+                      </div>
+                      {sttError && (
+                        <div className="voice-error">
+                          {sttError}
+                          <button type="button" className="voice-fallback-btn" onClick={() => setTextFallback(true)}>
+                            ⌨ Switch to text input
+                          </button>
+                        </div>
+                      )}
+                      <div className="voice-actions">
+                        <button
+                          type="button"
+                          className={`btn-mic${listening ? ' recording' : ''}`}
+                          disabled={!qaCurrentQuestion || !!busy || transcribing}
+                          onClick={toggleMic}
+                          aria-label={listening ? 'Stop recording' : 'Voice recording'}
+                        >
+                          {listening ? '⏹' : transcribing ? '...' : '🎙'}
+                        </button>
+                        {showQaPass && (
+                          <button
+                            type="button"
+                            className="btn-sm qa-input-skip-btn"
+                            title="Skip remaining Q&A and generate your report"
+                            onClick={() => void skipQaAndRunReport()}
+                          >
+                            Pass
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          className="btn-send voice-send-btn"
+                          disabled={!transcript.trim() || !qaCurrentQuestion || !!busy || transcribing}
+                          onClick={onSend}
+                          aria-label="Send"
+                        >
+                          Send ↑
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
     </div>

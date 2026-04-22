@@ -22,6 +22,7 @@ export function parseGptResponse(text: string): { message: string; isComplete: b
 }
 
 function buildSystemPrompt(ctx: SessionContext, currentTurn: number): string {
+  const total = ctx.qa.planned_rounds ?? 5;
   const off = ctx.speech_coaching.off_topic_log.map((e) => e.excerpt).join(' / ');
 
   const scriptBlock = ctx.material.script_text?.trim()
@@ -49,13 +50,12 @@ ${ctx.material.weak_areas.length ? ctx.material.weak_areas.join(', ') : '(No spe
 ${off || '(None)'}
 ${scriptBlock}${styleBlock}
 [Rules]
-- You must end after a total of 5 questions
-- Current turn: ${currentTurn} / 5
-- Turns 1–2: Basic comprehension questions (friendly tone)
-- Turns 3–4: Focused questions on weak areas or script key phrases the presenter may have missed (strict tone)
-- Turn 5: The sharpest rebuttal or a deep question like "What do you think is the biggest weakness of this presentation?"
-- After completing turn 5, append the [QA_COMPLETE] tag at the end of your response
-- Keep questions concise — two sentences or fewer
+- This session has exactly ${total} audience questions total (you are on turn ${currentTurn} of ${total}).
+- After you output question ${total}, append the tag [QA_COMPLETE] at the very end of your message (no text after the tag).
+- Early turns (roughly the first half, rounded up): basic comprehension, friendly tone.
+- Middle turns (if any): probe weak areas, off-topic moments, or script phrases they may have missed — stricter.
+- Final turn: the sharpest rebuttal or a deep question (e.g. biggest weakness or unstated risk of the pitch).
+- Keep each question concise — two sentences or fewer
 - Respond in English`;
 }
 
@@ -72,8 +72,9 @@ export async function qaNextQuestion(
   ctx: SessionContext,
   exchanges: QaExchange[]
 ): Promise<{ text: string; isComplete: boolean }> {
+  const total = ctx.qa.planned_rounds ?? 5;
   const nextTurn = exchanges.length + 1;
-  if (nextTurn > 5) {
+  if (nextTurn > total) {
     return { text: '', isComplete: true };
   }
 

@@ -115,4 +115,9 @@ export const PERSONAS: Record<PersonaType, Persona> = {
 
 };
 
-export const PERSONA_LIST = Object.values(PERSONAS);
+/** 홈 카드 가로 스크롤 순서 — 브레네 박사(connector)를 가운데에 둠 */
+export const PERSONA_LIST: Persona[] = [
+  PERSONAS.visionary,
+  PERSONAS.connector,
+  PERSONAS.orator,
+];

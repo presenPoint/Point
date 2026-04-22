@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useSessionStore, loadSessionHistory, type SessionHistoryItem, type PersonaType } from '../store/sessionStore';
 import { PERSONA_LIST, PERSONAS } from '../constants/personas';
 import { PersonaInfoModal } from './PersonaInfoModal';
@@ -103,6 +103,18 @@ export function HomeScreen({ userBar, userId, onBack, startPersonaStyleQuiz, sta
   const setAppStarted = useSessionStore((s) => s.setAppStarted);
   const setPersona   = useSessionStore((s) => s.setPersona);
   const [detailPersonaId, setDetailPersonaId] = useState<PersonaType | null>(null);
+  const personaScrollRef = useRef<HTMLDivElement>(null);
+
+  /** 카드 순서: Jobs — Brené — Obama. 첫 진입 시 가운데(Brené)가 스크롤 영역 중앙에 오도록 */
+  useLayoutEffect(() => {
+    const scroll = personaScrollRef.current;
+    if (!scroll) return;
+    const card = scroll.querySelector<HTMLElement>('[data-persona-card="connector"]');
+    if (!card) return;
+    const target =
+      card.offsetLeft - scroll.clientWidth / 2 + card.offsetWidth / 2;
+    scroll.scrollLeft = Math.max(0, Math.min(target, scroll.scrollWidth - scroll.clientWidth));
+  }, []);
 
   const selectPersonaAndStart = (id: PersonaType) => {
     setPersona(id);
@@ -119,18 +131,17 @@ export function HomeScreen({ userBar, userId, onBack, startPersonaStyleQuiz, sta
 
   return (
     <main id="screen-home" className="point-screen screen-home" role="main">
-      {/* 최상단 nav 줄 */}
-      <div className="coach-select-topbar">
-        {onBack && (
-          <button type="button" className="coach-select-back" onClick={onBack} aria-label="Back to landing">
-            ← Back
-          </button>
-        )}
-        <div className="coach-select-topbar-right">{userBar}</div>
-      </div>
-
-      {/* 코치 선택 + 진행 기록을 한 장의 노트 시트로 */}
+      {/* 코치 선택 + 진행 기록을 한 장의 노트 시트로 (상단 계정 바 포함) */}
       <div className="home-notebook-sheet">
+        <div className="coach-select-topbar coach-select-topbar--in-sheet">
+          {onBack && (
+            <button type="button" className="coach-select-back" onClick={onBack} aria-label="Back to landing">
+              ← Back
+            </button>
+          )}
+          <div className="coach-select-topbar-right">{userBar}</div>
+        </div>
+
         <section className="home-persona-section home-persona-section--page" aria-labelledby="home-persona-heading">
           <div className="home-persona-section-inner">
             <p className="home-persona-eyebrow">Coaching styles</p>
@@ -153,10 +164,15 @@ export function HomeScreen({ userBar, userId, onBack, startPersonaStyleQuiz, sta
           </div>
 
           <div className="home-persona-strip">
-            <div className="home-persona-scroll">
+            <div className="home-persona-scroll" ref={personaScrollRef}>
               <div className="home-persona-scroll-inner" role="list" aria-label="Coach style cards">
                 {PERSONA_LIST.map((p) => (
-                  <article key={p.id} className="home-persona-card home-persona-card--compact" role="listitem">
+                  <article
+                    key={p.id}
+                    className="home-persona-card home-persona-card--compact"
+                    role="listitem"
+                    data-persona-card={p.id}
+                  >
                     <button
                       type="button"
                       className="hpc-card-tap"

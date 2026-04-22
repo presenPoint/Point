@@ -46,6 +46,8 @@ export function LiveSessionScreen() {
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const [camOn, setCamOn] = useState(false);
+  /** 발표자 시점: 관객을 보며 연습(기본) — 카메라는 뒤에서 추적만. Self는 내 화면 확인용. */
+  const [stageView, setStageView] = useState<'audience' | 'self'>('audience');
 
   useEffect(() => {
     const t = window.setInterval(() => {
@@ -203,22 +205,62 @@ export function LiveSessionScreen() {
 
         <div className="live-main">
           <div className="camera-area">
-            <video
-              ref={videoRef}
-              className={`camera-feed${camOn ? '' : ' hidden'}`}
-              autoPlay
-              muted
-              playsInline
-            />
-            {!camOn && (
-              <div className="cam-placeholder">
-                <div className="cam-icon" aria-hidden="true">📹</div>
-                <div className="cam-label">Camera is optional · Voice coaching works with mic only</div>
-                <div className="cam-action">
-                  <button type="button" className="btn-primary btn-cam" onClick={startCamera}>
-                    Turn on Camera
-                  </button>
+            <div className="camera-area-stack">
+              <video
+                ref={videoRef}
+                className={`camera-feed${!camOn ? ' hidden' : ''}${camOn && stageView === 'audience' ? ' camera-feed--tracking-only' : ''}`}
+                autoPlay
+                muted
+                playsInline
+              />
+              {stageView === 'audience' && (
+                <div className="audience-stage" aria-hidden="true">
+                  <div className="audience-stage-vignette" />
+                  <div className="audience-row">
+                    {Array.from({ length: 7 }, (_, i) => (
+                      <div key={i} className={`audience-silhouette audience-silhouette--${i}`} />
+                    ))}
+                  </div>
+                  <div className="audience-stage-caption">
+                    <span className="audience-stage-title">Your audience</span>
+                    <span className="audience-stage-sub">
+                      {camOn
+                        ? 'Camera runs behind this view — practice looking at people, not at yourself.'
+                        : 'Turn on the camera so Point can track gaze & posture while you face the room.'}
+                    </span>
+                  </div>
                 </div>
+              )}
+              {!camOn && (
+                <div
+                  className={`cam-placeholder${stageView === 'audience' ? ' cam-placeholder--over-audience' : ''}`}
+                >
+                  <div className="cam-icon" aria-hidden="true">📹</div>
+                  <div className="cam-label">Camera is optional · Voice coaching works with mic only</div>
+                  <div className="cam-action">
+                    <button type="button" className="btn-primary btn-cam" onClick={startCamera}>
+                      Turn on Camera
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+            {camOn && (
+              <div className="cam-perspective-toggle" role="group" aria-label="Main stage view">
+                <button
+                  type="button"
+                  className={`cam-perspective-btn${stageView === 'audience' ? ' active' : ''}`}
+                  onClick={() => setStageView('audience')}
+                >
+                  Audience
+                </button>
+                <button
+                  type="button"
+                  className={`cam-perspective-btn${stageView === 'self' ? ' active' : ''}`}
+                  onClick={() => setStageView('self')}
+                >
+                  Self cam
+                </button>
               </div>
             )}
             <div className="scan-line" />

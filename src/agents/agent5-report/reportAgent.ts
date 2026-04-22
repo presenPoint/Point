@@ -194,9 +194,12 @@ export function calcCompositeScore(ctx: SessionContext, wpmRange?: [number, numb
   const nonverbalBase = Math.round(gazeScore * 0.35 + postureScore * 0.25 + gestureScore * 0.2 + contextAnalysis.contextScore * 0.2);
   const nonverbalScore = Math.max(0, Math.min(100, nonverbalBase));
 
-  const qaScore = ctx.qa.final_score || 0;
+  const qaSkipped = Boolean(ctx.qa_skipped);
+  const qaScore = qaSkipped ? 0 : ctx.qa.final_score || 0;
 
-  const compositeScore = Math.round(speechScore * 0.4 + nonverbalScore * 0.3 + qaScore * 0.3);
+  const compositeScore = qaSkipped
+    ? Math.round((speechScore * 4 + nonverbalScore * 3) / 7)
+    : Math.round(speechScore * 0.4 + nonverbalScore * 0.3 + qaScore * 0.3);
 
   return { compositeScore, speechScore, nonverbalScore, qaScore, contextAnalysis };
 }
@@ -227,6 +230,17 @@ function formatInsightsForGPT(analysis: ContextAnalysisResult, sessionStart: num
   }
 
   return lines.join('\n');
+}
+
+/** 업로드·입력된 원고가 있으면 계획 대본으로 취급 (임베딩과 동일하게 최소 길이) */
+function hasScriptPlan(ctx: SessionContext): boolean {
+  return ctx.material.script_text.trim().length >= 20;
+}
+
+function scriptPlanExcerpt(ctx: SessionContext, maxChars = 1500): string {
+  const t = ctx.material.script_text.trim();
+  if (!t) return '';
+  return t.length > maxChars ? `${t.slice(0, maxChars)}…` : t;
 }
 
 function transcriptExcerpt(ctx: SessionContext, maxChars = 1800): string {
@@ -274,17 +288,20 @@ function normalizePersonaStyleCoaching(
   const rewrites = Array.isArray(raw.phrase_rewrites)
     ? raw.phrase_rewrites
         .filter(
-          (r): r is { from_session: string; persona_aligned_example: string } =>
+          (r): r is { from_session: string; persona_aligned_example: string; why?: string } =>
             r &&
             typeof r.from_session === 'string' &&
             typeof r.persona_aligned_example === 'string' &&
             r.from_session.trim().length > 0 &&
             r.persona_aligned_example.trim().length > 0,
         )
-        .slice(0, 2)
+        .slice(0, 5)
         .map((r) => ({
-          from_session: r.from_session.trim().slice(0, 220),
-          persona_aligned_example: r.persona_aligned_example.trim().slice(0, 280),
+          from_session: r.from_session.trim().slice(0, 280),
+          persona_aligned_example: r.persona_aligned_example.trim().slice(0, 340),
+          ...(typeof r.why === 'string' && r.why.trim()
+            ? { why: r.why.trim().slice(0, 160) }
+            : {}),
         }))
     : [];
   return {
@@ -391,6 +408,8 @@ export async function generateReportNarrative(
   const topicMeta = topicBlock ? `${topicBlock}\n` : '';
 
   const speechExcerpt = transcriptExcerpt(ctx);
+  const scriptPresent = hasScriptPlan(ctx);
+  const planExcerpt = scriptPresent ? scriptPlanExcerpt(ctx) : '';
 
   // Script coverage (passed in from sessionStore after calcScriptCoverage)
   const scriptCoverageBlock = scriptCoverage != null
@@ -401,6 +420,20 @@ export async function generateReportNarrative(
   const scriptStyleBlock = ctx.material.script_style
     ? `Script style: ${ctx.material.script_style.tone} tone, ${ctx.material.script_style.complexity} complexity, ~${ctx.material.script_style.estimatedMinutes} min planned`
     : '';
+
+  const manuscriptVsSpeechBlock = scriptPresent
+    ? [
+        'Manuscript vs speech (C): A planned script excerpt is below. Compare it to the spoken transcript excerpt.',
+        'Use the gap to coach delivery: how THIS persona would phrase, pace, signpost, or open/close that same beat — not to replace the whole argument or invent new facts.',
+        'Planned script (excerpt):',
+        planExcerpt,
+      ].join('\n')
+    : [
+        'No uploaded manuscript (fallback): There is NO plan-vs-actual script pairing.',
+        'phrase_rewrites and persona-aligned examples MUST quote only from the "Recent speech" transcript below.',
+        'Do not invent lines the user "should have said from a script" they did not provide.',
+        'Focus on HOW they spoke: wording, rhythm, pauses, clarity, signposting, tone — in the selected persona\'s voice. Do not reorganize deck narrative or add new claims.',
+      ].join('\n');
 
   const userBlock = [
     coachMeta,
@@ -414,12 +447,20 @@ export async function generateReportNarrative(
     `Posture stability: ${scores.nonverbalScore}/100`,
     `Gesture count: excess=${ctx.nonverbal_coaching.gesture_log.filter(g => g.type === 'excess').length}, lack=${ctx.nonverbal_coaching.gesture_log.filter(g => g.type === 'lack').length}`,
     `Body dynamism: ${ctx.nonverbal_coaching.dynamism_log.length > 0 ? `natural=${Math.round(ctx.nonverbal_coaching.dynamism_log.filter(d => d.level === 'natural').length / ctx.nonverbal_coaching.dynamism_log.length * 100)}%, stiff=${Math.round(ctx.nonverbal_coaching.dynamism_log.filter(d => d.level === 'stiff').length / ctx.nonverbal_coaching.dynamism_log.length * 100)}%, restless=${Math.round(ctx.nonverbal_coaching.dynamism_log.filter(d => d.level === 'restless').length / ctx.nonverbal_coaching.dynamism_log.length * 100)}%` : 'no camera data'}`,
-    `Q&A score: ${scores.qaScore}/100 (weakest: Q${ctx.qa.worst_answer_turn})`,
-    `Composite: ${scores.compositeScore}/100 (speech ${scores.speechScore}, nonverbal ${scores.nonverbalScore}, Q&A ${scores.qaScore})`,
+    ctx.qa_skipped
+      ? scriptPresent
+        ? 'Q&A: skipped — coach from speech, nonverbal, and manuscript vs transcript as below; no Q&A exchanges.'
+        : 'Q&A: skipped — coach from speech, nonverbal, and materials/transcript only (no uploaded manuscript).'
+      : `Q&A score: ${scores.qaScore}/100 (weakest: Q${ctx.qa.worst_answer_turn})`,
+    ctx.qa_skipped
+      ? `Composite: ${scores.compositeScore}/100 (speech ${scores.speechScore}, nonverbal ${scores.nonverbalScore}; Q&A not included)`
+      : `Composite: ${scores.compositeScore}/100 (speech ${scores.speechScore}, nonverbal ${scores.nonverbalScore}, Q&A ${scores.qaScore})`,
     scriptCoverageBlock,
     scriptStyleBlock,
     '',
-    `Recent speech (excerpt, partial transcript — quote only what appears here for phrase_rewrites):`,
+    manuscriptVsSpeechBlock,
+    '',
+    `Recent speech (excerpt, actual delivery — for phrase_rewrites, from_session MUST be a substring of this when no manuscript; with manuscript, prefer lines that clearly reflect spoken wording):`,
     speechExcerpt || '(no transcript captured)',
     '',
     contextBlock,
@@ -437,10 +478,15 @@ ALSO include top-level JSON field "persona_style_coaching" (required for this se
   "style_alignment": "2-4 sentences: tie composite/speech/nonverbal numbers + timeline moments to THIS persona's benchmark (pace, pauses, rhetoric, body).",
   "delivery_practices": ["3-5 bullets","..."] — concrete rehearsal habits for the NEXT session; same persona priorities, second person, no fluff.",
   "phrase_rewrites": [
-    {"from_session": "short line grounded in Recent speech excerpt","persona_aligned_example": "clearer / more on-brand line in this persona's voice"}
+    {"from_session": "short spoken line (see rules)","persona_aligned_example": "same beat in THIS persona's delivery","why": "optional one short clause: e.g. clearer signpost / warmer pause / sharper opener"}
   ]
 }
-Use 0-2 phrase_rewrites only; use [] if the excerpt is too thin to quote fairly. Never invent from_session text that is not clearly supported by the excerpt.
+phrase_rewrites RULES (speaking manner / delivery only — NOT whole-structure rewrites):
+- Rewrite HOW something is SAID (pace, diction, framing, rhetorical moves, openings/closers), not deck outline or new evidence.
+- If a manuscript excerpt was provided above: you MAY contrast plan vs actual and show how this persona would deliver that beat; keep factual intent aligned unless the speaker clearly misspoke.
+- If NO manuscript was provided: from_session MUST be copied verbatim (or contiguous substring) from the "Recent speech" excerpt only. Never fabricate a planned line.
+- Include 2–5 phrase_rewrites when the Recent speech excerpt is substantial (roughly ≥120 characters); use fewer or [] if the transcript is too thin to quote fairly; never more than 5.
+- Each "why" is optional but preferred when it names a concrete delivery habit (not generic praise).
 `
     : '';
 
@@ -478,7 +524,7 @@ Response format:
       "expected_impact": "...",
       "time_markers": [{"time": "2m30s", "event": "short description"}]
     }
-  ]${persona ? ',\n  "persona_style_coaching": { "style_alignment": "...", "delivery_practices": ["..."], "phrase_rewrites": [] }' : ''}
+  ]${persona ? ',\n  "persona_style_coaching": { "style_alignment": "...", "delivery_practices": ["..."], "phrase_rewrites": [{"from_session":"...","persona_aligned_example":"...","why":"optional short delivery reason"}] }' : ''}
 }
 ${personaStyleBlock}`;
 
@@ -565,13 +611,26 @@ function buildFallbackNarrative(
   }
 
   if (improvements.length === 0) {
-    improvements.push({
-      label: 'Q&A Depth',
-      situation: `Your Q&A score was ${scores.qaScore}/100. Weakest answer was on question ${ctx.qa.worst_answer_turn}.`,
-      stop_doing: 'Stop giving short, surface-level answers that lack supporting evidence.',
-      start_doing: 'Use the STAR method (Situation, Task, Action, Result) for each Q&A answer to add structure.',
-      expected_impact: 'Structured answers signal deep domain knowledge — investors want to see you can think on your feet.',
-    });
+    if (ctx.qa_skipped) {
+      improvements.push({
+        label: 'Audience Q&A rehearsal',
+        situation:
+          'You skipped the live Q&A drill this time — the report reflects speech and presence only.',
+        stop_doing: 'Stop relying only on scripted delivery without pressure-testing hard questions.',
+        start_doing:
+          'Next session, run the post-talk Q&A (3–5 questions) so we can score how you handle objections and off-script probes.',
+        expected_impact: 'Investors often decide in Q&A; rehearsing there closes the gap between polished slides and trusted expertise.',
+        time_markers: [],
+      });
+    } else {
+      improvements.push({
+        label: 'Q&A Depth',
+        situation: `Your Q&A score was ${scores.qaScore}/100. Weakest answer was on question ${ctx.qa.worst_answer_turn}.`,
+        stop_doing: 'Stop giving short, surface-level answers that lack supporting evidence.',
+        start_doing: 'Use the STAR method (Situation, Task, Action, Result) for each Q&A answer to add structure.',
+        expected_impact: 'Structured answers signal deep domain knowledge — investors want to see you can think on your feet.',
+      });
+    }
   }
 
   const persona_style_coaching = persona ? fallbackPersonaStyleCoaching(persona, ctx, scores) : undefined;

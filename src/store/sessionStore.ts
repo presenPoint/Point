@@ -37,6 +37,11 @@ function emptyMaterial(): SessionContext['material'] {
   };
 }
 
+/** 발표 후 Q&A 질문 개수: 매 세션 3~5 중 무작위 */
+function pickQaPlannedRounds(): number {
+  return 3 + Math.floor(Math.random() * 3);
+}
+
 function createSession(userId: string): SessionContext {
   return {
     session_id: crypto.randomUUID(),
@@ -62,8 +67,10 @@ function createSession(userId: string): SessionContext {
       gesture_log: [],
       dynamism_log: [],
     },
+    qa_skipped: false,
     qa: {
       exchanges: [],
+      planned_rounds: pickQaPlannedRounds(),
       final_score: 0,
       best_answer_turn: 1,
       worst_answer_turn: 1,
@@ -119,6 +126,8 @@ type State = {
 
   startQa: () => Promise<void>;
   submitQaAnswer: (answer: string) => Promise<void>;
+  /** Q&A 없이 바로 최종 보고서 생성 */
+  skipQaAndRunReport: () => Promise<void>;
 
   runReport: () => Promise<void>;
   persistSession: () => Promise<void>;
@@ -372,19 +381,41 @@ export const useSessionStore = create<State>((set, get) => ({
 
   startQa: async () => {
     if (qaStartLock || get().qaCurrentQuestion) return;
+    if (get().session.qa_skipped) return;
     qaStartLock = true;
     set({ busy: 'Preparing Q&A…', error: null });
     try {
       const q = await qaNextQuestion(get().session, []);
+      if (get().session.qa_skipped) return;
       set({ qaCurrentQuestion: q.text, busy: null });
     } catch (e) {
-      set({ busy: null, error: String(e) });
+      if (!get().session.qa_skipped) set({ busy: null, error: String(e) });
     } finally {
       qaStartLock = false;
     }
   },
 
+  skipQaAndRunReport: async () => {
+    set((s) => ({
+      session: {
+        ...s.session,
+        qa_skipped: true,
+        qa: {
+          exchanges: [],
+          planned_rounds: 5,
+          final_score: 0,
+          best_answer_turn: 1,
+          worst_answer_turn: 1,
+        },
+      },
+      qaCurrentQuestion: '',
+      error: null,
+    }));
+    await get().runReport();
+  },
+
   submitQaAnswer: async (answer) => {
+    if (get().session.qa_skipped) return;
     const { session, qaCurrentQuestion } = get();
     const turn = session.qa.exchanges.length + 1;
     const nextExchanges = [
@@ -396,7 +427,8 @@ export const useSessionStore = create<State>((set, get) => ({
       session: { ...s.session, qa: { ...s.session.qa, exchanges: nextExchanges } },
     }));
 
-    if (nextExchanges.length >= 5) {
+    const planned = session.qa.planned_rounds ?? 5;
+    if (nextExchanges.length >= planned) {
       set({ busy: 'Grading Q&A…' });
       const grade = await gradeQaExchanges(nextExchanges);
       const g = grade ?? {

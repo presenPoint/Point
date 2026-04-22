@@ -12,6 +12,8 @@
     "@mediapipe/tasks-vision": "^0.10.34",
     "@supabase/supabase-js": "^2.49.1",
     "@vercel/blob": "^2.3.3",
+    "html2canvas": "^1.4.1",
+    "jspdf": "^4.2.1",
     "jszip": "^3.10.1",
     "mammoth": "^1.9.0",
     "pdfjs-dist": "^5.6.205",
