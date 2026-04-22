@@ -26,10 +26,112 @@ function calcWpmScore(wpmLog: { wpm: number }[], wpmRange?: [number, number]): n
   return Math.round((inRange / wpmLog.length) * 100);
 }
 
-function calcGazeScore(gazeRate: number): number {
-  if (gazeRate >= 0.6 && gazeRate <= 0.85) return 100;
-  if (gazeRate > 0.85) return Math.round(100 - (gazeRate - 0.85) * 200);
-  return Math.round(gazeRate * 150);
+interface GazeBreakInfo {
+  durationMs: number;
+  direction: 'left' | 'right' | 'center' | 'mixed';
+}
+
+function analyzeGazeBreaks(gazeLog: { is_gazing: boolean; direction: 'center' | 'left' | 'right'; timestamp: number }[]): GazeBreakInfo[] {
+  const breaks: GazeBreakInfo[] = [];
+  let inBreak = false;
+  let breakStartIdx = 0;
+
+  for (let i = 0; i <= gazeLog.length; i++) {
+    const isGazing = i < gazeLog.length ? gazeLog[i].is_gazing : true;
+
+    if (!isGazing && !inBreak) {
+      inBreak = true;
+      breakStartIdx = i;
+    } else if (isGazing && inBreak) {
+      const segment = gazeLog.slice(breakStartIdx, i);
+      const leftCount = segment.filter((e) => e.direction === 'left').length;
+      const rightCount = segment.filter((e) => e.direction === 'right').length;
+      const durationMs = gazeLog[i - 1].timestamp - gazeLog[breakStartIdx].timestamp;
+
+      let direction: GazeBreakInfo['direction'];
+      if (leftCount + rightCount === 0) direction = 'center';
+      else if (leftCount > rightCount * 2) direction = 'left';
+      else if (rightCount > leftCount * 2) direction = 'right';
+      else direction = 'mixed';
+
+      breaks.push({ durationMs, direction });
+      inBreak = false;
+    }
+  }
+
+  return breaks;
+}
+
+function calcGazeScore(gazeLog: { is_gazing: boolean; direction: 'center' | 'left' | 'right'; timestamp: number }[]): number {
+  if (gazeLog.length < 5) return 70;
+
+  // ── Component 1: Gaze rate (0–60 pts) ────────────────────────────────────
+  // 이상적 범위: 60–80%. 너무 낮으면(청중과 단절), 너무 높으면(불자연스러운 응시) 감점.
+  const gazeRate = gazeLog.filter((e) => e.is_gazing).length / gazeLog.length;
+  let rateScore: number;
+  if (gazeRate >= 0.60 && gazeRate <= 0.80) {
+    rateScore = 60;
+  } else if (gazeRate > 0.80 && gazeRate <= 0.92) {
+    rateScore = 60 - (gazeRate - 0.80) * 167; // 60→40
+  } else if (gazeRate > 0.92) {
+    rateScore = Math.max(20, 40 - (gazeRate - 0.92) * 250); // 로봇처럼 응시
+  } else if (gazeRate >= 0.40) {
+    rateScore = 20 + (gazeRate - 0.40) * 200; // 20→60
+  } else {
+    rateScore = gazeRate * 50; // 40% 미만: 비례 감점
+  }
+
+  // ── Component 2: 이탈 패턴 (0–20 pts) ────────────────────────────────────
+  // 짧고 자연스러운 이탈(1-3s)은 허용, 긴 이탈(>5s)과 잦은 이탈은 감점.
+  const breaks = analyzeGazeBreaks(gazeLog);
+  const longBreaks = breaks.filter((b) => b.durationMs > 5000);
+  const veryLongBreaks = breaks.filter((b) => b.durationMs > 10000);
+  const excessBreaks = Math.max(0, breaks.length - 12); // 12회 초과 이탈
+
+  const breakPenalty = Math.min(20,
+    longBreaks.length * 4 +
+    veryLongBreaks.length * 4 +
+    excessBreaks,
+  );
+  const breakScore = 20 - breakPenalty;
+
+  // ── Component 3: 방향 다양성 (0–10 pts) ──────────────────────────────────
+  // 좌·우 양쪽을 골고루 보는 것은 청중 전체를 아우르는 자연스러운 스캐닝.
+  const awayEntries = gazeLog.filter((e) => !e.is_gazing);
+  const leftCount = awayEntries.filter((e) => e.direction === 'left').length;
+  const rightCount = awayEntries.filter((e) => e.direction === 'right').length;
+
+  let dirScore: number;
+  if (awayEntries.length === 0) {
+    dirScore = 5; // 이탈 없음: 중립
+  } else if (leftCount > 0 && rightCount > 0) {
+    // 양방향 시선: 균형일수록 만점
+    const balance = Math.min(leftCount, rightCount) / Math.max(leftCount, rightCount);
+    dirScore = Math.round(balance * 10);
+  } else {
+    dirScore = 0; // 한쪽만 바라봄
+  }
+
+  // ── Component 4: 시간적 일관성 (0–10 pts) ────────────────────────────────
+  // 발표 전반에 걸쳐 시선 접촉이 고르게 분포되어야 함.
+  const segCount = 4;
+  const segSize = Math.floor(gazeLog.length / segCount);
+  let consistencyScore: number;
+  if (segSize > 0) {
+    const segRates = Array.from({ length: segCount }, (_, i) => {
+      const seg = gazeLog.slice(i * segSize, (i + 1) * segSize);
+      return seg.filter((e) => e.is_gazing).length / seg.length;
+    });
+    const mean = segRates.reduce((a, b) => a + b, 0) / segCount;
+    const variance = segRates.reduce((acc, v) => acc + (v - mean) ** 2, 0) / segCount;
+    // 분산 0 → 10점, 분산 0.05 이상 → 0점
+    consistencyScore = Math.max(0, Math.round(10 - variance * 200));
+  } else {
+    consistencyScore = 5;
+  }
+
+  const total = Math.round(rateScore + breakScore + dirScore + consistencyScore);
+  return Math.max(0, Math.min(100, total));
 }
 
 function calcPostureScore(
@@ -81,7 +183,7 @@ export function calcCompositeScore(ctx: SessionContext, wpmRange?: [number, numb
     wpmScore * 0.3 + fillerScore * 0.3 + offTopicScore * 0.25 + ambiguousScore * 0.15
   );
 
-  const gazeScore = calcGazeScore(ctx.nonverbal_coaching.gaze_rate);
+  const gazeScore = calcGazeScore(ctx.nonverbal_coaching.gaze_log);
   const postureScore = calcPostureScore(ctx.nonverbal_coaching.posture_log, ctx.nonverbal_coaching.dynamism_log);
   const gestureScore = calcGestureScore(
     ctx.nonverbal_coaching.gesture_log,

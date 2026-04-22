@@ -196,7 +196,7 @@ export function useLivePresenting() {
             ...st.session,
             nonverbal_coaching: {
               gaze_rate,
-              gaze_log: [...nv.gaze_log, { timestamp: gaze.timestamp, is_gazing: gaze.isGazing }].slice(-500),
+              gaze_log: [...nv.gaze_log, { timestamp: gaze.timestamp, is_gazing: gaze.isGazing, direction: gaze.direction }].slice(-500),
               posture_log: [
                 ...nv.posture_log,
                 { timestamp: posture.timestamp, angle: posture.angle, is_ok: posture.isStraight && !posture.isTooFar && !posture.isTooClose },

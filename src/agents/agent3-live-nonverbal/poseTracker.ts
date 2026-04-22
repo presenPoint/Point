@@ -28,7 +28,7 @@ export function nonverbalConfigFromPersona(
 
 export type PoseFrame = {
   type: 'FRAME';
-  gaze: { isGazing: boolean; timestamp: number };
+  gaze: { isGazing: boolean; direction: 'center' | 'left' | 'right'; timestamp: number };
   posture: {
     angle: number;
     isStraight: boolean;
@@ -65,10 +65,18 @@ function calcAngleDeg(a: Landmark, b: Landmark): number {
   return Math.abs(Math.atan2(dy, dx) * (180 / Math.PI));
 }
 
-function isGazingAtCamera(nose: Landmark, leftShoulder: Landmark, rightShoulder: Landmark): boolean {
+function getGazeInfo(
+  nose: Landmark,
+  leftShoulder: Landmark,
+  rightShoulder: Landmark,
+): { isGazing: boolean; direction: 'center' | 'left' | 'right' } {
   const shoulderMidX = (leftShoulder.x + rightShoulder.x) / 2;
-  const offsetX = Math.abs(nose.x - shoulderMidX);
-  return offsetX < activeConfig.gazeOffsetThreshold;
+  const offsetX = nose.x - shoulderMidX;
+  if (Math.abs(offsetX) < activeConfig.gazeOffsetThreshold) {
+    return { isGazing: true, direction: 'center' };
+  }
+  // offsetX < 0: nose is left of shoulder center (image space)
+  return { isGazing: false, direction: offsetX < 0 ? 'left' : 'right' };
 }
 
 function calcPosture(
@@ -155,14 +163,14 @@ function extractFrame(result: PoseLandmarkerResult): PoseFrame | null {
   const rightWrist = lm[16];
 
   const t = Date.now();
-  const gazing = isGazingAtCamera(nose, leftShoulder, rightShoulder);
+  const gazeInfo = getGazeInfo(nose, leftShoulder, rightShoulder);
   const posture = calcPosture(nose, leftShoulder, rightShoulder, leftHip, rightHip);
   const gesture = calcGesture(leftWrist, rightWrist);
   const dynamism = calcDynamism(nose, leftShoulder, rightShoulder);
 
   return {
     type: 'FRAME',
-    gaze: { isGazing: gazing, timestamp: t },
+    gaze: { isGazing: gazeInfo.isGazing, direction: gazeInfo.direction, timestamp: t },
     posture: { ...posture, timestamp: t },
     gesture,
     dynamism,
