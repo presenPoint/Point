@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { feedbackQueue } from '../agents';
 import { useLivePresenting } from '../hooks/useLivePresenting';
-import { cancelFeedbackSpeech, primeFeedbackAudio, speakFeedbackMessage } from '../lib/feedbackTts';
+import { cancelFeedbackSpeech, enqueueFeedback, onSpeakingChange, primeFeedbackAudio } from '../lib/feedbackTts';
+import { saveTranscriptToBlob } from '../lib/transcriptStorage';
 import { useSessionStore } from '../store/sessionStore';
 import type { FeedbackItem, FeedbackLevel } from '../types/session';
 import { AnimatedPointLogo } from './AnimatedPointLogo';
@@ -32,6 +33,7 @@ export function LiveSessionScreen() {
   const [sec, setSec] = useState(0);
   const [feed, setFeed] = useState<FeedbackItem[]>([]);
   const [coachVisual, setCoachVisual] = useState(true);
+  const [isSpeaking, setIsSpeaking] = useState(false);
   const voiceFeedbackRef = useRef(false);
   const [alertUi, setAlertUi] = useState<{
     msg: string;
@@ -51,6 +53,8 @@ export function LiveSessionScreen() {
     }, 1000);
     return () => clearInterval(t);
   }, [presentingStartRef]);
+
+  useEffect(() => onSpeakingChange(setIsSpeaking), []);
 
   useEffect(() => {
     voiceFeedbackRef.current = !coachVisual;
@@ -74,7 +78,12 @@ export function LiveSessionScreen() {
         setAlertUi({ msg: top.msg, typeLabel, color });
         if (alertT.current) clearTimeout(alertT.current);
         alertT.current = setTimeout(() => setAlertUi(null), 3500);
-        if (voiceFeedbackRef.current) void speakFeedbackMessage(top.msg, { level: top.level });
+        if (voiceFeedbackRef.current) {
+          enqueueFeedback(top.msg, {
+            level: top.level,
+            preempt: top.level === 'CRITICAL',
+          });
+        }
       }
     };
     sync();
@@ -140,6 +149,15 @@ export function LiveSessionScreen() {
         speech_coaching: { ...st.session.speech_coaching, total_duration_sec: s },
       },
     }));
+
+    const { session_id, user_id, speech_coaching } = useSessionStore.getState().session;
+    void saveTranscriptToBlob(
+      session_id,
+      user_id,
+      speech_coaching.transcript_log,
+      s,
+    );
+
     transition('POST_QA');
   };
 
@@ -262,14 +280,14 @@ export function LiveSessionScreen() {
                 </button>
                 <button
                   type="button"
-                  className={`mode-btn${!coachVisual ? ' active' : ''}`}
+                  className={`mode-btn${!coachVisual ? ' active' : ''}${!coachVisual && isSpeaking ? ' speaking' : ''}`}
                   title="OpenAI TTS + 자동재생 허용을 위해 이 버튼을 한 번 눌러 주세요"
                   onClick={() => {
                     primeFeedbackAudio();
                     setCoachVisual(false);
                   }}
                 >
-                  Voice
+                  Voice{!coachVisual && isSpeaking && <span className="speaking-dot" aria-label="재생 중" />}
                 </button>
               </div>
             </div>

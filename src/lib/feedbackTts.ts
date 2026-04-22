@@ -1,10 +1,49 @@
-/** Live coaching feedback 읽기 — OpenAI TTS 우선, 키 없을 때만 Web Speech API. */
+/**
+ * Live coaching feedback TTS — 순차 큐 방식.
+ * OpenAI gpt-4o-mini-tts 우선, 키 없거나 실패 시 Web Speech API 폴백.
+ *
+ * - 큐에 쌓인 메시지를 순서대로 재생 (끊김 없음)
+ * - CRITICAL 메시지는 preempt=true로 호출해 현재 재생 즉시 교체
+ * - onSpeakingChange()로 재생 상태를 UI에 구독
+ */
 
 import type { FeedbackLevel } from '../types/session';
 import { createSpeechAudio, hasOpenAI } from './openai';
 
+interface QueuedItem {
+  text: string;
+  level?: FeedbackLevel;
+}
+
+// ── Module state ─────────────────────────────────────────────────────────────
+
+let ttsQueue: QueuedItem[] = [];
+let isPlaying = false;
+/** 세대 번호: cancelFeedbackSpeech() 마다 증가 → 이전 비동기 작업 무효화 */
+let generation = 0;
+
+let currentAudio: HTMLAudioElement | null = null;
+let currentObjectUrl: string | null = null;
+let primedAudioCtx: AudioContext | null = null;
+
+const speakingListeners = new Set<(speaking: boolean) => void>();
+
+// ── Speaking state ────────────────────────────────────────────────────────────
+
+function notifySpeaking(v: boolean): void {
+  speakingListeners.forEach((fn) => fn(v));
+}
+
+/** TTS 재생 중 여부를 구독합니다. 반환값을 호출하면 구독 해제. */
+export function onSpeakingChange(fn: (speaking: boolean) => void): () => void {
+  speakingListeners.add(fn);
+  return () => speakingListeners.delete(fn);
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
 function hasHangul(text: string): boolean {
-  return /[\u3131-\uD79D]/.test(text);
+  return /[ㄱ-힝]/.test(text);
 }
 
 function pickVoice(lang: string): SpeechSynthesisVoice | null {
@@ -21,8 +60,7 @@ function instructionsForLevel(level: FeedbackLevel | undefined, text: string): s
     ? 'The input may be Korean — use natural Korean pronunciation and intonation.'
     : '';
   const base =
-    langHint +
-    (langHint ? ' ' : '') +
+    `${langHint}${langHint ? ' ' : ''}` +
     'You are a live presentation coach reading short feedback aloud. Stay brief and intelligible.';
   switch (level) {
     case 'CRITICAL':
@@ -30,16 +68,51 @@ function instructionsForLevel(level: FeedbackLevel | undefined, text: string): s
     case 'WARN':
       return `${base} Speak in a supportive, steady coaching tone with light emphasis.`;
     default:
-      return `${base} Speak in a cheerful and positive tone, like the example: encouraging and clear.`;
+      return `${base} Speak in a cheerful and positive tone, encouraging and clear.`;
   }
 }
 
-function speakWithBrowserTts(text: string): void {
-  if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+function stopCurrentAudio(): void {
+  if (currentAudio) {
+    currentAudio.onended = null;
+    currentAudio.onerror = null;
+    currentAudio.pause();
+    currentAudio.src = '';
+    currentAudio = null;
+  }
+  if (currentObjectUrl) {
+    URL.revokeObjectURL(currentObjectUrl);
+    currentObjectUrl = null;
+  }
+  if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+    window.speechSynthesis.cancel();
+  }
+}
+
+// ── Queue processor ───────────────────────────────────────────────────────────
+
+/**
+ * 현재 아이템 재생이 끝난 뒤 호출.
+ * gen이 현재 세대와 다르면 cancel된 것이므로 무시.
+ */
+function afterPlayed(gen: number): void {
+  stopCurrentAudio();
+  setTimeout(() => {
+    if (gen !== generation) return;
+    isPlaying = false;
+    void processQueue(gen);
+  }, 180);
+}
+
+function speakBrowserTts(item: QueuedItem, gen: number): void {
+  if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
+    afterPlayed(gen);
+    return;
+  }
   window.speechSynthesis.cancel();
 
-  const lang = hasHangul(text) ? 'ko-KR' : 'en-US';
-  const utter = new SpeechSynthesisUtterance(text);
+  const lang = hasHangul(item.text) ? 'ko-KR' : 'en-US';
+  const utter = new SpeechSynthesisUtterance(item.text);
   utter.lang = lang;
   utter.rate = 1.05;
   utter.pitch = 1;
@@ -50,37 +123,80 @@ function speakWithBrowserTts(text: string): void {
   };
   applyVoice();
   window.speechSynthesis.addEventListener('voiceschanged', applyVoice, { once: true });
+
+  utter.onend = () => afterPlayed(gen);
+  utter.onerror = () => afterPlayed(gen);
   window.speechSynthesis.speak(utter);
 }
 
-let primedAudioCtx: AudioContext | null = null;
-
-let currentAudio: HTMLAudioElement | null = null;
-let currentObjectUrl: string | null = null;
-
-function stopOpenAiAudio(): void {
-  if (currentAudio) {
-    currentAudio.pause();
-    currentAudio.src = '';
-    currentAudio.removeAttribute('src');
-    currentAudio = null;
+async function processQueue(gen: number): Promise<void> {
+  if (gen !== generation) return;
+  if (isPlaying || ttsQueue.length === 0) {
+    if (!isPlaying) notifySpeaking(false);
+    return;
   }
-  if (currentObjectUrl) {
-    URL.revokeObjectURL(currentObjectUrl);
-    currentObjectUrl = null;
+
+  const item = ttsQueue.shift()!;
+  isPlaying = true;
+  notifySpeaking(true);
+
+  if (hasOpenAI()) {
+    try {
+      const blob = await createSpeechAudio({
+        input: item.text,
+        voice: 'coral',
+        instructions: instructionsForLevel(item.level, item.text),
+      });
+
+      if (gen !== generation) return; // fetch 중에 cancel됨
+
+      if (blob && blob.size > 0) {
+        const url = URL.createObjectURL(blob);
+        currentObjectUrl = url;
+        const audio = new Audio(url);
+        currentAudio = audio;
+
+        audio.onended = () => afterPlayed(gen);
+        audio.onerror = () => {
+          stopCurrentAudio();
+          speakBrowserTts(item, gen);
+        };
+
+        try {
+          await audio.play();
+          return; // 재생 완료는 onended에서 처리
+        } catch (e) {
+          console.warn('[Point] TTS autoplay blocked, browser TTS fallback.', e);
+          stopCurrentAudio();
+          speakBrowserTts(item, gen);
+          return;
+        }
+      }
+    } catch (e) {
+      console.warn('[Point] OpenAI TTS request failed.', e);
+      if (gen !== generation) return;
+    }
   }
+
+  speakBrowserTts(item, gen);
 }
 
+// ── Public API ────────────────────────────────────────────────────────────────
+
+/**
+ * 현재 재생과 큐를 모두 중단합니다.
+ * (Visual 모드로 전환하거나 세션 종료 시 호출)
+ */
 export function cancelFeedbackSpeech(): void {
-  stopOpenAiAudio();
-  if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-    window.speechSynthesis.cancel();
-  }
+  generation++;
+  ttsQueue = [];
+  stopCurrentAudio();
+  isPlaying = false;
+  notifySpeaking(false);
 }
 
 /**
- * 사용자 클릭(예: Voice 모드 선택) 직후 한 번 호출하면 자동재생 차단을 완화합니다.
- * 피드백은 비동기로 도착하므로 브라우저가 묵음 처리하는 경우가 많습니다.
+ * 사용자 클릭(Voice 모드 선택) 직후 호출 — 자동재생 차단을 완화합니다.
  */
 export function primeFeedbackAudio(): void {
   if (typeof window === 'undefined') return;
@@ -115,49 +231,41 @@ export function primeFeedbackAudio(): void {
 }
 
 /**
- * OpenAI `gpt-4o-mini-tts`로 재생합니다. API 키가 없거나 실패 시 브라우저 TTS로 폴백합니다.
+ * 피드백 메시지를 TTS 큐에 추가합니다.
+ *
+ * @param text    읽을 텍스트
+ * @param options
+ *   level   — FeedbackLevel (음색·강조 결정)
+ *   preempt — true이면 현재 재생 중단 후 이 메시지를 즉시 맨 앞에 삽입 (CRITICAL 용)
  */
-export async function speakFeedbackMessage(
+export function enqueueFeedback(
   text: string,
-  options?: { level?: FeedbackLevel }
-): Promise<void> {
+  options?: { level?: FeedbackLevel; preempt?: boolean },
+): void {
   const trimmed = text.trim();
   if (!trimmed) return;
-  cancelFeedbackSpeech();
 
-  if (hasOpenAI()) {
-    try {
-      const blob = await createSpeechAudio({
-        input: trimmed,
-        voice: 'coral',
-        instructions: instructionsForLevel(options?.level, trimmed),
-      });
-      if (blob && blob.size > 0) {
-        const url = URL.createObjectURL(blob);
-        currentObjectUrl = url;
-        const audio = new Audio(url);
-        currentAudio = audio;
-        audio.onended = () => {
-          stopOpenAiAudio();
-        };
-        audio.onerror = () => {
-          stopOpenAiAudio();
-          speakWithBrowserTts(trimmed);
-        };
-        try {
-          await audio.play();
-          return;
-        } catch (e) {
-          console.warn('[Point] TTS playback blocked or failed, using browser speech.', e);
-          stopOpenAiAudio();
-          speakWithBrowserTts(trimmed);
-          return;
-        }
-      }
-    } catch (e) {
-      console.warn('[Point] OpenAI speech request failed.', e);
-    }
+  if (options?.preempt) {
+    // CRITICAL: 현재 재생을 즉시 중단하고 앞에 삽입
+    generation++;
+    stopCurrentAudio();
+    isPlaying = false;
+    ttsQueue = [{ text: trimmed, level: options.level }, ...ttsQueue];
+  } else {
+    // 동일 텍스트 중복 방지
+    if (ttsQueue.some((item) => item.text === trimmed)) return;
+    ttsQueue.push({ text: trimmed, level: options?.level });
+    // 큐 최대 3개 유지 (오래된 것 제거)
+    if (ttsQueue.length > 3) ttsQueue.splice(0, ttsQueue.length - 3);
   }
 
-  speakWithBrowserTts(trimmed);
+  void processQueue(generation);
+}
+
+/** 하위 호환 — 기존 speakFeedbackMessage 호출부 유지 */
+export async function speakFeedbackMessage(
+  text: string,
+  options?: { level?: FeedbackLevel },
+): Promise<void> {
+  enqueueFeedback(text, options);
 }

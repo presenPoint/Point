@@ -7112,3 +7112,28 @@ textarea {
     opacity: 1 !important;
   }
 }
+
+/* ── TTS speaking indicator ──────────────────────────────────────────────── */
+.mode-btn.speaking {
+  position: relative;
+}
+
+.speaking-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent, #4ade80);
+  margin-left: 5px;
+  vertical-align: middle;
+  animation: speaking-pulse 1s ease-in-out infinite;
+}
+
+@keyframes speaking-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.4; transform: scale(0.7); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .speaking-dot { animation: none; }
+}

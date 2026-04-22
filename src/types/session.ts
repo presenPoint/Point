@@ -36,6 +36,8 @@ export interface OffTopicEntry {
 export interface GazeEntry {
   timestamp: number;
   is_gazing: boolean;
+  /** 시선이 카메라 기준으로 향한 방향 */
+  direction: 'center' | 'left' | 'right';
 }
 
 export interface PostureEntry {
