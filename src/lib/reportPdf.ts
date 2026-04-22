@@ -10,7 +10,7 @@ export async function downloadReportPdfFromElement(
   fileBaseName: string,
 ): Promise<void> {
   if (!root) {
-    throw new Error('보고서가 아직 화면에 없습니다. 리포트 단계까지 진행한 뒤 다시 시도해 주세요.');
+    throw new Error('Report content is not on screen yet. Open the report step and try again.');
   }
 
   const canvas = await html2canvas(root, {

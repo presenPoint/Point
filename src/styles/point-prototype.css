@@ -3920,16 +3920,6 @@ body {
   overflow-y:auto;
   overflow-x:hidden;
 }
-.report-pdf-toolbar {
-  flex-shrink:0;
-  display:flex;
-  justify-content:flex-end;
-  padding:0 32px 12px;
-  max-width:920px;
-  width:100%;
-  margin:0 auto;
-  box-sizing:border-box;
-}
 .qa-pdf-export-btn { white-space:nowrap; }
 .report-side--wizard-solo {
   max-width:920px;
@@ -4462,7 +4452,6 @@ body {
   .score-row { gap:10px; justify-content:center; }
   .score-circle { min-width:70px; }
   .qa-chat-side { min-height:50vh; }
-  .report-pdf-toolbar { padding:0 16px 10px; }
   .report-side--wizard-solo { padding:20px 16px 32px; }
   .qa-wizard-top-meta { padding:8px 14px; font-size:11px; }
   .qa-wizard-qa-toolbar { padding:10px 14px 0; }

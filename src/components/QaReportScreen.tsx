@@ -17,7 +17,6 @@ function QaTopBar({
 }) {
   const resetSession = useSessionStore((s) => s.resetSession);
   const setAppStarted = useSessionStore((s) => s.setAppStarted);
-  const persistSession = useSessionStore((s) => s.persistSession);
 
   return (
     <div className="topbar">
@@ -43,12 +42,9 @@ function QaTopBar({
             disabled={pdfExporting}
             onClick={() => void onExportPdf()}
           >
-            {pdfExporting ? 'PDF 준비 중…' : '📄 PDF 다운로드'}
+            {pdfExporting ? 'Preparing PDF…' : '📄 PDF Download'}
           </button>
         )}
-        <button type="button" className="btn-sm" onClick={() => void persistSession()}>
-          📥 Save Report
-        </button>
         <button
           type="button"
           className="btn-primary"
@@ -136,7 +132,7 @@ export function QaReportScreen() {
       await downloadReportPdfFromElement(reportPdfRootRef.current, session.session_id);
     } catch (err) {
       console.error('[Point] PDF export failed', err);
-      window.alert(err instanceof Error ? err.message : 'PDF를 만들지 못했습니다. 잠시 후 다시 시도해 주세요.');
+      window.alert(err instanceof Error ? err.message : 'Could not create the PDF. Please try again.');
     } finally {
       setPdfExporting(false);
     }
@@ -343,16 +339,6 @@ export function QaReportScreen() {
             </div>
           ) : done ? (
             <div className="qa-wizard-stage qa-wizard-stage--report">
-              <div className="report-pdf-toolbar">
-                <button
-                  type="button"
-                  className="btn-sm qa-pdf-export-btn"
-                  disabled={pdfExporting}
-                  onClick={() => void handleExportPdf()}
-                >
-                  {pdfExporting ? 'PDF 준비 중…' : '📄 보고서 PDF 저장'}
-                </button>
-              </div>
               <div ref={reportPdfRootRef} className="report-side report-side--wizard-solo report-side--pdf-root">
                 <h2>Presentation Report</h2>
                 <div className="report-sub">{reportSubLine}</div>
