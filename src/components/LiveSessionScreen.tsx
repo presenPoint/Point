@@ -330,9 +330,6 @@ export function LiveSessionScreen() {
                 keeps transcripts on-device where configured.
               </li>
             </ul>
-            <p className="live-privacy-note">
-              법적 약관이 확정되기 전까지는 안내용 문구입니다. 실제 서비스 약관·개인정보처리방침과 함께 검토해 주세요.
-            </p>
             <button type="button" className="btn-primary live-privacy-ok" onClick={acknowledgePrivacy}>
               Got it
             </button>
@@ -356,8 +353,11 @@ export function LiveSessionScreen() {
 
       <div className="live-shell">
         <div className="live-topbar">
-          <div className="live-logo" aria-label="Point">
-            <AnimatedPointLogo />
+          <div className="live-logo">
+            <AnimatedPointLogo
+              onHomeClick={() => useSessionStore.getState().setAppStarted(false)}
+              ariaLabel="Point — Home"
+            />
           </div>
           <div className="rec-indicator">
             <div className="rec-dot" />
@@ -617,6 +617,25 @@ export function LiveSessionScreen() {
                       <span className="fb-time">{time}</span>
                     </div>
                     <div className="fb-text">{item.msg}</div>
+                    {item.speechSnippet ? (
+                      <details className="fb-speech-snippet">
+                        <summary className="fb-speech-snippet-summary">내가 말한 구간 (음성 인식)</summary>
+                        <p className="fb-speech-snippet-body">{item.speechSnippet}</p>
+                      </details>
+                    ) : null}
+                    <div className="fb-actions">
+                      <button
+                        type="button"
+                        className="btn-sm fb-hear-coach-btn"
+                        aria-label="멘토 음성으로 이 피드백 듣기"
+                        onClick={() => {
+                          primeFeedbackAudio();
+                          enqueueFeedback(item.msg, { level: item.level, preempt: true });
+                        }}
+                      >
+                        멘토 음성으로 듣기
+                      </button>
+                    </div>
                   </div>
                 );
               })}

@@ -10,6 +10,7 @@ import {
   TARGET_WPM_MAX,
   TARGET_WPM_MIN,
   WINDOW_MS,
+  recentTranscriptPlain,
 } from '../../../lib/speechUtils';
 import type { TranscriptEntry, FillerEntry } from '../../../types/session';
 import type { PersonaConfig } from '../../../constants/personas';
@@ -61,6 +62,10 @@ export function onTranscriptChunk(
   buffer.push({ text, timestamp: now });
 
   const wpm = calcWpm(buffer);
+  const speechSnap = () => {
+    const s = recentTranscriptPlain(buffer, 25_000, 520);
+    return s || undefined;
+  };
   if (wpm > config.wpmMax && now - lastWpmWarnAt.current > 15_000) {
     lastWpmWarnAt.current = now;
     feedbackQueue.push({
@@ -68,6 +73,7 @@ export function onTranscriptChunk(
       msg: toneMsg(config.feedbackTone, 'fast', ''),
       source: 'SPEECH_RULE',
       cooldown: 15_000,
+      speechSnippet: speechSnap(),
     });
   } else if (wpm > 0 && wpm < config.wpmMin && now - lastWpmWarnAt.current > 15_000) {
     lastWpmWarnAt.current = now;
@@ -76,6 +82,7 @@ export function onTranscriptChunk(
       msg: toneMsg(config.feedbackTone, '', 'slow'),
       source: 'SPEECH_RULE',
       cooldown: 15_000,
+      speechSnippet: speechSnap(),
     });
   }
 
@@ -100,6 +107,7 @@ export function onTranscriptChunk(
         : 'Filler words are being repeated',
       source: 'SPEECH_RULE',
       cooldown: 30_000,
+      speechSnippet: speechSnap(),
     });
   }
 }

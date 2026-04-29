@@ -9,7 +9,7 @@ import { PersonaSurvey } from './components/PersonaSurvey';
 import { UploadWorkspace } from './components/UploadWorkspace';
 import { LiveSessionScreen } from './components/LiveSessionScreen';
 import { QaReportScreen } from './components/QaReportScreen';
-import { AnimatedPointLogo } from './components/AnimatedPointLogo';
+import { PointWordmark } from './components/PointWordmark';
 import { CursorDot } from './components/CursorDot';
 import { GlobalToast } from './components/GlobalToast';
 
@@ -58,8 +58,12 @@ export default function App() {
         <CursorDot />
         <main className="login-screen">
           <div className="login-card">
-            <h1 className="login-logo" aria-label="Point">
-              <AnimatedPointLogo />
+            <h1 className="login-logo">
+              <PointWordmark
+                className="login-logo-mark"
+                ariaLabel="Point — Home"
+                onHomeClick={() => setLandingDone(false)}
+              />
             </h1>
             <p className="login-tagline">Loading…</p>
           </div>
@@ -73,7 +77,7 @@ export default function App() {
     return (
       <>
         <CursorDot />
-        <LoginScreen />
+        <LoginScreen onLogoHome={() => setLandingDone(false)} />
       </>
     );
   }

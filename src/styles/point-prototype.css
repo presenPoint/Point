@@ -48,9 +48,9 @@
 }
 
 .nv-nav-logo {
-  font-size: 18px;
+  font-size: clamp(22px, 2.6vw, 28px);
   font-weight: 800;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.03em;
   color: #fff;
 }
 
@@ -204,6 +204,23 @@
     rgba(255, 214, 10, 0.38) 95%,
     transparent 95%
   );
+}
+
+/* 형광펜 — 마커 브러시 면(랜딩 크림지 기준 잉크색 글자; 줄바꿈 시에도 덩어리 유지) */
+.nv-hl {
+  display: inline;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+  background: linear-gradient(
+    100deg,
+    rgba(255, 236, 150, 0.72) 0%,
+    rgba(255, 220, 100, 0.62) 52%,
+    rgba(255, 232, 140, 0.68) 100%
+  );
+  color: #1a1714;
+  padding: 0.06em 0.12em 0.1em;
+  margin: 0 -0.04em;
+  border-radius: 0.15em 0.28em 0.18em 0.2em;
 }
 
 /* 섹션 제목 — 손으로 밑줄 */
@@ -431,7 +448,141 @@
 .nv-content {
   max-width: none;
   margin: 0;
-  padding: 0 28px 100px 64px;
+  padding: 8px 28px 100px 64px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* ── Landing: color-coded section bands (visual hierarchy) ── */
+.nv-section {
+  position: relative;
+  border-radius: 18px;
+  padding: 18px 20px 22px;
+  margin: 0 0 14px;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.nv-section::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 1;
+}
+
+.nv-section > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* Warm insight — whisper of amber (kept airy) */
+.nv-section--insight::before {
+  background:
+    linear-gradient(145deg, rgba(255, 175, 120, 0.05) 0%, transparent 55%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.02) 0%, transparent 42%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 200, 160, 0.06),
+    inset 0 0 0 1px rgba(255, 170, 120, 0.05);
+}
+
+/* Pain — barely-there rose + cool mist */
+.nv-section--pain::before {
+  background:
+    linear-gradient(168deg, rgba(255, 140, 165, 0.04) 0%, transparent 48%),
+    linear-gradient(225deg, rgba(120, 160, 255, 0.035) 0%, transparent 58%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 160, 180, 0.05),
+    inset 0 0 0 1px rgba(255, 150, 170, 0.045);
+}
+
+/* Promise — soft cool blue wash */
+.nv-section--promise::before {
+  background:
+    linear-gradient(155deg, rgba(120, 170, 255, 0.055) 0%, transparent 62%),
+    radial-gradient(ellipse 95% 60% at 12% 18%, rgba(140, 190, 255, 0.04) 0%, transparent 58%);
+  box-shadow:
+    inset 0 1px 0 rgba(160, 200, 255, 0.08),
+    inset 0 0 0 1px rgba(120, 170, 255, 0.06);
+}
+
+/* Flow — violet haze, no heavy base */
+.nv-section--flow::before {
+  background:
+    linear-gradient(185deg, rgba(175, 150, 255, 0.045) 0%, transparent 70%),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.015) 0%, transparent 40%);
+  box-shadow:
+    inset 0 1px 0 rgba(200, 185, 255, 0.06),
+    inset 0 0 0 1px rgba(170, 155, 230, 0.055);
+}
+
+.nv-section--flow .nv-step {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  border-radius: 12px;
+  margin-bottom: 4px;
+}
+
+.nv-section--flow .nv-step:hover {
+  background: rgba(255, 255, 255, 0.035);
+  border-color: rgba(190, 175, 255, 0.1);
+}
+
+/* Tracks — mint + sky, very light */
+.nv-section--tracks::before {
+  background:
+    linear-gradient(175deg, rgba(120, 220, 205, 0.04) 0%, transparent 55%),
+    radial-gradient(ellipse 75% 48% at 88% 12%, rgba(130, 175, 255, 0.035) 0%, transparent 52%);
+  box-shadow:
+    inset 0 1px 0 rgba(140, 230, 210, 0.06),
+    inset 0 0 0 1px rgba(100, 210, 195, 0.05);
+}
+
+.nv-section--tracks .nv-feature-callout:nth-child(1) {
+  background: linear-gradient(135deg, rgba(185, 165, 255, 0.05) 0%, rgba(255, 255, 255, 0.02) 100%);
+  border-color: rgba(175, 160, 255, 0.1);
+}
+
+.nv-section--tracks .nv-feature-callout:nth-child(2) {
+  background: linear-gradient(135deg, rgba(120, 215, 220, 0.045) 0%, rgba(255, 255, 255, 0.02) 100%);
+  border-color: rgba(110, 210, 215, 0.1);
+}
+
+.nv-section--tracks .nv-feature-callout:nth-child(3) {
+  background: linear-gradient(135deg, rgba(130, 170, 255, 0.05) 0%, rgba(255, 255, 255, 0.02) 100%);
+  border-color: rgba(130, 165, 255, 0.1);
+}
+
+.nv-section--tracks .nv-feature-callout:hover {
+  border-color: rgba(255, 255, 255, 0.1);
+  filter: brightness(1.02);
+}
+
+/* Final CTA — gentle gold glow, no heavy brown slab */
+.nv-section--cta-band {
+  padding: 22px 20px 26px;
+  margin-top: 6px;
+  margin-bottom: 0;
+}
+
+.nv-section--cta-band::before {
+  background:
+    radial-gradient(ellipse 100% 75% at 50% 0%, rgba(255, 224, 120, 0.09) 0%, transparent 62%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.02) 0%, transparent 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 235, 180, 0.09),
+    inset 0 0 0 1px rgba(255, 210, 100, 0.07);
+}
+
+.nv-section .nv-h2:first-of-type {
+  margin-top: 10px;
+}
+
+.nv-section .nv-block {
+  margin-bottom: 0;
 }
 
 /* ── Scroll reveal ── */
@@ -489,18 +640,18 @@
 }
 
 .nv-callout--amber {
-  background: rgba(255, 168, 0, 0.07);
-  border-left: 3px solid rgba(255, 168, 0, 0.45);
+  background: rgba(255, 190, 130, 0.045);
+  border-left: 3px solid rgba(255, 185, 120, 0.28);
 }
 
 .nv-callout--blue {
-  background: rgba(50, 130, 255, 0.07);
-  border-left: 3px solid rgba(50, 130, 255, 0.45);
+  background: rgba(130, 175, 255, 0.045);
+  border-left: 3px solid rgba(120, 165, 255, 0.28);
 }
 
 .nv-callout--cta {
-  background: rgba(255, 214, 10, 0.05);
-  border: 0.5px solid rgba(255, 214, 10, 0.22);
+  background: rgba(255, 230, 160, 0.04);
+  border: 0.5px solid rgba(255, 215, 130, 0.14);
   border-radius: 10px;
   padding: 28px 28px 32px;
   display: block;
@@ -705,7 +856,8 @@
   .nv-paper { margin: 12px 12px 32px; }
   .nv-paper-margin { left: 32px; }
   .nv-hero { padding: 56px 18px 72px 44px; }
-  .nv-content { padding: 0 18px 72px 44px; }
+  .nv-content { padding: 4px 18px 72px 44px; }
+  .nv-section { padding: 14px 14px 18px; margin-bottom: 10px; border-radius: 14px; }
   .nv-callout--cta { padding: 22px 20px 26px; }
   .nv-footer--paper { margin: 0 18px 0 44px; }
   .nv-scribble--hero,
@@ -1926,7 +2078,8 @@ body {
   top: 0;
   left: 0;
   pointer-events: none;
-  z-index: 99999;
+  /* 항상 최상단 표시. pointer-events:none 이라 hit-test는 건너뛰어 모달·토스트·프라이버시 버튼 클릭은 그대로 통과 */
+  z-index: 2147483647;
   will-change: transform;
   /* 중심 보정: 닷 크기의 절반만큼 당겨서 정확히 커서 위에 올라오게 */
   margin: -6px 0 0 -6px;
@@ -1982,32 +2135,44 @@ body {
 @keyframes ticker  { 0%{transform:translateX(0)} 100%{transform:translateX(-50%)} }
 @keyframes quizGradingSpin { to { transform:rotate(360deg); } }
 
-/* “Point” 로고 — 글자별 기하 궤적(오각 루프 + 미세 회전) */
-/* seesaw: center letter is pivot, edges swing opposite */
-@keyframes logoSeesaw {
-  0%   { transform: translateY(0px); }
-  25%  { transform: translateY(var(--sa, 0px)); }
-  50%  { transform: translateY(0px); }
-  75%  { transform: translateY(calc(var(--sa, 0px) * -1)); }
-  100% { transform: translateY(0px); }
+/* “Point” 정적 워드마크 */
+.point-wordmark {
+  display: inline-block;
+  font-family: 'Manrope', system-ui, -apple-system, sans-serif;
+  font-weight: 800;
+  letter-spacing: inherit;
+  line-height: 1;
 }
 
-.geo-point-logo {
+.point-wordmark-link {
+  appearance: none;
+  border: none;
+  background: transparent;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
   display: inline-flex;
   align-items: center;
+  line-height: 1;
 }
 
-.geo-point-logo .geo-char {
-  display: inline-block;
-  will-change: transform;
-  animation: logoSeesaw 2s cubic-bezier(0.37, 0, 0.63, 1) infinite;
+.point-wordmark-link:hover {
+  opacity: 0.88;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .geo-point-logo .geo-char {
-    animation: none !important;
-    transform: none !important;
-  }
+.point-wordmark-link:focus-visible {
+  outline: 2px solid rgba(120, 160, 255, 0.45);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+h1.login-logo {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 0;
 }
 
 /* ── SCREENS ── */
@@ -3713,6 +3878,7 @@ body {
   position:fixed;
   inset:0;
   z-index:200000;
+  isolation:isolate;
   display:flex;
   align-items:center;
   justify-content:center;
@@ -3721,6 +3887,8 @@ body {
   backdrop-filter:blur(8px);
 }
 .live-privacy-card {
+  position:relative;
+  z-index:1;
   width:min(480px, 100%);
   max-height:min(88vh, 640px);
   overflow-y:auto;
@@ -3744,13 +3912,7 @@ body {
   line-height:1.65;
 }
 .live-privacy-list li { margin-bottom:10px; }
-.live-privacy-note {
-  margin:0 0 18px;
-  font-size:12px;
-  line-height:1.55;
-  color:var(--muted2);
-}
-.live-privacy-ok { width:100%; }
+.live-privacy-ok { width:100%; margin-top:4px; }
 
 .live-replay-panel {
   position:absolute;
@@ -4129,6 +4291,31 @@ body {
 
 .fb-time { font-size:9px; color:var(--muted); margin-left:auto; }
 .fb-text { font-size:12.5px; color:var(--text); line-height:1.55; }
+
+.fb-speech-snippet {
+  margin-top:8px;
+  padding:8px 10px;
+  border-radius:8px;
+  background:rgba(0,0,0,.18);
+  border:1px solid var(--border);
+  font-size:11px;
+}
+.fb-speech-snippet-summary {
+  cursor:pointer;
+  font-weight:600;
+  color:var(--muted);
+  list-style:none;
+}
+.fb-speech-snippet-summary::-webkit-details-marker { display:none; }
+.fb-speech-snippet-body {
+  margin:8px 0 0;
+  color:var(--text);
+  line-height:1.5;
+  white-space:pre-wrap;
+  word-break:break-word;
+}
+.fb-actions { margin-top:8px; display:flex; flex-wrap:wrap; gap:6px; }
+.fb-hear-coach-btn { font-size:11px; }
 
 /* nonverbal summary */
 .nonverbal-panel { border-top:1px solid var(--border); padding:14px; }
@@ -4679,18 +4866,23 @@ body {
 }
 
 .btn-transcript-primary {
-  border-color: rgba(99, 130, 247, 0.45);
-  background: linear-gradient(135deg, rgba(99, 130, 247, 0.2) 0%, rgba(99, 102, 241, 0.12) 100%);
+  border: 1px solid rgba(126, 156, 248, 0.9);
+  background: var(--accent);
   color: #fff;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  box-shadow: 0 2px 14px rgba(126, 156, 248, 0.38);
 }
 
 .btn-transcript-primary:hover:not(:disabled) {
-  filter: brightness(1.08);
+  filter: brightness(1.06);
+  box-shadow: 0 4px 20px rgba(126, 156, 248, 0.48);
 }
 
 .btn-transcript-primary:disabled {
   opacity: 0.45;
   cursor: not-allowed;
+  box-shadow: none;
 }
 
 .report-transcript-pre {
@@ -4745,6 +4937,48 @@ body {
 
 .report-transcript-polish-error {
   color: #e8a070;
+}
+
+.report-polish-audio {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.btn-report-polish-audio {
+  appearance: none;
+  border: 1px solid var(--border2);
+  background: var(--surface3);
+  color: var(--text);
+  font-family: 'Manrope', 'Noto Sans KR', sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 7px 12px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+}
+
+.btn-report-polish-audio:hover:not(:disabled) {
+  border-color: rgba(126, 156, 248, 0.45);
+  background: rgba(126, 156, 248, 0.12);
+}
+
+.btn-report-polish-audio:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-report-polish-audio--coach {
+  border-color: rgba(126, 156, 248, 0.55);
+  background: rgba(126, 156, 248, 0.18);
+  color: var(--text);
+}
+
+.btn-report-polish-audio--coach:hover:not(:disabled) {
+  background: rgba(126, 156, 248, 0.28);
+  border-color: rgba(126, 156, 248, 0.75);
 }
 
 .report-polish-list {
@@ -7135,6 +7369,9 @@ body {
 
 .nv-nav-logo {
   color: #2a2620 !important;
+  font-size: clamp(22px, 2.6vw, 28px) !important;
+  font-weight: 800 !important;
+  letter-spacing: -0.03em !important;
 }
 
 .nv-nav-cta {
@@ -7311,6 +7548,16 @@ body {
   ) !important;
 }
 
+.nv-hl {
+  background: linear-gradient(
+    100deg,
+    rgba(255, 234, 140, 0.78) 0%,
+    rgba(255, 214, 95, 0.68) 50%,
+    rgba(255, 228, 130, 0.74) 100%
+  ) !important;
+  color: #141210 !important;
+}
+
 .nv-cta-block .nv-cta-heading {
   color: #1a1714 !important;
 }
@@ -7357,8 +7604,11 @@ body {
 .coach-select-topbar,
 .topbar,
 .live-topbar {
-  background: rgba(253, 251, 246, 0.94) !important;
-  border-bottom: 0.5px solid rgba(55, 45, 35, 0.1) !important;
+  /* 단색 베이지-옐로: 블러 없음 → 뒤쪽 쿨톤 그라데이션이 비치지 않음 */
+  background: #f4ead4 !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border-bottom: 0.5px solid rgba(120, 95, 55, 0.14) !important;
 }
 
 .topbar-logo,
@@ -7376,7 +7626,9 @@ body {
 }
 
 .home-notebook-sheet .coach-select-topbar.coach-select-topbar--in-sheet {
-  background: rgba(255, 254, 249, 0.88) !important;
+  background: #f4ead4 !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
   border-top: none !important;
 }
 

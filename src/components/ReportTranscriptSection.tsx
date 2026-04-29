@@ -1,10 +1,12 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { TranscriptEntry } from '../types/session';
 import type { PersonaType } from '../store/sessionStore';
 import { PERSONAS } from '../constants/personas';
 import { transcriptPlain, transcriptWithTimestamps, downloadTextFile } from '../lib/transcriptScript';
 import { hasOpenAI } from '../lib/openai';
 import { suggestTranscriptPolish, type TranscriptPolishPair } from '../agents/transcriptPolishAgent';
+import { primeFeedbackAudio } from '../lib/feedbackTts';
+import { speakCoachQuestion, speakTranscriptSnippetNeutral, stopCoachQuestionSpeech } from '../lib/coachQuestionTts';
 
 type Props = {
   transcriptLog: TranscriptEntry[];
@@ -22,6 +24,10 @@ export function ReportTranscriptSection({
   const [polishPairs, setPolishPairs] = useState<TranscriptPolishPair[] | null>(null);
   const [polishBusy, setPolishBusy] = useState(false);
   const [polishError, setPolishError] = useState<string | null>(null);
+  /** `you:${i}` | `coach:${i}` while TTS is running */
+  const [polishAudioKey, setPolishAudioKey] = useState<string | null>(null);
+
+  useEffect(() => () => stopCoachQuestionSpeech(), []);
 
   const plain = useMemo(() => transcriptPlain(transcriptLog), [transcriptLog]);
   const stamped = useMemo(
@@ -117,7 +123,8 @@ export function ReportTranscriptSection({
           ) : (
             '.'
           )}{' '}
-          Uses your configured OpenAI API key.
+          After generating, use <strong>Hear your line</strong> (neutral read-back of the transcript) and{' '}
+          <strong>Hear coach</strong> (persona TTS) to compare. Uses your configured OpenAI API key when available.
         </p>
         <button
           type="button"
@@ -135,6 +142,32 @@ export function ReportTranscriptSection({
           <div className="report-polish-list">
             {polishPairs.map((row, i) => (
               <div key={i} className="report-polish-row">
+                <div className="report-polish-audio">
+                  <button
+                    type="button"
+                    className="btn-report-polish-audio"
+                    disabled={!!polishAudioKey || !row.original.trim()}
+                    onClick={() => {
+                      primeFeedbackAudio();
+                      setPolishAudioKey(`you:${i}`);
+                      void speakTranscriptSnippetNeutral(row.original).finally(() => setPolishAudioKey(null));
+                    }}
+                  >
+                    {polishAudioKey === `you:${i}` ? 'Playing…' : '▶ Hear your line'}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-report-polish-audio btn-report-polish-audio--coach"
+                    disabled={!!polishAudioKey || !row.improved.trim()}
+                    onClick={() => {
+                      primeFeedbackAudio();
+                      setPolishAudioKey(`coach:${i}`);
+                      void speakCoachQuestion(row.improved, selectedPersona).finally(() => setPolishAudioKey(null));
+                    }}
+                  >
+                    {polishAudioKey === `coach:${i}` ? 'Playing…' : '▶ Hear coach'}
+                  </button>
+                </div>
                 <div className="report-polish-label">You said</div>
                 <p className="report-polish-original">{row.original}</p>
                 <div className="report-polish-label report-polish-label-alt">Try instead</div>

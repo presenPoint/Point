@@ -82,6 +82,52 @@ export function stopCoachQuestionSpeech(): void {
  * 질문(또는 짧은 안내)을 코치 스타일 TTS로 재생합니다. 이전 재생은 끊습니다.
  * 자동재생이 막히면 조용히 실패할 수 있으므로, 중요한 경우 버튼에서 한 번 더 호출하세요.
  */
+const NEUTRAL_SNIPPET_INSTRUCTIONS =
+  'Read the following text exactly as written — same words, same order. ' +
+  'Natural conversational pace, plain delivery, as if faithfully echoing what someone said on stage. ' +
+  'Do not polish, summarize, or add commentary. Match the language of the text.';
+
+/**
+ * 보고서 “Say it this way” 등 — 전사 스니펫을 코치 말투 없이 그대로 읽습니다 (저장된 녹음이 없을 때 대안).
+ * `speakCoachQuestion`과 동일 출력 경로를 쓰므로 서로 끊고 재생합니다.
+ */
+export async function speakTranscriptSnippetNeutral(text: string): Promise<void> {
+  const trimmed = text.trim();
+  if (!trimmed) return;
+
+  stopCoachQuestionSpeech();
+
+  if (hasOpenAI()) {
+    const voice = 'alloy';
+    const blob = await createSpeechAudio({
+      input: trimmed,
+      voice,
+      instructions: NEUTRAL_SNIPPET_INSTRUCTIONS,
+    });
+    if (blob) {
+      const url = URL.createObjectURL(blob);
+      currentObjectUrl = url;
+      const audio = new Audio(url);
+      currentAudio = audio;
+      try {
+        await new Promise<void>((resolve, reject) => {
+          audio.onended = () => resolve();
+          audio.onerror = () => reject(new Error('Audio playback failed'));
+          void audio.play().catch((e) => reject(e instanceof Error ? e : new Error(String(e))));
+        });
+      } catch {
+        stopAudio();
+        speakBrowser(trimmed, 0.96);
+        return;
+      }
+      stopAudio();
+      return;
+    }
+  }
+
+  speakBrowser(trimmed, 0.96);
+}
+
 export async function speakCoachQuestion(text: string, persona: PersonaType | null): Promise<void> {
   const trimmed = text.trim();
   if (!trimmed) return;

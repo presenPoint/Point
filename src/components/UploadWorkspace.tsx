@@ -14,7 +14,7 @@ import { ScriptUploadPanel } from './ScriptUploadPanel';
 import { AnimatedPointLogo } from './AnimatedPointLogo';
 
 const PRE_QUIZ_INTRO_TTS =
-  'Here is your short warm-up before you present. Go through each question with Next. You can answer with your voice or by typing.';
+  'Here is your short warm-up before you present. Answer each question with your voice or by typing — use Next to move between questions.';
 
 function VoiceQuizInput({ value, onChange, disabled }: {
   value: string;
@@ -150,14 +150,39 @@ export function UploadWorkspace() {
   const filesPanelRef = useRef<FileSubmissionPanelHandle>(null);
   /** 자료 추출 중 등 — Topic & materials 단계에서 Next 비활성 */
   const [filesStepBlocked, setFilesStepBlocked] = useState(false);
+  /** 같은 분석 결과로 analyze 단계 → 퀴즈 자동 이동을 한 번만(뒤로 가기 후 재방문은 유지) */
+  const preQuizAutoJumpKey = useRef<string | null>(null);
 
   useEffect(() => {
     setStepIndex(0);
+    preQuizAutoJumpKey.current = null;
   }, [session.session_id]);
+
+  useEffect(() => {
+    if (busy === 'Analyzing materials...') preQuizAutoJumpKey.current = null;
+  }, [busy]);
 
   useEffect(() => {
     setStepIndex((i) => Math.min(i, Math.max(0, steps.length - 1)));
   }, [steps.length]);
+
+  /** 사전 퀴즈가 생성되면 Next 없이 첫 문항 화면으로 이동 */
+  useEffect(() => {
+    if (busy) return;
+    if (!analysisReady(session) || session.material.quiz.length === 0) return;
+
+    const analyzeIdx = steps.indexOf('analyze');
+    if (analyzeIdx < 0 || stepIndex !== analyzeIdx) return;
+
+    const firstQuizIdx = steps.findIndex((s) => String(s).startsWith('quiz:'));
+    if (firstQuizIdx < 0 || firstQuizIdx <= analyzeIdx) return;
+
+    const key = `${session.session_id}:${session.material.quiz.map((q) => q.id).join(',')}`;
+    if (preQuizAutoJumpKey.current === key) return;
+
+    preQuizAutoJumpKey.current = key;
+    setStepIndex(firstQuizIdx);
+  }, [busy, stepIndex, steps, session.session_id, session.material.quiz, session.status, session.material.summary]);
 
   useEffect(() => {
     return () => stopCoachQuestionSpeech();
@@ -421,8 +446,8 @@ export function UploadWorkspace() {
                 <div className="prequiz-intro-inline">
                   <div className="quiz-badge">📋 PRE-PRESENTATION CHECK</div>
                   <p className="upload-wizard-sublead">
-                    A few open-ended questions check how well you know your material. Use <strong>Next</strong> between
-                    questions.
+                    A few open-ended questions check how well you know your material. After this screen, use{' '}
+                    <strong>Next</strong> to move to the following questions.
                   </p>
                   <div className="coach-question-tts-row">
                     <button
@@ -479,8 +504,8 @@ export function UploadWorkspace() {
     <div id="screen-upload" className="point-screen">
       <div className="app-shell">
         <div className="topbar">
-          <div className="topbar-logo" aria-label="Point">
-            <AnimatedPointLogo />
+          <div className="topbar-logo">
+            <AnimatedPointLogo onHomeClick={() => setAppStarted(false)} ariaLabel="Point — Home" />
           </div>
           <div className="upload-wizard-topbar-meta" aria-live="polite">
             <span className="upload-wizard-step-pill">Prepare</span>

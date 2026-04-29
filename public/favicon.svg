@@ -1,18 +1,19 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="Point">
-  <defs>
-    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#151922"/>
-      <stop offset="100%" stop-color="#0c0e14"/>
-    </linearGradient>
-  </defs>
-  <rect width="32" height="32" rx="9" fill="url(#bg)"/>
+  <!-- Cream notebook tile (slightly warmer for small-size clarity) -->
+  <rect width="32" height="32" rx="8" fill="#faf7f0"/>
+  <rect width="32" height="32" rx="8" fill="none" stroke="#cfc6ba" stroke-width="0.75"/>
+  <!-- Faint “ruled line” — muted blue so it doesn’t compete with the mark -->
+  <line x1="5" y1="26.5" x2="27" y2="26.5" stroke="#6b8eb8" stroke-opacity="0.22" stroke-width="0.65" stroke-linecap="round"/>
+  <!-- Highlighter: amber-gold, less neon at favicon size -->
+  <rect x="6.5" y="12.5" width="19" height="11.5" rx="2.8" fill="#e8c84a" fill-opacity="0.92" transform="rotate(-6.5 16 18.25)"/>
+  <!-- Warm ink “P” -->
   <text
     x="16"
-    y="22.5"
+    y="22.75"
     text-anchor="middle"
-    font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif"
-    font-size="18"
+    font-family="ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
+    font-size="17.5"
     font-weight="800"
-    fill="#7e9cf8"
+    fill="#2a2620"
   >P</text>
 </svg>

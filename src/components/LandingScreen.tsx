@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { PointWordmark } from './PointWordmark';
 
 const HERO_TITLE = 'Point';
 
@@ -167,7 +168,13 @@ export function LandingScreen({ onStart }: Props) {
 
       {/* ── Nav ── */}
       <nav className="nv-nav" aria-label="Main navigation">
-        <span className="nv-nav-logo">Point</span>
+        <PointWordmark
+          className="nv-nav-logo"
+          ariaLabel="Point — top of page"
+          onHomeClick={() => {
+            pageRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+        />
         <button type="button" className="nv-nav-cta" onClick={onStart}>
           Get started
         </button>
@@ -201,167 +208,176 @@ export function LandingScreen({ onStart }: Props) {
         {/* ── Content ── */}
         <div className="nv-content">
 
-        {/* Problem callout */}
-        <div className="nv-block nv-block--rel">
-          <p className="nv-scribble nv-scribble--side1" aria-hidden="true">
-            ugh relatable
-          </p>
-          <div className="nv-callout nv-callout--amber">
-            <span className="nv-callout-icon" aria-hidden="true">💡</span>
-            <p>
-              Most people practice presentations alone.
-              No real feedback. No pressure. No growth.
+        <section className="nv-section nv-section--insight" aria-label="Why practice alone falls short">
+          <div className="nv-block nv-block--rel">
+            <p className="nv-scribble nv-scribble--side1" aria-hidden="true">
+              ugh relatable
             </p>
-          </div>
-        </div>
-
-        {/* Checklist — pain points */}
-        <div className="nv-block nv-block--rel">
-          <p className="nv-scribble nv-scribble--side2" aria-hidden="true">
-            check these ↓
-          </p>
-          <h2 className="nv-h2 nv-h2--scribble">
-            <span className="nv-h2-text">Sound familiar?</span>
-          </h2>
-          <ul className="nv-checklist" aria-label="Common presentation problems">
-            <li className="nv-check">Slides are done — but you still feel unprepared</li>
-            <li className="nv-check nv-check--annotated">
-              <span className="nv-check-main">Voice gets shaky when it actually matters</span>
-              <span className="nv-check-note nv-hand" aria-hidden="true">me every time</span>
-            </li>
-            <li className="nv-check">Can't hold eye contact under pressure</li>
-            <li className="nv-check">Q&A sessions feel like an ambush</li>
-          </ul>
-        </div>
-
-        {/* Solution callout */}
-        <div className="nv-block nv-block--rel">
-          <p className="nv-scribble nv-scribble--side3" aria-hidden="true">
-            the fix →
-          </p>
-          <div className="nv-callout nv-callout--blue">
-            <span className="nv-callout-icon" aria-hidden="true">✨</span>
-            <div>
-              <strong>Point watches you present — live.</strong>
+            <div className="nv-callout nv-callout--amber">
+              <span className="nv-callout-icon" aria-hidden="true">💡</span>
               <p>
-                Voice, eye contact, and Q&A coaching in real time.
-                Not in a report you forget to read.
+                Most people practice presentations <span className="nv-hl">alone</span>. No real feedback. No pressure.{' '}
+                <span className="nv-hl">No growth</span>.
               </p>
             </div>
           </div>
-        </div>
+        </section>
 
-        <hr className="nv-divider nv-block" aria-hidden="true" />
+        <section className="nv-section nv-section--pain" aria-label="Common struggles">
+          <div className="nv-block nv-block--rel">
+            <p className="nv-scribble nv-scribble--side2" aria-hidden="true">
+              check these ↓
+            </p>
+            <h2 className="nv-h2">
+              <span className="nv-h2-text">Sound familiar?</span>
+            </h2>
+            <ul className="nv-checklist" aria-label="Common presentation problems">
+              <li className="nv-check">Slides are done — but you still feel unprepared</li>
+              <li className="nv-check nv-check--annotated">
+                <span className="nv-check-main">
+                  Voice gets <span className="nv-hl">shaky</span> when it actually matters
+                </span>
+                <span className="nv-check-note nv-hand" aria-hidden="true">me every time</span>
+              </li>
+              <li className="nv-check">Can&apos;t hold eye contact under pressure</li>
+              <li className="nv-check">
+                Q&amp;A sessions feel like an <span className="nv-hl">ambush</span>
+              </li>
+            </ul>
+          </div>
+        </section>
 
-        {/* How it works */}
-        <div className="nv-block nv-block--rel">
-          <p className="nv-scribble nv-scribble--steps" aria-hidden="true">
-            3 steps. that’s it.
-          </p>
-          <h2 className="nv-h2 nv-h2--scribble">
-            <span className="nv-h2-text">How it works</span>
-          </h2>
-          <ol className="nv-steps" aria-label="Steps">
-            <li className="nv-step">
-              <span className="nv-step-num" aria-hidden="true">01</span>
+        <section className="nv-section nv-section--promise" aria-label="What Point does">
+          <div className="nv-block nv-block--rel">
+            <p className="nv-scribble nv-scribble--side3" aria-hidden="true">
+              the fix →
+            </p>
+            <div className="nv-callout nv-callout--blue">
+              <span className="nv-callout-icon" aria-hidden="true">✨</span>
               <div>
-                <div className="nv-step-title">Drop in your slides</div>
-                <div className="nv-step-desc">
-                  Point reads them, preps quiz questions, knows your material
-                </div>
-              </div>
-            </li>
-            <li className="nv-step">
-              <span className="nv-step-num" aria-hidden="true">02</span>
-              <div>
-                <div className="nv-step-title">Pick a coaching style</div>
-                <div className="nv-step-desc">
-                  Different energy, pace, and feedback tone for every presenter
-                </div>
-                <p className="nv-step-comment nv-hand" aria-hidden="true">
-                  pick your vibe →
+                <strong>
+                  Point watches you present — <span className="nv-hl">live</span>.
+                </strong>
+                <p>
+                  Voice, eye contact, and Q&amp;A coaching in{' '}
+                  <span className="nv-hl">real time</span>.
+                  Not in a report you forget to read.
                 </p>
               </div>
-            </li>
-            <li className="nv-step">
-              <span className="nv-step-num" aria-hidden="true">03</span>
-              <div>
-                <div className="nv-step-title">Just present</div>
-                <div className="nv-step-desc">
-                  Your coach watches live — feedback lands exactly when you need it
-                </div>
-              </div>
-            </li>
-          </ol>
-        </div>
-
-        <hr className="nv-divider nv-block" aria-hidden="true" />
-
-        {/* What it tracks */}
-        <div className="nv-block nv-block--rel">
-          <p className="nv-scribble nv-scribble--tracks" aria-hidden="true">
-            all scored live
-          </p>
-          <h2 className="nv-h2 nv-h2--scribble nv-h2--double">
-            <span className="nv-h2-text">What it tracks</span>
-          </h2>
-          <div className="nv-features">
-            <div className="nv-feature-callout">
-              <span className="nv-feature-icon" aria-hidden="true">🎤</span>
-              <div>
-                <div className="nv-feature-title">Voice</div>
-                <div className="nv-feature-desc">
-                  Filler words, pace, off-topic moments — flagged as they happen
-                </div>
-              </div>
             </div>
-            <div className="nv-feature-callout">
-              <span className="nv-feature-icon" aria-hidden="true">👀</span>
-              <div>
-                <div className="nv-feature-title">Body language</div>
-                <div className="nv-feature-desc">
-                  Eye contact and gesture intensity scored live through your camera
+          </div>
+        </section>
+
+        <section className="nv-section nv-section--flow" aria-label="How it works">
+          <div className="nv-block nv-block--rel">
+            <p className="nv-scribble nv-scribble--steps" aria-hidden="true">
+              3 steps. that’s it.
+            </p>
+            <h2 className="nv-h2">
+              <span className="nv-h2-text">How it works</span>
+            </h2>
+            <ol className="nv-steps" aria-label="Steps">
+              <li className="nv-step">
+                <span className="nv-step-num" aria-hidden="true">01</span>
+                <div>
+                  <div className="nv-step-title">Drop in your slides</div>
+                  <div className="nv-step-desc">
+                    Point reads them, preps quiz questions, <span className="nv-hl">knows your material</span>
+                  </div>
+                </div>
+              </li>
+              <li className="nv-step">
+                <span className="nv-step-num" aria-hidden="true">02</span>
+                <div>
+                  <div className="nv-step-title">Pick a coaching style</div>
+                  <div className="nv-step-desc">
+                    Different energy, pace, and feedback tone for every presenter
+                  </div>
+                  <p className="nv-step-comment nv-hand" aria-hidden="true">
+                    pick your vibe →
+                  </p>
+                </div>
+              </li>
+              <li className="nv-step">
+                <span className="nv-step-num" aria-hidden="true">03</span>
+                <div>
+                  <div className="nv-step-title">Just present</div>
+                  <div className="nv-step-desc">
+                    Your coach watches live — feedback lands exactly{' '}
+                    <span className="nv-hl">when you need it</span>
+                  </div>
+                </div>
+              </li>
+            </ol>
+          </div>
+        </section>
+
+        <section className="nv-section nv-section--tracks" aria-label="What Point tracks">
+          <div className="nv-block nv-block--rel">
+            <p className="nv-scribble nv-scribble--tracks" aria-hidden="true">
+              all scored live
+            </p>
+            <h2 className="nv-h2 nv-h2--scribble">
+              <span className="nv-h2-text">What it tracks</span>
+            </h2>
+            <div className="nv-features">
+              <div className="nv-feature-callout">
+                <span className="nv-feature-icon" aria-hidden="true">🎤</span>
+                <div>
+                  <div className="nv-feature-title">Voice</div>
+                  <div className="nv-feature-desc">
+                    Filler words, pace, off-topic moments — flagged{' '}
+                    <span className="nv-hl">as they happen</span>
+                  </div>
                 </div>
               </div>
-            </div>
-            <div className="nv-feature-callout">
-              <span className="nv-feature-icon" aria-hidden="true">🤖</span>
-              <div>
-                <div className="nv-feature-title">Q&A readiness</div>
-                <div className="nv-feature-desc">
-                  Practice the hard questions your audience will ask — before they do
+              <div className="nv-feature-callout">
+                <span className="nv-feature-icon" aria-hidden="true">👀</span>
+                <div>
+                  <div className="nv-feature-title">Body language</div>
+                  <div className="nv-feature-desc">
+                    Eye contact and gesture intensity scored live through your camera
+                  </div>
+                </div>
+              </div>
+              <div className="nv-feature-callout">
+                <span className="nv-feature-icon" aria-hidden="true">🤖</span>
+                <div>
+                  <div className="nv-feature-title">Q&A readiness</div>
+                  <div className="nv-feature-desc">
+                    Practice the <span className="nv-hl">hard questions</span> your audience will ask — before they do
+                  </div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
+        </section>
 
-        <hr className="nv-divider nv-block" aria-hidden="true" />
-
-        {/* CTA */}
-        <div className="nv-cta-block nv-block nv-block--rel">
-          <p className="nv-scribble nv-scribble--cta" aria-hidden="true">
-            do it!!
-          </p>
-          <div className="nv-callout nv-callout--cta">
-            <div className="nv-cta-inner">
-              <h2 className="nv-cta-heading">
-                Ready to stop{' '}
-                <span className="nv-marker nv-marker--strong">practicing alone?</span>
-              </h2>
-              <p className="nv-cta-sub">
-                Choose your coach style and start your first session.
-              </p>
-              <button type="button" className="nv-cta-btn" onClick={onStart}>
-                Start with Point
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-                  <path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" strokeWidth="1.8"
-                    strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </button>
+        <section className="nv-section nv-section--cta-band" aria-label="Get started">
+          <div className="nv-cta-block nv-block nv-block--rel">
+            <p className="nv-scribble nv-scribble--cta" aria-hidden="true">
+              do it!!
+            </p>
+            <div className="nv-callout nv-callout--cta">
+              <div className="nv-cta-inner">
+                <h2 className="nv-cta-heading">
+                  Ready to stop{' '}
+                  <span className="nv-marker nv-marker--strong">practicing alone?</span>
+                </h2>
+                <p className="nv-cta-sub">
+                  Choose your coach style and start your <span className="nv-hl">first session</span>.
+                </p>
+                <button type="button" className="nv-cta-btn" onClick={onStart}>
+                  Start with Point
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                    <path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" strokeWidth="1.8"
+                      strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </button>
+              </div>
             </div>
           </div>
-        </div>
+        </section>
 
         </div>
 

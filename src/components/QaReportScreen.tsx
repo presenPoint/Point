@@ -24,8 +24,8 @@ function QaTopBar({
 
   return (
     <div className="topbar">
-      <div className="topbar-logo" aria-label="Point">
-        <AnimatedPointLogo />
+      <div className="topbar-logo">
+        <AnimatedPointLogo onHomeClick={() => setAppStarted(false)} ariaLabel="Point — Home" />
       </div>
       <div className="topbar-steps">
         <div className="step-dot done">✓</div>

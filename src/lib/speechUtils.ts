@@ -1,3 +1,19 @@
+import type { TranscriptEntry } from '../types/session';
+
+/** 최근 인식 버퍼에서 일정 시간 안의 발화만 이어 붙여 스니펫 문자열을 만듭니다. */
+export function recentTranscriptPlain(
+  buffer: TranscriptEntry[],
+  windowMs: number,
+  maxChars: number,
+): string {
+  const now = Date.now();
+  const parts = buffer
+    .filter((e) => now - e.timestamp <= windowMs)
+    .map((e) => e.text.trim())
+    .filter(Boolean);
+  return parts.join(' ').replace(/\s+/g, ' ').trim().slice(0, maxChars);
+}
+
 /** Approximate word count for WPM calculation */
 export function countSyllables(text: string): number {
   const words = text.trim().split(/\s+/).filter(Boolean);

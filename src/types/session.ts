@@ -219,6 +219,8 @@ export interface FeedbackItem {
   cooldown: number;
   createdAt: number;
   silent?: boolean;
+  /** 스피치 피드백 직전 구간의 인식 텍스트(다시 읽기용) */
+  speechSnippet?: string;
 }
 
 export interface ReportScores {

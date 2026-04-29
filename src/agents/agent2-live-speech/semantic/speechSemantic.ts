@@ -98,11 +98,13 @@ export async function runSemanticAnalysis(
 
   if (result.feedback_message) {
     const level = result.off_topic ? 'CRITICAL' : 'WARN';
+    const snippet = recentText.trim().replace(/\s+/g, ' ').slice(0, 800);
     feedbackQueue.push({
       level,
       msg: result.feedback_message.slice(0, 40),
       source: 'SPEECH_SEMANTIC',
       cooldown: result.off_topic ? 60_000 : 15_000,
+      speechSnippet: snippet || undefined,
     });
   }
 

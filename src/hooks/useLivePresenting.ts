@@ -109,11 +109,21 @@ export function useLivePresenting() {
         if (!t) return;
         if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
         silenceTimerRef.current = setTimeout(() => {
+          const log = useSessionStore.getState().session.speech_coaching.transcript_log;
+          const tail = log
+            .slice(-12)
+            .map((e) => e.text.trim())
+            .filter(Boolean)
+            .join(' ')
+            .replace(/\s+/g, ' ')
+            .trim()
+            .slice(0, 480);
           feedbackQueue.push({
             level: 'INFO',
             msg: 'Your presentation has paused',
             source: 'SPEECH_RULE',
             cooldown: 30_000,
+            speechSnippet: tail || undefined,
           });
         }, SILENCE_THRESHOLD_MS);
 
