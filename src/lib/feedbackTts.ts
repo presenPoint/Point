@@ -8,7 +8,10 @@
  */
 
 import type { FeedbackLevel } from '../types/session';
+import { coachTtsParams } from './coachQuestionTts';
 import { createSpeechAudio, hasOpenAI } from './openai';
+import { effectiveOpenAiTtsVoice } from './coachTtsVoice';
+import { useSessionStore } from '../store/sessionStore';
 
 interface QueuedItem {
   text: string;
@@ -142,9 +145,12 @@ async function processQueue(gen: number): Promise<void> {
 
   if (hasOpenAI()) {
     try {
+      const persona = useSessionStore.getState().selectedPersona;
+      const baseVoice = coachTtsParams(persona).voice;
+      const voice = effectiveOpenAiTtsVoice(baseVoice);
       const blob = await createSpeechAudio({
         input: item.text,
-        voice: 'coral',
+        voice,
         instructions: instructionsForLevel(item.level, item.text),
       });
 

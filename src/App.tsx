@@ -11,6 +11,7 @@ import { LiveSessionScreen } from './components/LiveSessionScreen';
 import { QaReportScreen } from './components/QaReportScreen';
 import { AnimatedPointLogo } from './components/AnimatedPointLogo';
 import { CursorDot } from './components/CursorDot';
+import { GlobalToast } from './components/GlobalToast';
 
 /**
  * 앱 플로우:
@@ -124,6 +125,7 @@ export default function App() {
   return (
     <>
       <CursorDot />
+      <GlobalToast />
       {screen}
     </>
   );

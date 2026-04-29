@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import {
   extractMaterialFromFile,
@@ -36,6 +36,29 @@ function combineMaterialText(items: LocalFileEntry[]): string {
   return ok
     .map((e) => `<<< File: ${e.name} >>>\n\n${e.text.trim()}`)
     .join('\n\n---\n\n');
+}
+
+function persistMaterialEntries(
+  items: LocalFileEntry[],
+  setMaterialText: (text: string) => void
+): boolean {
+  if (items.some((e) => e.loading)) {
+    useSessionStore.setState({
+      error: 'Please wait until file text extraction is complete before saving.',
+    });
+    return false;
+  }
+  const combined = combineMaterialText(items);
+  if (combined.trim().length < 20) {
+    useSessionStore.setState({
+      error:
+        'No text available to save. Please add files that were processed without errors and try again.',
+    });
+    return false;
+  }
+  setMaterialText(combined);
+  useSessionStore.setState({ error: null });
+  return true;
 }
 
 function FileKindIcon({ kind }: { kind: MaterialFileKind }) {
@@ -124,18 +147,40 @@ function IconFolderView() {
   );
 }
 
-type Props = {
-  globalBusy: boolean;
+export type FileSubmissionPanelHandle = {
+  /** 세션에 발표 자료 텍스트 반영. 성공 여부 반환 */
+  save: () => boolean;
+  hasEntries: () => boolean;
 };
 
-export function FileSubmissionPanel({ globalBusy }: Props) {
+type Props = {
+  globalBusy: boolean;
+  /** 업로드 처리 중이면 위저드 Next 비활성화 */
+  onFilesStepBlockingChange?: (blocked: boolean) => void;
+};
+
+export const FileSubmissionPanel = forwardRef<FileSubmissionPanelHandle, Props>(
+  function FileSubmissionPanel({ globalBusy, onFilesStepBlockingChange }, ref) {
   const setMaterialText = useSessionStore((s) => s.setMaterialText);
   const [entries, setEntries] = useState<LocalFileEntry[]>([]);
+  const entriesRef = useRef(entries);
+  entriesRef.current = entries;
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [dragOver, setDragOver] = useState(false);
   const [panelBusy, setPanelBusy] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
+
+  const hasLoadingEntry = entries.some((e) => e.loading);
+
+  useImperativeHandle(ref, () => ({
+    save: () => persistMaterialEntries(entriesRef.current, setMaterialText),
+    hasEntries: () => entriesRef.current.length > 0,
+  }));
+
+  useEffect(() => {
+    onFilesStepBlockingChange?.(globalBusy || panelBusy || hasLoadingEntry);
+  }, [globalBusy, panelBusy, hasLoadingEntry, onFilesStepBlockingChange]);
 
   const ingestFiles = useCallback(async (fileArray: File[]) => {
     const oversized = fileArray.filter((f) => f.size > MAX_BYTES);
@@ -193,33 +238,36 @@ export function FileSubmissionPanel({ globalBusy }: Props) {
     if (batchSlots.length === 0) return;
 
     setPanelBusy(true);
+    const results = new Map<string, Awaited<ReturnType<typeof extractMaterialFromFile>>>();
     try {
       for (const p of batchSlots) {
-        const result = await extractMaterialFromFile(p.file);
-        setEntries((prev) =>
-          prev.map((e) => {
-            if (e.id !== p.id) return e;
-            if (result.ok) {
-              return {
-                ...e,
-                text: result.text,
-                kind: result.kind,
-                loading: false,
-                error: undefined,
-              };
-            }
-            return {
-              ...e,
-              text: '',
-              loading: false,
-              error: result.message,
-            };
-          })
-        );
+        results.set(p.id, await extractMaterialFromFile(p.file));
       }
     } finally {
       setPanelBusy(false);
     }
+
+    setEntries((prev) =>
+      prev.map((e) => {
+        const result = results.get(e.id);
+        if (!result) return e;
+        if (result.ok) {
+          return {
+            ...e,
+            text: result.text,
+            kind: result.kind,
+            loading: false,
+            error: undefined,
+          };
+        }
+        return {
+          ...e,
+          text: '',
+          loading: false,
+          error: result.message,
+        };
+      }),
+    );
   }, []);
 
   const onPickFiles = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -232,32 +280,12 @@ export function FileSubmissionPanel({ globalBusy }: Props) {
     setEntries((prev) => prev.filter((e) => e.id !== id));
   };
 
-  const handleSave = () => {
-    const combined = combineMaterialText(entries);
-    if (entries.some((e) => e.loading)) {
-      useSessionStore.setState({
-        error: 'Please wait until file text extraction is complete before saving.',
-      });
-      return;
-    }
-    if (combined.trim().length < 20) {
-      useSessionStore.setState({
-        error:
-          'No text available to save. Please add files that were processed without errors and try again.',
-      });
-      return;
-    }
-    setMaterialText(combined);
-    useSessionStore.setState({ error: null });
-  };
-
   const handleCancel = () => {
     setEntries([]);
     setMaterialText('');
     useSessionStore.setState({ error: null });
   };
 
-  const hasLoadingEntry = entries.some((e) => e.loading);
   const disabled = globalBusy || panelBusy || hasLoadingEntry;
   const bodyClass =
     dragOver ? 'fs-body fs-body-drop fs-body-dragover' : 'fs-body fs-body-drop';
@@ -417,15 +445,7 @@ export function FileSubmissionPanel({ globalBusy }: Props) {
         </div>
       </div>
 
-      <div className="fs-footer">
-        <button
-          type="button"
-          className="fs-btn-save"
-          disabled={disabled || entries.length === 0}
-          onClick={handleSave}
-        >
-          Save
-        </button>
+      <div className="fs-footer fs-footer--single">
         <button
           type="button"
           className="fs-btn-cancel"
@@ -437,4 +457,4 @@ export function FileSubmissionPanel({ globalBusy }: Props) {
       </div>
     </div>
   );
-}
+});

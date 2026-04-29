@@ -2,7 +2,7 @@
  * Agent 4 — Post-Presentation Q&A. Spec: ./AGENT.md
  */
 import { chatJson, hasOpenAI } from '../../lib/openai';
-import type { QaExchange, SessionContext } from '../../types/session';
+import type { QaDifficultyLevel, QaExchange, SessionContext } from '../../types/session';
 import { buildPresentationTopicBlock } from '../../lib/presentationTopicContext';
 
 type QaGrade = {
@@ -21,7 +21,18 @@ export function parseGptResponse(text: string): { message: string; isComplete: b
   };
 }
 
-function buildSystemPrompt(ctx: SessionContext, currentTurn: number): string {
+function pressureBlock(level: QaDifficultyLevel): string {
+  switch (level) {
+    case 'firm':
+      return `\n[Audience pressure: FIRM]\n- Ask one notch harder than a friendly panel: demand specifics, trade-offs, or one-line proof.\n- Still professional — no insults or theatrics.\n`;
+    case 'intense':
+      return `\n[Audience pressure: INTENSE]\n- Simulate skeptical investors or a sharp press line: short questions, zero small talk, insist on evidence and risks.\n- Final turn must feel like a real stress test.\n`;
+    default:
+      return `\n[Audience pressure: STANDARD]\n- Follow the early/middle/final arc below with the default tone mix.\n`;
+  }
+}
+
+function buildSystemPrompt(ctx: SessionContext, currentTurn: number, pressure: QaDifficultyLevel): string {
   const total = ctx.qa.planned_rounds ?? 5;
   const off = ctx.speech_coaching.off_topic_log.map((e) => e.excerpt).join(' / ');
 
@@ -56,7 +67,8 @@ ${scriptBlock}${styleBlock}
 - Middle turns (if any): probe weak areas, off-topic moments, or script phrases they may have missed — stricter.
 - Final turn: the sharpest rebuttal or a deep question (e.g. biggest weakness or unstated risk of the pitch).
 - Keep each question concise — two sentences or fewer
-- Respond in English`;
+- Respond in English
+${pressureBlock(pressure)}`;
 }
 
 const MOCK_QUESTIONS = [
@@ -67,11 +79,17 @@ const MOCK_QUESTIONS = [
   'What do you think is the biggest limitation of this presentation?',
 ];
 
+export type QaNextQuestionOpts = {
+  pressure?: QaDifficultyLevel;
+};
+
 /** exchanges: contains only completed Q&A pairs. If empty, generates the first question. */
 export async function qaNextQuestion(
   ctx: SessionContext,
-  exchanges: QaExchange[]
+  exchanges: QaExchange[],
+  opts?: QaNextQuestionOpts,
 ): Promise<{ text: string; isComplete: boolean }> {
+  const pressure = opts?.pressure ?? 'standard';
   const total = ctx.qa.planned_rounds ?? 5;
   const nextTurn = exchanges.length + 1;
   if (nextTurn > total) {
@@ -88,6 +106,9 @@ export async function qaNextQuestion(
       ? 'Output only the first question. There are no user answers yet.'
       : `Exchanges so far:\n${JSON.stringify(exchanges, null, 2)}\n\nAsk the next question.`;
 
+  const temperature =
+    pressure === 'intense' ? 0.38 : pressure === 'firm' ? 0.45 : 0.5;
+
   const res = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -96,9 +117,9 @@ export async function qaNextQuestion(
     },
     body: JSON.stringify({
       model: 'gpt-4o',
-      temperature: 0.5,
+      temperature,
       messages: [
-        { role: 'system', content: buildSystemPrompt(ctx, nextTurn) },
+        { role: 'system', content: buildSystemPrompt(ctx, nextTurn, pressure) },
         { role: 'user', content: userMsg },
       ],
     }),

@@ -17,7 +17,7 @@ import {
   clearChunks,
   calcScriptCoverage,
 } from '../lib/scriptEmbedding';
-import type { SessionContext, SessionStatus } from '../types/session';
+import type { SessionContext, SessionStatus, QaDifficultyLevel } from '../types/session';
 import { buildPresentationTopicBlock } from '../lib/presentationTopicContext';
 
 function emptyMaterial(): SessionContext['material'] {
@@ -103,6 +103,10 @@ type State = {
   skipPersonaSurvey: boolean;
   livePresentation: { wpm: number; fillerCount: number; volumeRms: number };
   selectedPersona: PersonaType | null;
+  /** Audience Q&A — 질문 난이도(프롬프트) */
+  qaDifficulty: QaDifficultyLevel;
+  /** OpenAI TTS voice 오버라이드 — 빈 문자열이면 페르소나 기본 */
+  coachTtsVoiceOverride: string;
 
   setAppStarted: (v: boolean) => void;
   startPersonaStyleQuiz: () => void;
@@ -110,6 +114,8 @@ type State = {
   setPresentationTopics: (keys: string[], custom: string) => void;
   setLivePresentation: (p: Partial<{ wpm: number; fillerCount: number; volumeRms: number }>) => void;
   setPersona: (persona: PersonaType | null) => void;
+  setQaDifficulty: (d: QaDifficultyLevel) => void;
+  setCoachTtsVoiceOverride: (voiceId: string) => void;
 
   resetSession: () => void;
   transition: (to: SessionStatus) => void;
@@ -134,6 +140,8 @@ type State = {
   setUserId: (id: string) => void;
 };
 
+export type { QaDifficultyLevel } from '../types/session';
+
 const DEMO_USER = '00000000-0000-0000-0000-000000000001';
 
 let qaStartLock = false;
@@ -148,6 +156,8 @@ export const useSessionStore = create<State>((set, get) => ({
   skipPersonaSurvey: false,
   livePresentation: { wpm: 0, fillerCount: 0, volumeRms: 0 },
   selectedPersona: null,
+  qaDifficulty: 'standard',
+  coachTtsVoiceOverride: '',
 
   setAppStarted: (v) =>
     set({
@@ -175,6 +185,8 @@ export const useSessionStore = create<State>((set, get) => ({
       },
     })),
   setPersona: (persona) => set({ selectedPersona: persona }),
+  setQaDifficulty: (d) => set({ qaDifficulty: d }),
+  setCoachTtsVoiceOverride: (voiceId) => set({ coachTtsVoiceOverride: voiceId }),
   setLivePresentation: (p) =>
     set((s) => ({
       livePresentation: { ...s.livePresentation, ...p },
@@ -193,6 +205,8 @@ export const useSessionStore = create<State>((set, get) => ({
       skipPersonaSurvey: false,
       livePresentation: { wpm: 0, fillerCount: 0, volumeRms: 0 },
       selectedPersona: null,
+      qaDifficulty: 'standard',
+      coachTtsVoiceOverride: '',
     });
   },
 
@@ -385,7 +399,7 @@ export const useSessionStore = create<State>((set, get) => ({
     qaStartLock = true;
     set({ busy: 'Preparing Q&A…', error: null });
     try {
-      const q = await qaNextQuestion(get().session, []);
+      const q = await qaNextQuestion(get().session, [], { pressure: get().qaDifficulty });
       if (get().session.qa_skipped) return;
       set({ qaCurrentQuestion: q.text, busy: null });
     } catch (e) {
@@ -455,7 +469,7 @@ export const useSessionStore = create<State>((set, get) => ({
     }
 
     set({ busy: 'Generating next question…' });
-    const q = await qaNextQuestion(get().session, nextExchanges);
+    const q = await qaNextQuestion(get().session, nextExchanges, { pressure: get().qaDifficulty });
     set({
       qaCurrentQuestion: q.text,
       busy: null,

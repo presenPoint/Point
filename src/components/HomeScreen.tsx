@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useSessionStore, loadSessionHistory, type SessionHistoryItem, type PersonaType } from '../store/sessionStore';
 import { PERSONA_LIST, PERSONAS } from '../constants/personas';
 import { PersonaInfoModal } from './PersonaInfoModal';
+import { CoachVoiceStrip } from './CoachVoiceStrip';
 import type { ReactNode } from 'react';
 
 // startPersonaStyleQuiz / startWithDefaultCoaching 는 App.tsx 에서 props로 전달됩니다.
@@ -200,6 +201,8 @@ export function HomeScreen({ userBar, userId, onBack, startPersonaStyleQuiz, sta
               </div>
             </div>
           </div>
+
+          <CoachVoiceStrip />
         </section>
 
         <div className="home-content home-content--after-cards">

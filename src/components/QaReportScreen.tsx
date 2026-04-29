@@ -1,8 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { useSpeechToText } from '../hooks/useSpeechToText';
 import { useSessionStore } from '../store/sessionStore';
+import type { QaDifficultyLevel } from '../types/session';
+import { speakCoachQuestion, stopCoachQuestionSpeech } from '../lib/coachQuestionTts';
+import { primeFeedbackAudio } from '../lib/feedbackTts';
 import { downloadReportPdfFromElement } from '../lib/reportPdf';
 import { ScoreRing } from './ScoreRing';
+import { ReportPentagonCard } from './ReportPentagonCard';
 import { ReportTranscriptSection } from './ReportTranscriptSection';
 import { AnimatedPointLogo } from './AnimatedPointLogo';
 
@@ -68,6 +72,8 @@ function formatDuration(sec: number): string {
 
 export function QaReportScreen() {
   const session = useSessionStore((s) => s.session);
+  const qaDifficulty = useSessionStore((s) => s.qaDifficulty);
+  const setQaDifficulty = useSessionStore((s) => s.setQaDifficulty);
   const selectedPersona = useSessionStore((s) => s.selectedPersona);
   const qaCurrentQuestion = useSessionStore((s) => s.qaCurrentQuestion);
   const busy = useSessionStore((s) => s.busy);
@@ -103,6 +109,22 @@ export function QaReportScreen() {
     qaInit.current = true;
     void startQa();
   }, [startQa, done, reporting, session.qa_skipped, session.session_id]);
+
+  useEffect(() => {
+    return () => stopCoachQuestionSpeech();
+  }, []);
+
+  useEffect(() => {
+    if (done || showGenerating || busy || !qaCurrentQuestion?.trim()) {
+      if (!qaCurrentQuestion?.trim() && !busy) stopCoachQuestionSpeech();
+      return undefined;
+    }
+    const t = window.setTimeout(() => void speakCoachQuestion(qaCurrentQuestion, selectedPersona), 500);
+    return () => {
+      window.clearTimeout(t);
+      stopCoachQuestionSpeech();
+    };
+  }, [qaCurrentQuestion, selectedPersona, busy, done, showGenerating]);
 
   const onSend = () => {
     const text = textFallback ? textAnswer.trim() : transcript.trim();
@@ -184,6 +206,8 @@ export function QaReportScreen() {
                     </div>
                   </div>
                 </div>
+
+                <ReportPentagonCard session={session} />
 
                 {selectedPersona && session.report.persona_style_coaching && (
                   <>
@@ -349,6 +373,20 @@ export function QaReportScreen() {
             <div className="qa-wizard-stage qa-wizard-stage--qa">
               <div className="qa-chat-side qa-chat-side--wizard-solo">
                 <div className="qa-wizard-qa-toolbar">
+                  <div className="qa-pressure-toggle" role="group" aria-label="Audience question difficulty">
+                    <span className="qa-pressure-label">Pressure</span>
+                    {(['standard', 'firm', 'intense'] as QaDifficultyLevel[]).map((d) => (
+                      <button
+                        key={d}
+                        type="button"
+                        className={`qa-pressure-btn${qaDifficulty === d ? ' qa-pressure-btn--active' : ''}`}
+                        onClick={() => setQaDifficulty(d)}
+                        disabled={!!busy}
+                      >
+                        {d === 'standard' ? 'Standard' : d === 'firm' ? 'Firm' : 'Intense'}
+                      </button>
+                    ))}
+                  </div>
                   {showQaPass && (
                     <button
                       type="button"
@@ -364,10 +402,24 @@ export function QaReportScreen() {
                   <div className="qac-sub">
                     AI asks questions as your audience ({session.qa.exchanges.length}/{session.qa.planned_rounds ?? 5})
                   </div>
-                  <p className="qac-lead">
-                    Answer {session.qa.planned_rounds ?? 5} questions, or use <strong>Pass</strong> by the mic to jump
-                    straight to your report.
-                  </p>
+                  <div className="qac-lead-row">
+                    <p className="qac-lead">
+                      Answer {session.qa.planned_rounds ?? 5} questions, or use <strong>Pass</strong> by the mic to jump
+                      straight to your report.
+                    </p>
+                    {qaCurrentQuestion && !busy && (
+                      <button
+                        type="button"
+                        className="btn-sm qa-hear-question-btn"
+                        onClick={() => {
+                          primeFeedbackAudio();
+                          void speakCoachQuestion(qaCurrentQuestion, selectedPersona);
+                        }}
+                      >
+                        Hear question
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 <div className="chat-messages">

@@ -6,6 +6,9 @@ export type SessionStatus =
   | 'REPORT'
   | 'DONE';
 
+/** Audience Q&A 질문 난이도 — 에이전트 시스템 프롬프트만 조정 */
+export type QaDifficultyLevel = 'standard' | 'firm' | 'intense';
+
 export interface QuizItem {
   id: number;
   question: string;
