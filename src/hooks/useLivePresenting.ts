@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { feedbackQueue, runSemanticAnalysis, calcWpm, onTranscriptChunk, speechConfigFromPersona, getDefaultSpeechConfig } from '../agents';
 import type { SpeechRuleConfig } from '../agents';
+type CaptionResultRef = { current: ((e: SpeechRecognitionEvent) => void) | null };
 import { PoseTracker, nonverbalConfigFromPersona, getDefaultNonverbalConfig } from '../agents/agent3-live-nonverbal/poseTracker';
 import { PERSONAS } from '../constants/personas';
 import { SEMANTIC_INTERVAL_MS, SILENCE_THRESHOLD_MS } from '../lib/speechUtils';
@@ -8,7 +9,7 @@ import { useSessionStore } from '../store/sessionStore';
 import { buildPresentationTopicSummaryLine } from '../lib/presentationTopicContext';
 import type { FillerEntry, TranscriptEntry } from '../types/session';
 
-export function useLivePresenting() {
+export function useLivePresenting(captionResultRef?: CaptionResultRef) {
   const presentingStartRef = useRef(Date.now());
   const poseTrackerRef = useRef<PoseTracker | null>(null);
 
@@ -101,6 +102,7 @@ export function useLivePresenting() {
       recognition.continuous = true;
       recognition.interimResults = true;
       recognition.onresult = (event: SpeechRecognitionEvent) => {
+        captionResultRef?.current?.(event);
         let text = '';
         for (let i = event.resultIndex; i < event.results.length; i++) {
           text += event.results[i][0].transcript;

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { feedbackQueue } from '../agents';
+import { useLiveCaption } from '../hooks/useLiveCaption';
 import { useLivePresenting } from '../hooks/useLivePresenting';
 import { cancelFeedbackSpeech, enqueueFeedback, onSpeakingChange, primeFeedbackAudio } from '../lib/feedbackTts';
 import { stopCoachQuestionSpeech } from '../lib/coachQuestionTts';
@@ -9,6 +10,7 @@ import { useToastStore } from '../store/toastStore';
 import type { FeedbackItem, FeedbackLevel } from '../types/session';
 import { AnimatedPointLogo } from './AnimatedPointLogo';
 import { CoachingGuideStrip } from './CoachingGuideStrip';
+import { LiveCaptionOverlay } from './LiveCaptionOverlay';
 
 function formatMmSs(sec: number): string {
   const m = String(Math.floor(sec / 60)).padStart(2, '0');
@@ -42,7 +44,11 @@ function pickPracticeRecordMime(): string | undefined {
 }
 
 export function LiveSessionScreen() {
-  const { presentingStartRef, startPoseTracking, stopPoseTracking } = useLivePresenting();
+  const { captionEnabled, setCaptionEnabled, captionFinal, captionInterim, captionVisible, onCaptionResult, resetCaption } = useLiveCaption();
+  const captionResultRef = useRef<((e: SpeechRecognitionEvent) => void) | null>(null);
+  captionResultRef.current = onCaptionResult;
+
+  const { presentingStartRef, startPoseTracking, stopPoseTracking } = useLivePresenting(captionResultRef);
   const transition = useSessionStore((s) => s.transition);
   const session = useSessionStore((s) => s.session);
   const live = useSessionStore((s) => s.livePresentation);
@@ -283,6 +289,7 @@ export function LiveSessionScreen() {
     if (recording) stopPracticeRecording();
     stopReplay();
     stopPoseTracking();
+    resetCaption();
     const s = Math.round((Date.now() - presentingStartRef.current) / 1000);
     useSessionStore.setState((st) => ({
       session: {
@@ -376,6 +383,14 @@ export function LiveSessionScreen() {
                 {recording ? '● Stop recording' : '○ Record practice'}
               </button>
             )}
+            <button
+              type="button"
+              className={`btn-caption-toggle${captionEnabled ? ' active' : ''}`}
+              onClick={() => setCaptionEnabled((v) => !v)}
+              title={captionEnabled ? 'Hide captions' : 'Show captions'}
+            >
+              CC {captionEnabled ? '●' : '○'}
+            </button>
             <button type="button" className="btn-end" onClick={endSession}>
               End Session ■
             </button>
@@ -466,6 +481,13 @@ export function LiveSessionScreen() {
             <div className="corner-br" />
             <div className="tracking-dot tracking-dot-left" />
             <div className="tracking-dot tracking-dot-right" />
+            {captionEnabled && (
+              <LiveCaptionOverlay
+                finalText={captionFinal}
+                interimText={captionInterim}
+                visible={captionVisible}
+              />
+            )}
 
             <div className="cam-overlays">
               <div className="cam-metric">
