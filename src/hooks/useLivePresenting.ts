@@ -98,7 +98,7 @@ export function useLivePresenting(captionResultRef?: CaptionResultRef) {
     let recognition: SpeechRecognition | null = null;
     if (RecCtor) {
       recognition = new RecCtor();
-      recognition.lang = 'en-US';
+      recognition.lang = navigator.language || 'en-US';
       recognition.continuous = true;
       recognition.interimResults = true;
       recognition.onresult = (event: SpeechRecognitionEvent) => {

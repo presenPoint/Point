@@ -41,8 +41,9 @@ export function useLiveCaption() {
         return sp > 0 ? trimmed.slice(sp + 1) : trimmed;
       });
     }
-    setInterimText(interim.trim());
-    setVisible(true);
+    const trimmedInterim = interim.trim();
+    setInterimText(trimmedInterim);
+    if (finalDelta || trimmedInterim) setVisible(true);
 
     if (fadeTimer.current) clearTimeout(fadeTimer.current);
     fadeTimer.current = setTimeout(() => {
