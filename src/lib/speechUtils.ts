@@ -21,11 +21,21 @@ export function countSyllables(text: string): number {
 }
 
 export const WINDOW_MS = 5000;
-export const TARGET_WPM_MIN = 250;
-export const TARGET_WPM_MAX = 350;
+/** Default target range in words-per-minute (function counts whitespace tokens, not syllables) */
+export const TARGET_WPM_MIN = 100;
+export const TARGET_WPM_MAX = 180;
 
 /** English filler word patterns */
 export const FILLER_PATTERN = /\b(uh+|um+|er+|ah+|like|you know|basically|actually|so+|well|I mean)\b/gi;
+
+/**
+ * 한국어 발화에서 자주 쓰이는 짧은 추임새(공백·구두점 경계).
+ * 긴 접속사(그리고 등)는 제외해 오탐을 줄입니다.
+ */
+export function collectKoreanFillerMatches(text: string): string[] {
+  const re = /(?:^|[\s,.!?…'"„()[\]{}])(음|어|흠|뭐)(?=[\s,.!?…'"„()[\]{}]|$)/gu;
+  return [...text.matchAll(re)].map((m) => m[1]).filter(Boolean);
+}
 
 export const FILLER_THRESHOLD = 3;
 export const FILLER_WINDOW_MS = 30_000;

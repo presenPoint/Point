@@ -2,13 +2,28 @@ import { useCallback, useRef, useState } from 'react';
 
 const OPENAI_KEY = import.meta.env.VITE_OPENAI_API_KEY as string | undefined;
 
-async function transcribeWithWhisper(audioBlob: Blob): Promise<string> {
+interface MimeChoice { mimeType: string; ext: string }
+
+function pickAudioMime(): MimeChoice {
+  const candidates: MimeChoice[] = [
+    { mimeType: 'audio/webm;codecs=opus', ext: 'webm' },
+    { mimeType: 'audio/webm', ext: 'webm' },
+    { mimeType: 'audio/ogg;codecs=opus', ext: 'ogg' },
+    { mimeType: 'audio/ogg', ext: 'ogg' },
+    { mimeType: 'audio/mp4', ext: 'mp4' },
+  ];
+  for (const c of candidates) {
+    if (MediaRecorder.isTypeSupported(c.mimeType)) return c;
+  }
+  return { mimeType: '', ext: 'webm' };
+}
+
+async function transcribeWithWhisper(audioBlob: Blob, ext: string): Promise<string> {
   if (!OPENAI_KEY) throw new Error('OpenAI API key is not configured.');
 
   const formData = new FormData();
-  formData.append('file', audioBlob, 'audio.webm');
+  formData.append('file', audioBlob, `audio.${ext}`);
   formData.append('model', 'whisper-1');
-  formData.append('language', 'en');
 
   const res = await fetch('https://api.openai.com/v1/audio/transcriptions', {
     method: 'POST',
@@ -47,11 +62,10 @@ export function useSpeechToText() {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
 
-      const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
-        ? 'audio/webm;codecs=opus'
-        : 'audio/webm';
-
-      const recorder = new MediaRecorder(stream, { mimeType });
+      const { mimeType, ext } = pickAudioMime();
+      const recorderOptions = mimeType ? { mimeType } : {};
+      const recorder = new MediaRecorder(stream, recorderOptions);
+      const actualExt = ext;
       chunksRef.current = [];
 
       recorder.ondataavailable = (e) => {
@@ -67,11 +81,12 @@ export function useSpeechToText() {
           return;
         }
 
-        const blob = new Blob(chunksRef.current, { type: mimeType });
+        const blobType = mimeType || recorder.mimeType || 'audio/webm';
+        const blob = new Blob(chunksRef.current, { type: blobType });
         setTranscribing(true);
 
         try {
-          const text = await transcribeWithWhisper(blob);
+          const text = await transcribeWithWhisper(blob, actualExt);
           if (text) {
             setTranscript(text);
           } else {

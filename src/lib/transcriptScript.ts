@@ -10,10 +10,11 @@ export function transcriptPlain(entries: TranscriptEntry[]): string {
     .trim();
 }
 
-/** One line per recognition chunk with elapsed time from session start. */
+/** One line per final recognition result with elapsed time from session start. */
 export function transcriptWithTimestamps(entries: TranscriptEntry[], sessionStartedAt: string): string {
   const start = new Date(sessionStartedAt).getTime();
   return entries
+    .filter((e) => e.text.trim())
     .map((e) => {
       const sec = Math.max(0, Math.round((e.timestamp - start) / 1000));
       const m = Math.floor(sec / 60);

@@ -17,7 +17,7 @@ import {
   clearChunks,
   calcScriptCoverage,
 } from '../lib/scriptEmbedding';
-import type { SessionContext, SessionStatus, QaDifficultyLevel } from '../types/session';
+import type { SessionContext, SessionStatus, QaDifficultyLevel, PersonaStyleCoaching, TranscriptEntry, ActionableFeedback } from '../types/session';
 import { buildPresentationTopicBlock } from '../lib/presentationTopicContext';
 
 function emptyMaterial(): SessionContext['material'] {
@@ -59,6 +59,8 @@ function createSession(userId: string): SessionContext {
       ambiguous_count: 0,
       total_duration_sec: 0,
       transcript_log: [],
+      volume_samples: [],
+      word_emphasis_log: [],
     },
     nonverbal_coaching: {
       gaze_rate: 0.7,
@@ -101,7 +103,7 @@ type State = {
   appStarted: boolean;
   /** When true with `selectedPersona === null`, skip the style survey and use default coaching/scoring. */
   skipPersonaSurvey: boolean;
-  livePresentation: { wpm: number; fillerCount: number; volumeRms: number };
+  livePresentation: { wpm: number; fillerCount: number; volumeRms: number; interimText: string; recognitionError: string };
   selectedPersona: PersonaType | null;
   /** Audience Q&A — 질문 난이도(프롬프트) */
   qaDifficulty: QaDifficultyLevel;
@@ -112,7 +114,7 @@ type State = {
   startPersonaStyleQuiz: () => void;
   startWithDefaultCoaching: () => void;
   setPresentationTopics: (keys: string[], custom: string) => void;
-  setLivePresentation: (p: Partial<{ wpm: number; fillerCount: number; volumeRms: number }>) => void;
+  setLivePresentation: (p: Partial<{ wpm: number; fillerCount: number; volumeRms: number; interimText: string; recognitionError: string }>) => void;
   setPersona: (persona: PersonaType | null) => void;
   setQaDifficulty: (d: QaDifficultyLevel) => void;
   setCoachTtsVoiceOverride: (voiceId: string) => void;
@@ -154,7 +156,7 @@ export const useSessionStore = create<State>((set, get) => ({
   error: null,
   appStarted: false,
   skipPersonaSurvey: false,
-  livePresentation: { wpm: 0, fillerCount: 0, volumeRms: 0 },
+  livePresentation: { wpm: 0, fillerCount: 0, volumeRms: 0, interimText: '', recognitionError: '' },
   selectedPersona: null,
   qaDifficulty: 'standard',
   coachTtsVoiceOverride: '',
@@ -203,7 +205,7 @@ export const useSessionStore = create<State>((set, get) => ({
       error: null,
       appStarted: false,
       skipPersonaSurvey: false,
-      livePresentation: { wpm: 0, fillerCount: 0, volumeRms: 0 },
+      livePresentation: { wpm: 0, fillerCount: 0, volumeRms: 0, interimText: '', recognitionError: '' },
       selectedPersona: null,
       qaDifficulty: 'standard',
       coachTtsVoiceOverride: '',
@@ -537,6 +539,8 @@ export const useSessionStore = create<State>((set, get) => ({
         qa_score: ctx.report.qa_score,
         strengths: ctx.report.strengths,
         improvements: ctx.report.improvements,
+        persona_style_coaching: ctx.report.persona_style_coaching ?? null,
+        transcript_log: ctx.speech_coaching.transcript_log,
         status: ctx.status,
       });
       set({ error: null });
@@ -561,8 +565,10 @@ export interface SessionHistoryItem {
   nonverbal_score: number;
   qa_score: number;
   strengths: string[];
-  improvements: unknown[];
+  improvements: ActionableFeedback[] | string[];
   total_duration_sec: number;
+  persona_style_coaching?: PersonaStyleCoaching | null;
+  transcript_log?: TranscriptEntry[] | null;
 }
 
 export async function loadSessionHistory(userId: string): Promise<SessionHistoryItem[]> {

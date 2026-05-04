@@ -1,5 +1,5 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { useSessionStore, loadSessionHistory, type SessionHistoryItem, type PersonaType } from '../store/sessionStore';
+import { useLayoutEffect, useRef, useState } from 'react';
+import { useSessionStore, type PersonaType } from '../store/sessionStore';
 import { PERSONA_LIST, PERSONAS } from '../constants/personas';
 import { PersonaInfoModal } from './PersonaInfoModal';
 import { CoachVoiceStrip } from './CoachVoiceStrip';
@@ -39,68 +39,17 @@ function PersonaCardPhoto({ name, src }: { name: string; src: string }) {
   );
 }
 
-function HistorySection({ userId }: { userId: string }) {
-  const [history, setHistory] = useState<SessionHistoryItem[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    loadSessionHistory(userId).then((data) => {
-      setHistory(data);
-      setLoading(false);
-    });
-  }, [userId]);
-
-  if (loading) return <div className="history-loading">Loading past sessions…</div>;
-  if (history.length === 0) return null;
-
-  return (
-    <div className="history-section">
-      <h2 className="history-title">Your Progress</h2>
-      <div className="history-list">
-        {history.map((s) => (
-          <div key={s.session_id} className="history-card">
-            <div className="history-card-top">
-              <span className="history-date">
-                {new Date(s.started_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-              </span>
-              <span className="history-duration">
-                {Math.round(s.total_duration_sec / 60)} min
-              </span>
-            </div>
-            <div className="history-scores">
-              <div className="history-score">
-                <span className="hs-val">{s.composite_score}</span>
-                <span className="hs-label">Overall</span>
-              </div>
-              <div className="history-score">
-                <span className="hs-val">{s.speech_score}</span>
-                <span className="hs-label">Speech</span>
-              </div>
-              <div className="history-score">
-                <span className="hs-val">{s.nonverbal_score}</span>
-                <span className="hs-label">Nonverbal</span>
-              </div>
-              <div className="history-score">
-                <span className="hs-val">{s.qa_score}</span>
-                <span className="hs-label">Q&A</span>
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
 
 interface HomeScreenProps {
   userBar?: ReactNode;
   userId?: string;
   onBack?: () => void;
+  onShowDashboard?: () => void;
   startPersonaStyleQuiz: () => void;
   startWithDefaultCoaching: () => void;
 }
 
-export function HomeScreen({ userBar, userId, onBack, startPersonaStyleQuiz, startWithDefaultCoaching }: HomeScreenProps) {
+export function HomeScreen({ userBar, userId, onBack, onShowDashboard, startPersonaStyleQuiz, startWithDefaultCoaching }: HomeScreenProps) {
   const setAppStarted = useSessionStore((s) => s.setAppStarted);
   const setPersona   = useSessionStore((s) => s.setPersona);
   const [detailPersonaId, setDetailPersonaId] = useState<PersonaType | null>(null);
@@ -205,9 +154,20 @@ export function HomeScreen({ userBar, userId, onBack, startPersonaStyleQuiz, sta
           <CoachVoiceStrip />
         </section>
 
-        <div className="home-content home-content--after-cards">
-          {userId && <HistorySection userId={userId} />}
-        </div>
+        {userId && onShowDashboard && (
+          <div className="home-content home-content--after-cards">
+            <div className="home-dashboard-cta">
+              <button type="button" className="home-dashboard-btn" onClick={onShowDashboard}>
+                <span className="home-dashboard-btn-icon">📊</span>
+                <span className="home-dashboard-btn-text">
+                  <strong>My Progress</strong>
+                  <span>View past sessions &amp; coaching feedback</span>
+                </span>
+                <span className="home-dashboard-btn-arrow">→</span>
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {detailPersonaId && (

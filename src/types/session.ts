@@ -123,6 +123,8 @@ export interface SessionContext {
     ambiguous_count: number;
     total_duration_sec: number;
     transcript_log: TranscriptEntry[];
+    volume_samples: VolumeSample[];
+    word_emphasis_log: WordEmphasisEntry[];
   };
 
   nonverbal_coaching: {
@@ -200,6 +202,25 @@ export type AgentId =
 export interface TranscriptEntry {
   text: string;
   timestamp: number;
+}
+
+export interface VolumeSample {
+  /** Unix ms */
+  timestamp: number;
+  /** Normalised RMS amplitude 0–1 */
+  rms: number;
+}
+
+export interface WordEmphasis {
+  word: string;
+  /** Normalised RMS for this word's window, 0–1 */
+  rms: number;
+}
+
+export interface WordEmphasisEntry {
+  timestamp: number;
+  phrase: string;
+  words: WordEmphasis[];
 }
 
 export interface FillerEntry {

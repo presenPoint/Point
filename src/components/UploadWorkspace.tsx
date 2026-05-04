@@ -14,17 +14,19 @@ import { ScriptUploadPanel } from './ScriptUploadPanel';
 import { AnimatedPointLogo } from './AnimatedPointLogo';
 
 const PRE_QUIZ_INTRO_TTS =
-  'Here is your short warm-up before you present. Answer each question with your voice or by typing — use Next to move between questions.';
+  'Here is your short warm-up before you present. Answer each question with your voice or by typing — confirm your answer to reveal the next one.';
 
-function VoiceQuizInput({ value, onChange, disabled }: {
+function VoiceQuizInput({ value, onChange, disabled, onInteract }: {
   value: string;
   onChange: (val: string) => void;
   disabled?: boolean;
+  onInteract?: () => void;
 }) {
   const { transcript, listening, transcribing, error, start, stop, reset } = useSpeechToText();
   const [useTextFallback, setUseTextFallback] = useState(false);
 
   const toggleMic = () => {
+    onInteract?.();
     if (listening) {
       stop();
     } else {
@@ -47,6 +49,7 @@ function VoiceQuizInput({ value, onChange, disabled }: {
           placeholder="Type your answer..."
           value={value}
           onChange={(e) => onChange(e.target.value)}
+          onFocus={() => onInteract?.()}
           disabled={disabled}
         />
         <button
@@ -92,12 +95,12 @@ function VoiceQuizInput({ value, onChange, disabled }: {
   );
 }
 
-/** 발표 준비 마법사 단계 id — 퀴즈 문항은 `quiz:<questionId>` */
+/** 발표 준비 마법사 단계 id */
 export type PrepareStepId =
   | 'material_prep'
   | 'script'
   | 'analyze'
-  | 'quiz_submit'
+  | 'quiz'
   | (string & {});
 
 function analysisReady(session: SessionContext): boolean {
@@ -110,10 +113,7 @@ function buildPrepareSteps(session: SessionContext): PrepareStepId[] {
     return out;
   }
   if (session.material.quiz.length > 0) {
-    for (const q of session.material.quiz) {
-      out.push(`quiz:${q.id}` as PrepareStepId);
-    }
-    out.push('quiz_submit');
+    out.push('quiz');
   }
   return out;
 }
@@ -122,8 +122,7 @@ function stepLabel(id: PrepareStepId): string {
   if (id === 'material_prep') return 'Topic & materials';
   if (id === 'script') return 'Optional script';
   if (id === 'analyze') return 'AI analysis';
-  if (id === 'quiz_submit') return 'Submit pre-quiz';
-  if (id.startsWith('quiz:')) return 'Pre-quiz question';
+  if (id === 'quiz') return 'Pre-quiz';
   return 'Step';
 }
 
@@ -147,16 +146,25 @@ export function UploadWorkspace() {
   ]);
 
   const [stepIndex, setStepIndex] = useState(0);
+  const [visibleQuizCount, setVisibleQuizCount] = useState(1);
   const filesPanelRef = useRef<FileSubmissionPanelHandle>(null);
+  const lastQuizRef = useRef<HTMLDivElement>(null);
   /** 자료 추출 중 등 — Topic & materials 단계에서 Next 비활성 */
   const [filesStepBlocked, setFilesStepBlocked] = useState(false);
-  /** 같은 분석 결과로 analyze 단계 → 퀴즈 자동 이동을 한 번만(뒤로 가기 후 재방문은 유지) */
+  /** 같은 분석 결과로 analyze 단계 → 퀴즈 자동 이동을 한 번만 */
   const preQuizAutoJumpKey = useRef<string | null>(null);
+
+  const quizKey = session.material.quiz.map((q) => q.id).join(',');
 
   useEffect(() => {
     setStepIndex(0);
+    setVisibleQuizCount(1);
     preQuizAutoJumpKey.current = null;
   }, [session.session_id]);
+
+  useEffect(() => {
+    setVisibleQuizCount(1);
+  }, [quizKey]);
 
   useEffect(() => {
     if (busy === 'Analyzing materials...') preQuizAutoJumpKey.current = null;
@@ -166,7 +174,7 @@ export function UploadWorkspace() {
     setStepIndex((i) => Math.min(i, Math.max(0, steps.length - 1)));
   }, [steps.length]);
 
-  /** 사전 퀴즈가 생성되면 Next 없이 첫 문항 화면으로 이동 */
+  /** 사전 퀴즈가 생성되면 Next 없이 퀴즈 화면으로 이동 */
   useEffect(() => {
     if (busy) return;
     if (!analysisReady(session) || session.material.quiz.length === 0) return;
@@ -174,15 +182,15 @@ export function UploadWorkspace() {
     const analyzeIdx = steps.indexOf('analyze');
     if (analyzeIdx < 0 || stepIndex !== analyzeIdx) return;
 
-    const firstQuizIdx = steps.findIndex((s) => String(s).startsWith('quiz:'));
-    if (firstQuizIdx < 0 || firstQuizIdx <= analyzeIdx) return;
+    const quizIdx = steps.indexOf('quiz');
+    if (quizIdx < 0 || quizIdx <= analyzeIdx) return;
 
-    const key = `${session.session_id}:${session.material.quiz.map((q) => q.id).join(',')}`;
+    const key = `${session.session_id}:${quizKey}`;
     if (preQuizAutoJumpKey.current === key) return;
 
     preQuizAutoJumpKey.current = key;
-    setStepIndex(firstQuizIdx);
-  }, [busy, stepIndex, steps, session.session_id, session.material.quiz, session.status, session.material.summary]);
+    setStepIndex(quizIdx);
+  }, [busy, stepIndex, steps, session.session_id, quizKey, session.status, session.material.summary]);
 
   useEffect(() => {
     return () => stopCoachQuestionSpeech();
@@ -199,27 +207,23 @@ export function UploadWorkspace() {
 
   const isPreQuizGrading = busy === 'Grading...';
 
+  const quizGraded =
+    session.material.quiz.length > 0 &&
+    session.material.quiz.every((q) =>
+      session.material.pre_quiz_grades.some((g) => g.id === q.id),
+    );
+
+  /** 새 퀴즈 문제가 공개될 때 즉시 TTS로 읽어주기 */
   useEffect(() => {
     if (busy || isPreQuizGrading) return;
-    if (String(currentId).startsWith('quiz:')) {
-      const qid = Number(String(currentId).replace('quiz:', ''));
-      const q = session.material.quiz.find((x) => x.id === qid);
+    if (currentId === 'quiz' && !quizGraded) {
+      const idx = visibleQuizCount - 1;
+      const q = session.material.quiz[idx];
       if (!q?.question?.trim()) {
         stopCoachQuestionSpeech();
         return undefined;
       }
-      const firstId = session.material.quiz[0]?.id;
-      const isFirstQuiz = firstId != null && qid === firstId;
-      if (isFirstQuiz) {
-        const tIntro = window.setTimeout(() => void speakCoachQuestion(PRE_QUIZ_INTRO_TTS, selectedPersona), 450);
-        const tQ = window.setTimeout(() => void speakCoachQuestion(q.question, selectedPersona), 2800);
-        return () => {
-          window.clearTimeout(tIntro);
-          window.clearTimeout(tQ);
-          stopCoachQuestionSpeech();
-        };
-      }
-      const t = window.setTimeout(() => void speakCoachQuestion(q.question, selectedPersona), 450);
+      const t = window.setTimeout(() => void speakCoachQuestion(q.question, selectedPersona), 80);
       return () => {
         window.clearTimeout(t);
         stopCoachQuestionSpeech();
@@ -227,17 +231,18 @@ export function UploadWorkspace() {
     }
     stopCoachQuestionSpeech();
     return undefined;
-  }, [currentId, selectedPersona, busy, isPreQuizGrading, session.material.quiz]);
+  }, [currentId, visibleQuizCount, selectedPersona, busy, isPreQuizGrading, session.material.quiz, quizGraded]);
+
+  /** 새 문제 공개 시 해당 카드로 스크롤 */
+  useEffect(() => {
+    if (currentId === 'quiz' && lastQuizRef.current) {
+      lastQuizRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  }, [visibleQuizCount, currentId]);
 
   const allQuizAnswered =
     session.material.quiz.length > 0 &&
     session.material.quiz.every((q) => Boolean(preQuizAnswers[q.id]?.trim()));
-
-  const quizGraded =
-    session.material.quiz.length > 0 &&
-    session.material.quiz.every((q) =>
-      session.material.pre_quiz_grades.some((g) => g.id === q.id),
-    );
 
   const canGoNext = (): boolean => {
     switch (currentId) {
@@ -246,30 +251,21 @@ export function UploadWorkspace() {
         return true;
       case 'analyze':
         return analysisReady(session);
-      case 'quiz_submit':
-        return quizGraded;
+      case 'quiz':
+        return false;
       default:
-        if (String(currentId).startsWith('quiz:')) {
-          const qid = Number(String(currentId).replace('quiz:', ''));
-          return Boolean(preQuizAnswers[qid]?.trim());
-        }
         return true;
     }
   };
 
   const goNext = () => {
+    stopCoachQuestionSpeech();
     if (currentId === 'material_prep') {
       const h = filesPanelRef.current;
       if (h?.hasEntries() && !h.save()) return;
       if (h?.hasEntries()) useToastStore.getState().showToast('저장 완료');
     }
 
-    /* 마지막 준비 단계 — 별도 "You're set" 화면 없이 바로 라이브 */
-    if (currentId === 'quiz_submit' && quizGraded) {
-      if (!canStartPresenting) return;
-      transition('PRESENTING');
-      return;
-    }
     if (currentId === 'analyze' && analysisReady(session) && session.material.quiz.length === 0) {
       if (!canStartPresenting) return;
       transition('PRESENTING');
@@ -281,6 +277,7 @@ export function UploadWorkspace() {
   };
 
   const goPrev = () => {
+    stopCoachQuestionSpeech();
     if (stepIndex > 0) setStepIndex((i) => i - 1);
   };
 
@@ -358,21 +355,52 @@ export function UploadWorkspace() {
             )}
           </div>
         );
-      case 'quiz_submit':
+      case 'quiz': {
+        const effectiveVisibleCount = quizGraded
+          ? session.material.quiz.length
+          : visibleQuizCount;
+        const visibleQuizzes = session.material.quiz.slice(0, effectiveVisibleCount);
+        const isLastRevealed = effectiveVisibleCount >= session.material.quiz.length;
+
         return (
           <div className="upload-wizard-panel upload-wizard-panel--wide">
-            <h2 className="upload-wizard-title">Review &amp; submit</h2>
-            <p className="upload-wizard-lead">
-              Check your answers, then submit for AI grading (70-point pass per question). You can go back to edit any
-              question.
-            </p>
-            {session.material.quiz.map((q, idx) => {
+            <h2 className="upload-wizard-title">Pre-presentation check</h2>
+            <div className="prequiz-intro-inline">
+              <div className="quiz-badge">📋 PRE-PRESENTATION CHECK</div>
+              <p className="upload-wizard-sublead">
+                Answer each question in your own words — voice or typing. Confirm your answer to reveal the next question.
+              </p>
+              <div className="coach-question-tts-row">
+                <button
+                  type="button"
+                  className="btn-sm"
+                  onClick={() => {
+                    primeFeedbackAudio();
+                    void speakCoachQuestion(PRE_QUIZ_INTRO_TTS, selectedPersona);
+                  }}
+                >
+                  Hear intro
+                </button>
+              </div>
+            </div>
+
+            {visibleQuizzes.map((q, idx) => {
+              const isActive = idx === effectiveVisibleCount - 1;
               const gradeRow = session.material.pre_quiz_grades.find((g) => g.id === q.id);
               const passed = gradeRow != null && gradeRow.score >= PRE_QUIZ_PASS_SCORE;
               const gradedCls = gradeRow != null ? (passed ? 'qc-graded-pass' : 'qc-graded-fail') : '';
+              const hasAnswer = Boolean(preQuizAnswers[q.id]?.trim());
+              const isLastQuestion = idx === session.material.quiz.length - 1;
+
               return (
-                <div key={q.id} className={`quiz-card ${gradedCls}`.trim()}>
-                  <div className="qc-num">Q {String(idx + 1).padStart(2, '0')} / {String(session.material.quiz.length).padStart(2, '0')}</div>
+                <div
+                  key={q.id}
+                  ref={isActive ? lastQuizRef : undefined}
+                  className={`quiz-card ${gradedCls}`.trim()}
+                >
+                  <div className="qc-num">
+                    Q {String(idx + 1).padStart(2, '0')} / {String(session.material.quiz.length).padStart(2, '0')}
+                  </div>
                   <div className="qc-question">{q.question}</div>
                   <div className="coach-question-tts-row">
                     <button
@@ -390,6 +418,7 @@ export function UploadWorkspace() {
                     value={preQuizAnswers[q.id] ?? ''}
                     onChange={(val) => setPreQuizAnswer(q.id, val)}
                     disabled={!!busy || isPreQuizGrading}
+                    onInteract={stopCoachQuestionSpeech}
                   />
                   {gradeRow != null && (
                     <div className={`qc-grade ${passed ? 'qc-grade-pass' : 'qc-grade-fail'}`}>
@@ -400,9 +429,41 @@ export function UploadWorkspace() {
                       <p className="qc-grade-feedback">{gradeRow.feedback}</p>
                     </div>
                   )}
+                  {isActive && !isLastQuestion && hasAnswer && !quizGraded && (
+                    <div className="qc-footer qc-footer-left">
+                      <button
+                        type="button"
+                        className="btn-primary"
+                        disabled={!!busy}
+                        onClick={() => {
+                          stopCoachQuestionSpeech();
+                          setVisibleQuizCount((v) => v + 1);
+                        }}
+                      >
+                        Next question →
+                      </button>
+                    </div>
+                  )}
                 </div>
               );
             })}
+
+            {isLastRevealed && !quizGraded && (
+              <div className="qc-footer qc-footer-left">
+                <button
+                  type="button"
+                  className="btn-submit-q"
+                  disabled={!!busy || !allQuizAnswered}
+                  onClick={() => {
+                    stopCoachQuestionSpeech();
+                    void submitPreQuiz();
+                  }}
+                >
+                  {isPreQuizGrading ? 'Grading...' : 'Submit all & Grade →'}
+                </button>
+              </div>
+            )}
+
             {quizGraded && session.material.pre_quiz_score > 0 && (
               <div className="quiz-score quiz-score-visible quiz-score-after-grade">
                 <div className="qs-label">Content comprehension score</div>
@@ -412,90 +473,26 @@ export function UploadWorkspace() {
                 </div>
               </div>
             )}
-            {!quizGraded && (
+
+            {quizGraded && (
               <div className="qc-footer qc-footer-left">
                 <button
                   type="button"
-                  className="btn-submit-q"
-                  disabled={!!busy || !allQuizAnswered}
-                  onClick={() => void submitPreQuiz()}
+                  className="btn-primary"
+                  disabled={!canStartPresenting}
+                  onClick={() => {
+                    stopCoachQuestionSpeech();
+                    transition('PRESENTING');
+                  }}
                 >
-                  {isPreQuizGrading ? 'Grading...' : 'Submit all & Grade →'}
+                  Start presentation →
                 </button>
               </div>
             )}
           </div>
         );
+      }
       default:
-        if (String(currentId).startsWith('quiz:')) {
-          const qid = Number(String(currentId).replace('quiz:', ''));
-          const q = session.material.quiz.find((x) => x.id === qid);
-          const idx = session.material.quiz.findIndex((x) => x.id === qid);
-          if (!q) return <p className="quiz-empty-hint">Question not found.</p>;
-          const gradeRow = session.material.pre_quiz_grades.find((g) => g.id === q.id);
-          const passed = gradeRow != null && gradeRow.score >= PRE_QUIZ_PASS_SCORE;
-          const gradedCls = gradeRow != null ? (passed ? 'qc-graded-pass' : 'qc-graded-fail') : '';
-          const showPreQuizIntro = idx === 0;
-          return (
-            <div className="upload-wizard-panel">
-              <h2 className="upload-wizard-title">
-                Question {idx + 1} of {session.material.quiz.length}
-              </h2>
-              <p className="upload-wizard-lead">Answer in your own words — voice or typing.</p>
-              {showPreQuizIntro && (
-                <div className="prequiz-intro-inline">
-                  <div className="quiz-badge">📋 PRE-PRESENTATION CHECK</div>
-                  <p className="upload-wizard-sublead">
-                    A few open-ended questions check how well you know your material. After this screen, use{' '}
-                    <strong>Next</strong> to move to the following questions.
-                  </p>
-                  <div className="coach-question-tts-row">
-                    <button
-                      type="button"
-                      className="btn-sm"
-                      onClick={() => {
-                        primeFeedbackAudio();
-                        void speakCoachQuestion(PRE_QUIZ_INTRO_TTS, selectedPersona);
-                      }}
-                    >
-                      Hear intro
-                    </button>
-                  </div>
-                </div>
-              )}
-              <div className={`quiz-card ${gradedCls}`.trim()}>
-                <div className="qc-num">Q {String(idx + 1).padStart(2, '0')}</div>
-                <div className="qc-question">{q.question}</div>
-                <div className="coach-question-tts-row">
-                  <button
-                    type="button"
-                    className="btn-sm"
-                    onClick={() => {
-                      primeFeedbackAudio();
-                      void speakCoachQuestion(q.question, selectedPersona);
-                    }}
-                  >
-                    Hear question
-                  </button>
-                </div>
-                <VoiceQuizInput
-                  value={preQuizAnswers[q.id] ?? ''}
-                  onChange={(val) => setPreQuizAnswer(q.id, val)}
-                  disabled={!!busy || isPreQuizGrading}
-                />
-                {gradeRow != null && (
-                  <div className={`qc-grade ${passed ? 'qc-grade-pass' : 'qc-grade-fail'}`}>
-                    <div className="qc-grade-head">
-                      <strong>{passed ? 'Correct' : 'Incorrect'}</strong>
-                      <span className="qc-grade-score">{gradeRow.score} pts</span>
-                    </div>
-                    <p className="qc-grade-feedback">{gradeRow.feedback}</p>
-                  </div>
-                )}
-              </div>
-            </div>
-          );
-        }
         return null;
     }
   };
@@ -522,7 +519,10 @@ export function UploadWorkspace() {
               type="button"
               className="btn-primary"
               disabled={!canStartPresenting}
-              onClick={() => transition('PRESENTING')}
+              onClick={() => {
+                stopCoachQuestionSpeech();
+                transition('PRESENTING');
+              }}
             >
               Start Presentation →
             </button>
@@ -548,7 +548,7 @@ export function UploadWorkspace() {
             </button>
             <div className="upload-wizard-nav-spacer" />
             <div className="upload-wizard-nav-actions">
-              {currentId !== 'quiz_submit' && (
+              {currentId !== 'quiz' && (
                 <button
                   type="button"
                   className="btn-primary"
@@ -568,16 +568,6 @@ export function UploadWorkspace() {
                   session.material.quiz.length === 0
                     ? 'Start presentation →'
                     : 'Next →'}
-                </button>
-              )}
-              {currentId === 'quiz_submit' && quizGraded && (
-                <button
-                  type="button"
-                  className="btn-primary"
-                  onClick={goNext}
-                  disabled={isPreQuizGrading || !canStartPresenting}
-                >
-                  Start presentation →
                 </button>
               )}
             </div>

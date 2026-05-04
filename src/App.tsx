@@ -5,6 +5,7 @@ import { useAppHistorySync } from './hooks/useAppHistorySync';
 import { LoginScreen } from './components/LoginScreen';
 import { LandingScreen } from './components/LandingScreen';
 import { HomeScreen } from './components/HomeScreen';
+import { DashboardScreen } from './components/DashboardScreen';
 import { PersonaSurvey } from './components/PersonaSurvey';
 import { UploadWorkspace } from './components/UploadWorkspace';
 import { LiveSessionScreen } from './components/LiveSessionScreen';
@@ -29,6 +30,7 @@ export default function App() {
 
   /** 랜딩 "시작하기" 버튼을 눌렀는지 여부 */
   const [landingDone, setLandingDone] = useState(false);
+  const [showDashboard, setShowDashboard] = useState(false);
 
   useEffect(() => {
     if (user) setUserId(user.id);
@@ -37,6 +39,11 @@ export default function App() {
   /* 세션 리셋 시 랜딩으로 복귀 */
   useEffect(() => {
     if (!appStarted) setLandingDone(false);
+  }, [appStarted]);
+
+  /* 발표 시작 시 대시보드 닫기 */
+  useEffect(() => {
+    if (appStarted) setShowDashboard(false);
   }, [appStarted]);
 
   useAppHistorySync(!!user && !loading);
@@ -104,13 +111,23 @@ export default function App() {
 
   let screen: ReactNode;
 
-  if (!appStarted) {
+  if (!appStarted && showDashboard) {
+    screen = (
+      <DashboardScreen
+        userId={user.id}
+        userName={user.user_metadata?.full_name as string | undefined ?? user.email}
+        userAvatar={user.user_metadata?.avatar_url as string | undefined}
+        onBack={() => setShowDashboard(false)}
+      />
+    );
+  } else if (!appStarted) {
     /* 코치 선택 화면 */
     screen = (
       <HomeScreen
         userBar={userBar}
         userId={user.id}
         onBack={() => setLandingDone(false)}
+        onShowDashboard={() => setShowDashboard(true)}
         startPersonaStyleQuiz={startPersonaStyleQuiz}
         startWithDefaultCoaching={startWithDefaultCoaching}
       />
