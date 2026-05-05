@@ -2,7 +2,8 @@ import type { VolumeSample } from '../types/session';
 
 interface Props {
   samples: VolumeSample[];
-  sessionStartedAt: string;
+  /** @deprecated no longer used — kept for call-site compatibility */
+  sessionStartedAt?: string;
   totalDurationSec: number;
 }
 
@@ -19,11 +20,18 @@ function downsample(samples: VolumeSample[], maxPts: number): VolumeSample[] {
   return Array.from({ length: maxPts }, (_, i) => samples[Math.round(i * step)]);
 }
 
-export function VolumeTimelineChart({ samples, sessionStartedAt, totalDurationSec }: Props) {
+export function VolumeTimelineChart({ samples, sessionStartedAt: _sessionStartedAt, totalDurationSec }: Props) {
   if (samples.length < 2) return null;
 
-  const startMs = new Date(sessionStartedAt).getTime();
-  const durationMs = Math.max(totalDurationSec * 1000, 1);
+  // Use the first sample's timestamp as origin so the chart aligns with
+  // the actual presenting phase regardless of when the session was created.
+  const startMs = samples[0].timestamp;
+  const sampleSpanMs = samples[samples.length - 1].timestamp - startMs;
+  const durationMs = Math.max(
+    totalDurationSec > 0 ? totalDurationSec * 1000 : sampleSpanMs,
+    sampleSpanMs,
+    1,
+  );
 
   const pts = downsample(samples, 300);
 
@@ -33,7 +41,7 @@ export function VolumeTimelineChart({ samples, sessionStartedAt, totalDurationSe
   const plotH = H - pad.top - pad.bottom;
 
   const xOf = (s: VolumeSample) =>
-    pad.left + Math.min(((s.timestamp - startMs) / durationMs) * plotW, plotW);
+    pad.left + Math.min(Math.max(((s.timestamp - startMs) / durationMs) * plotW, 0), plotW);
   const yOf = (rms: number) => pad.top + (1 - Math.min(rms, 1)) * plotH;
 
   const firstX = xOf(pts[0]);
@@ -46,8 +54,10 @@ export function VolumeTimelineChart({ samples, sessionStartedAt, totalDurationSe
     `${lastX},${baseY}`,
   ].join(' ');
 
-  // emphasis peaks (rms > 0.35)
-  const peaks = pts.filter((s) => s.rms > 0.35);
+  // emphasis peaks: top 30% relative to the speaker's own max volume
+  const maxRms = Math.max(...pts.map((s) => s.rms), 0.01);
+  const peakThreshold = Math.max(maxRms * 0.7, 0.05);
+  const peaks = pts.filter((s) => s.rms >= peakThreshold);
 
   // x-axis tick interval (every ~30 s)
   const tickSec = totalDurationSec <= 120 ? 30 : totalDurationSec <= 300 ? 60 : 120;
@@ -125,7 +135,7 @@ export function VolumeTimelineChart({ samples, sessionStartedAt, totalDurationSe
         <span className="vol-legend-line" />
         <span className="vol-legend-label">Volume level</span>
         <span className="vol-peak-dot" />
-        <span className="vol-legend-label">Emphasis peak (&gt; 70%)</span>
+        <span className="vol-legend-label">Emphasis peak (top 30% of your volume)</span>
       </div>
     </div>
   );

@@ -157,7 +157,7 @@ export function useLivePresenting(captionResultRef?: CaptionResultRef) {
     if (RecCtor) {
       recognition = new RecCtor();
       const rawLang =
-        (typeof navigator !== 'undefined' && (navigator.languages?.[0] || navigator.language)) || 'ko-KR';
+        (typeof navigator !== 'undefined' && (navigator.languages?.[0] || navigator.language)) || 'en-US';
       recognition.lang = normalizeLang(rawLang);
       recognition.continuous = true;
       recognition.interimResults = true;

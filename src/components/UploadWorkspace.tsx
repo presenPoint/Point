@@ -135,7 +135,7 @@ export function UploadWorkspace() {
   const setPreQuizAnswer = useSessionStore((s) => s.setPreQuizAnswer);
   const runMaterialAnalysis = useSessionStore((s) => s.runMaterialAnalysis);
   const submitPreQuiz = useSessionStore((s) => s.submitPreQuiz);
-  const transition = useSessionStore((s) => s.transition);
+  const startPresenting = useSessionStore((s) => s.startPresenting);
   const selectedPersona = useSessionStore((s) => s.selectedPersona);
 
   const steps = useMemo(() => buildPrepareSteps(session), [
@@ -268,7 +268,7 @@ export function UploadWorkspace() {
 
     if (currentId === 'analyze' && analysisReady(session) && session.material.quiz.length === 0) {
       if (!canStartPresenting) return;
-      transition('PRESENTING');
+      void startPresenting();
       return;
     }
 
@@ -482,7 +482,7 @@ export function UploadWorkspace() {
                   disabled={!canStartPresenting}
                   onClick={() => {
                     stopCoachQuestionSpeech();
-                    transition('PRESENTING');
+                    void startPresenting();
                   }}
                 >
                   Start presentation →
@@ -521,7 +521,7 @@ export function UploadWorkspace() {
               disabled={!canStartPresenting}
               onClick={() => {
                 stopCoachQuestionSpeech();
-                transition('PRESENTING');
+                void startPresenting();
               }}
             >
               Start Presentation →

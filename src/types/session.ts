@@ -88,6 +88,10 @@ export interface SessionContext {
   status: SessionStatus;
   started_at: string;
   ended_at?: string;
+  /** 발표 시작 시점에 박제되는 시간 제한(초). null이면 무제한. Free=300, Pro=3600. */
+  max_duration_sec: number | null;
+  /** 'user' | 'time_limit' | 'abandoned' | 'error' — 종료 사유. */
+  ended_reason?: 'user' | 'time_limit' | 'abandoned' | 'error';
 
   /** Selected topic keys `categoryId:subId` (multi). Includes `other:custom` when using free-text. */
   presentation_topic_keys: string[];

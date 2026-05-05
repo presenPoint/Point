@@ -10,6 +10,7 @@ import { ReportPentagonCard } from './ReportPentagonCard';
 import { ReportTranscriptSection } from './ReportTranscriptSection';
 import { VolumeTimelineChart } from './VolumeTimelineChart';
 import { WordEmphasisSection } from './WordEmphasisSection';
+
 import { AnimatedPointLogo } from './AnimatedPointLogo';
 
 function QaTopBar({

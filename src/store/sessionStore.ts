@@ -48,6 +48,7 @@ function createSession(userId: string): SessionContext {
     user_id: userId,
     status: 'IDLE',
     started_at: new Date().toISOString(),
+    max_duration_sec: null,
     presentation_topic_keys: [],
     presentation_topic_custom: '',
     material: emptyMaterial(),
@@ -121,6 +122,10 @@ type State = {
 
   resetSession: () => void;
   transition: (to: SessionStatus) => void;
+  /** 발표 시작 — plan에 맞는 max_duration_sec 박제 후 PRESENTING으로 전환. */
+  startPresenting: () => Promise<void>;
+  /** 발표 종료 사유 기록. */
+  setEndedReason: (reason: 'user' | 'time_limit' | 'abandoned' | 'error') => void;
   setPreQuizAnswer: (id: number, text: string) => void;
   setMaterialText: (text: string) => void;
   setScriptText: (text: string) => void;
@@ -215,6 +220,41 @@ export const useSessionStore = create<State>((set, get) => ({
   transition: (to) =>
     set((s) => ({
       session: { ...s.session, status: to },
+    })),
+
+  startPresenting: async () => {
+    /* Edge Function이 배포돼있으면 서버 권위적 max_duration_sec 사용,
+       아니면 클라이언트 billing store에서 폴백. */
+    let maxSec: number | null = null;
+    let serverStartedAt = new Date().toISOString();
+    try {
+      const { startServerSession } = await import('../lib/billing');
+      const res = await startServerSession();
+      if (res) {
+        maxSec = res.max_duration_sec;
+        serverStartedAt = res.server_started_at;
+      } else {
+        const { useBillingStore } = await import('./billingStore');
+        const { maxDurationSecFor } = await import('../types/billing');
+        maxSec = maxDurationSecFor(useBillingStore.getState().subscription);
+      }
+    } catch {
+      maxSec = 5 * 60;
+    }
+    set((s) => ({
+      session: {
+        ...s.session,
+        status: 'PRESENTING',
+        started_at: serverStartedAt,
+        max_duration_sec: maxSec,
+        ended_reason: undefined,
+      },
+    }));
+  },
+
+  setEndedReason: (reason) =>
+    set((s) => ({
+      session: { ...s.session, ended_reason: reason },
     })),
 
   setPreQuizAnswer: (id, text) =>

@@ -141,9 +141,16 @@ function HeroTitleLoop() {
 
 interface Props {
   onStart: () => void;
+  userName?: string;
+  userAvatar?: string;
+  userId?: string;
+  isAuthLoading?: boolean;
+  onSignOut?: () => void;
+  onShowDashboard?: () => void;
+  onShowPricing?: () => void;
 }
 
-export function LandingScreen({ onStart }: Props) {
+export function LandingScreen({ onStart, userName, userAvatar, userId, isAuthLoading, onSignOut, onShowDashboard, onShowPricing }: Props) {
   const pageRef = useRef<HTMLDivElement>(null);
 
   /* 스크롤 진입 시 .nv-block → .nv-visible */
@@ -175,9 +182,40 @@ export function LandingScreen({ onStart }: Props) {
             pageRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
           }}
         />
-        <button type="button" className="nv-nav-cta" onClick={onStart}>
-          Get started
-        </button>
+        <div className="nv-nav-links">
+          <button type="button" className="nv-nav-link" onClick={onShowPricing}>
+            Pricing
+          </button>
+          {userId && onShowDashboard && (
+            <button type="button" className="nv-nav-link" onClick={onShowDashboard}>
+              My Progress
+            </button>
+          )}
+          <div className="nv-nav-auth">
+            {!isAuthLoading && (
+              onSignOut ? (
+                <>
+                  {userAvatar && (
+                    <img
+                      className="nv-nav-avatar"
+                      src={userAvatar}
+                      alt={userName ?? ''}
+                      referrerPolicy="no-referrer"
+                    />
+                  )}
+                  {userName && <span className="nv-nav-username">{userName}</span>}
+                  <button type="button" className="nv-nav-signout" onClick={onSignOut}>
+                    Sign out
+                  </button>
+                </>
+              ) : (
+                <button type="button" className="nv-nav-cta" onClick={onStart}>
+                  Get started
+                </button>
+              )
+            )}
+          </div>
+        </div>
       </nav>
 
       {/* ── Notebook paper (ruled + margin) ── */}

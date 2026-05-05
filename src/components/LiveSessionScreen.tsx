@@ -84,8 +84,10 @@ export function LiveSessionScreen() {
 
   const { presentingStartRef, startPoseTracking, stopPoseTracking } = useLivePresenting(captionResultRef);
   const transition = useSessionStore((s) => s.transition);
+  const setEndedReason = useSessionStore((s) => s.setEndedReason);
   const session = useSessionStore((s) => s.session);
   const live = useSessionStore((s) => s.livePresentation);
+  const maxDurationSec = session.max_duration_sec;
 
   const [sec, setSec] = useState(0);
   const [feed, setFeed] = useState<FeedbackItem[]>([]);
@@ -170,6 +172,26 @@ export function LiveSessionScreen() {
     }, 1000);
     return () => clearInterval(t);
   }, [presentingStartRef]);
+
+  /* ── 시간 제한 감시 (Free 5분, Pro 60분) ── */
+  const warned30sRef = useRef(false);
+  const timeLimitEndedRef = useRef(false);
+  const showToast = useToastStore((st) => st.showToast);
+  const endSessionRef = useRef<(reason: 'user' | 'time_limit') => void>(() => {});
+
+  useEffect(() => {
+    if (maxDurationSec == null) return;
+    const remaining = maxDurationSec - sec;
+    if (remaining <= 30 && remaining > 0 && !warned30sRef.current) {
+      warned30sRef.current = true;
+      showToast(`발표 시간 ${remaining}초 남았어요. Pro로 업그레이드하면 무제한으로 발표할 수 있어요.`);
+    }
+    if (remaining <= 0 && !timeLimitEndedRef.current) {
+      timeLimitEndedRef.current = true;
+      showToast('시간 제한 도달 — 발표를 마무리합니다.');
+      endSessionRef.current('time_limit');
+    }
+  }, [sec, maxDurationSec, showToast]);
 
   useEffect(() => onSpeakingChange(setIsSpeaking), []);
 
@@ -353,7 +375,7 @@ export function LiveSessionScreen() {
     }
   };
 
-  const endSession = () => {
+  const endSession = (reason: 'user' | 'time_limit' = 'user') => {
     if (recording) stopPracticeRecording();
     stopReplay();
     stopPoseTracking();
@@ -364,6 +386,7 @@ export function LiveSessionScreen() {
         speech_coaching: { ...st.session.speech_coaching, total_duration_sec: s },
       },
     }));
+    setEndedReason(reason);
 
     const { session_id, user_id, speech_coaching } = useSessionStore.getState().session;
     void saveTranscriptToBlob(
@@ -375,6 +398,8 @@ export function LiveSessionScreen() {
 
     transition('POST_QA');
   };
+
+  endSessionRef.current = endSession;
 
   const tickerItems = [
     `🎙 Speech Rate ${wpm || '—'} (wpm) · target 100–180`,
@@ -439,7 +464,19 @@ export function LiveSessionScreen() {
             <div className="rec-dot" />
             <div className="rec-text">LIVE SESSION</div>
           </div>
-          <div className="live-timer">{formatMmSs(sec)}</div>
+          <div className="live-timer">
+            {formatMmSs(sec)}
+            {maxDurationSec != null && (
+              <span
+                className={[
+                  'live-timer-remaining',
+                  maxDurationSec - sec <= 30 ? 'live-timer-remaining--warn' : '',
+                ].filter(Boolean).join(' ')}
+              >
+                {' / '}{formatMmSs(Math.max(0, maxDurationSec - sec))} 남음
+              </span>
+            )}
+          </div>
           <div className="live-actions">
             {camOn && (
               <button
@@ -452,7 +489,7 @@ export function LiveSessionScreen() {
                 {recording ? '● Stop recording' : '○ Record practice'}
               </button>
             )}
-            <button type="button" className="btn-end" onClick={endSession}>
+            <button type="button" className="btn-end" onClick={() => endSession('user')}>
               End Session ■
             </button>
           </div>
