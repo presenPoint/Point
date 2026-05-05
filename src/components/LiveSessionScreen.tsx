@@ -1,14 +1,17 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { feedbackQueue } from '../agents';
 import { useLivePresenting } from '../hooks/useLivePresenting';
+import { useVolumeAnalyzer } from '../hooks/useVolumeAnalyzer';
 import { cancelFeedbackSpeech, enqueueFeedback, onSpeakingChange, primeFeedbackAudio } from '../lib/feedbackTts';
 import { stopCoachQuestionSpeech } from '../lib/coachQuestionTts';
+import { buildReplaySubtitles } from '../lib/replaySubtitles';
+import type { ReplaySubtitleCue } from '../lib/replaySubtitles';
 import { saveTranscriptToBlob } from '../lib/transcriptStorage';
 import { useSessionStore } from '../store/sessionStore';
 import { useToastStore } from '../store/toastStore';
 import type { FeedbackItem, FeedbackLevel } from '../types/session';
 import { AnimatedPointLogo } from './AnimatedPointLogo';
-import { CoachingGuideStrip } from './CoachingGuideStrip';
+import { PracticeReplayPlayer } from './PracticeReplayPlayer';
 
 function formatMmSs(sec: number): string {
   const m = String(Math.floor(sec / 60)).padStart(2, '0');
@@ -41,11 +44,50 @@ function pickPracticeRecordMime(): string | undefined {
   return undefined;
 }
 
+/** Multipliers give each bar a different peak height for a natural wave look */
+const BAR_MULTS = [0.55, 0.85, 1.0, 0.9, 0.7, 0.5];
+
+function LiveWaveBars({
+  stream,
+  onSample,
+}: {
+  stream: MediaStream | null;
+  onSample: (rms: number) => void;
+}) {
+  const rms = useVolumeAnalyzer(stream);
+  const rmsRef = useRef(rms);
+  rmsRef.current = rms;
+
+  // push 1-second samples without recreating the interval
+  const onSampleRef = useRef(onSample);
+  onSampleRef.current = onSample;
+  useEffect(() => {
+    const id = setInterval(() => onSampleRef.current(rmsRef.current), 200);
+    return () => clearInterval(id);
+  }, []);
+
+  return (
+    <div className="wave-bars">
+      {BAR_MULTS.map((m, i) => (
+        <div
+          key={i}
+          className="wave-bar wave-bar--live"
+          style={{ height: `${Math.max(4, Math.round(rms * 58 * m))}px` }}
+        />
+      ))}
+    </div>
+  );
+}
+
 export function LiveSessionScreen() {
-  const { presentingStartRef, startPoseTracking, stopPoseTracking } = useLivePresenting();
+  const captionResultRef = useRef<((e: SpeechRecognitionEvent) => void) | null>(null);
+
+  const { presentingStartRef, startPoseTracking, stopPoseTracking } = useLivePresenting(captionResultRef);
   const transition = useSessionStore((s) => s.transition);
+  const setEndedReason = useSessionStore((s) => s.setEndedReason);
   const session = useSessionStore((s) => s.session);
   const live = useSessionStore((s) => s.livePresentation);
+  const maxDurationSec = session.max_duration_sec;
 
   const [sec, setSec] = useState(0);
   const [feed, setFeed] = useState<FeedbackItem[]>([]);
@@ -80,9 +122,31 @@ export function LiveSessionScreen() {
 
   const recorderRef = useRef<MediaRecorder | null>(null);
   const recordChunksRef = useRef<BlobPart[]>([]);
+  /** 녹화 시작 시각(epoch ms) — 재생 자막 타임라인 기준 */
+  const recordingStartedAtRef = useRef(0);
   const [recording, setRecording] = useState(false);
   const [replayUrl, setReplayUrl] = useState<string | null>(null);
   const replayUrlRef = useRef<string | null>(null);
+  const [replayCues, setReplayCues] = useState<ReplaySubtitleCue[]>([]);
+
+  const [mediaStream, setMediaStream] = useState<MediaStream | null>(null);
+
+  const handleVolumeSample = useCallback((rms: number) => {
+    const ts = Date.now();
+    useSessionStore.setState((st) => ({
+      session: {
+        ...st.session,
+        speech_coaching: {
+          ...st.session.speech_coaching,
+          volume_samples: [
+            ...st.session.speech_coaching.volume_samples,
+            { timestamp: ts, rms },
+          ].slice(-18000),
+        },
+      },
+    }));
+    useSessionStore.getState().setLivePresentation({ volumeRms: rms });
+  }, []);
 
   const stopReplay = () => {
     if (replayUrlRef.current) {
@@ -90,6 +154,7 @@ export function LiveSessionScreen() {
       replayUrlRef.current = null;
     }
     setReplayUrl(null);
+    setReplayCues([]);
   };
 
   const acknowledgePrivacy = () => {
@@ -107,6 +172,26 @@ export function LiveSessionScreen() {
     }, 1000);
     return () => clearInterval(t);
   }, [presentingStartRef]);
+
+  /* ── 시간 제한 감시 (Free 5분, Pro 60분) ── */
+  const warned30sRef = useRef(false);
+  const timeLimitEndedRef = useRef(false);
+  const showToast = useToastStore((st) => st.showToast);
+  const endSessionRef = useRef<(reason: 'user' | 'time_limit') => void>(() => {});
+
+  useEffect(() => {
+    if (maxDurationSec == null) return;
+    const remaining = maxDurationSec - sec;
+    if (remaining <= 30 && remaining > 0 && !warned30sRef.current) {
+      warned30sRef.current = true;
+      showToast(`발표 시간 ${remaining}초 남았어요. Pro로 업그레이드하면 무제한으로 발표할 수 있어요.`);
+    }
+    if (remaining <= 0 && !timeLimitEndedRef.current) {
+      timeLimitEndedRef.current = true;
+      showToast('시간 제한 도달 — 발표를 마무리합니다.');
+      endSessionRef.current('time_limit');
+    }
+  }, [sec, maxDurationSec, showToast]);
 
   useEffect(() => onSpeakingChange(setIsSpeaking), []);
 
@@ -182,6 +267,8 @@ export function LiveSessionScreen() {
     [],
   );
 
+  const interimText = live.interimText ?? '';
+  const recognitionError = live.recognitionError ?? '';
   const wpm = live.wpm;
   const fillers = session.speech_coaching.filler_count || live.fillerCount;
   const gazePct = Math.round(session.nonverbal_coaching.gaze_rate * 100);
@@ -191,7 +278,7 @@ export function LiveSessionScreen() {
       ? 70
       : Math.round((postureLogs.filter((p) => p.is_ok).length / postureLogs.length) * 100);
 
-  const wpmOk = wpm >= 250 && wpm <= 350;
+  const wpmOk = wpm >= 100 && wpm <= 180;
   const wpmCard = wpm === 0 ? 'metric-card' : wpmOk ? 'metric-card good' : 'metric-card warn';
   const fillerCard =
     fillers >= 12 ? 'metric-card alert' : fillers >= 6 ? 'metric-card warn' : 'metric-card good';
@@ -204,7 +291,7 @@ export function LiveSessionScreen() {
   const dynamismLabel = lastDynamism === 'stiff' ? '⚠ Stiff' : lastDynamism === 'restless' ? '⚠ Restless' : '✓ Natural';
   const dynamismOk = lastDynamism === 'natural';
 
-  const wpmProg = Math.min(100, wpm === 0 ? 8 : (wpm / 400) * 100);
+  const wpmProg = Math.min(100, wpm === 0 ? 8 : (wpm / 240) * 100);
   const fillerProg = Math.min(100, fillers * 8);
   const gazeProg = gazePct;
   const postureProg = posturePct;
@@ -218,6 +305,7 @@ export function LiveSessionScreen() {
         v.onloadeddata = () => startPoseTracking(v);
         setCamOn(true);
       }
+      setMediaStream(stream);
     } catch {
       setCamOn(false);
     }
@@ -240,7 +328,9 @@ export function LiveSessionScreen() {
       return;
     }
     try {
+      stopReplay();
       recordChunksRef.current = [];
+      recordingStartedAtRef.current = Date.now();
       const rec = new MediaRecorder(stream, { mimeType: mime });
       recorderRef.current = rec;
       rec.ondataavailable = (e) => {
@@ -249,17 +339,23 @@ export function LiveSessionScreen() {
       rec.onstop = () => {
         setRecording(false);
         recorderRef.current = null;
+        const endMs = Date.now();
+        const startMs = recordingStartedAtRef.current;
+        const { word_emphasis_log, transcript_log } = useSessionStore.getState().session.speech_coaching;
+        const cues = buildReplaySubtitles(startMs, endMs, word_emphasis_log, transcript_log);
+        setReplayCues(cues);
+
         const blob = new Blob(recordChunksRef.current, { type: mime.split(';')[0] });
         recordChunksRef.current = [];
         if (blob.size < 256) {
           useToastStore.getState().showToast('Recording was too short.');
+          setReplayCues([]);
           return;
         }
-        stopReplay();
         const url = URL.createObjectURL(blob);
         replayUrlRef.current = url;
         setReplayUrl(url);
-        useToastStore.getState().showToast('Recording ready — preview below.');
+        useToastStore.getState().showToast('Recording ready — subtitles from your speech appear in the replay.');
       };
       rec.start(1000);
       setRecording(true);
@@ -279,7 +375,7 @@ export function LiveSessionScreen() {
     }
   };
 
-  const endSession = () => {
+  const endSession = (reason: 'user' | 'time_limit' = 'user') => {
     if (recording) stopPracticeRecording();
     stopReplay();
     stopPoseTracking();
@@ -290,6 +386,7 @@ export function LiveSessionScreen() {
         speech_coaching: { ...st.session.speech_coaching, total_duration_sec: s },
       },
     }));
+    setEndedReason(reason);
 
     const { session_id, user_id, speech_coaching } = useSessionStore.getState().session;
     void saveTranscriptToBlob(
@@ -302,8 +399,10 @@ export function LiveSessionScreen() {
     transition('POST_QA');
   };
 
+  endSessionRef.current = endSession;
+
   const tickerItems = [
-    `🎙 Speech Rate ${wpm || '—'} (syll/min) · target 250–350`,
+    `🎙 Speech Rate ${wpm || '—'} (wpm) · target 100–180`,
     `👁 Eye contact ${gazePct}%`,
     `⚠ Fillers ${fillers} times`,
     `🧍 Posture stability ${posturePct} pts`,
@@ -324,6 +423,8 @@ export function LiveSessionScreen() {
               <li>
                 Video/audio are processed in this session for coaching feedback. What you record with &quot;Record
                 practice&quot; stays in <strong>this browser</strong> until you close the tab or clear site data.
+                After recording, a subtitle track from your speech (with emphasis coloring when volume data is
+                available) is shown on the replay preview only — it is not burned into the video file.
               </li>
               <li>
                 Retention on our servers (if you use cloud features) follows your workspace policy — demo/local mode
@@ -363,7 +464,19 @@ export function LiveSessionScreen() {
             <div className="rec-dot" />
             <div className="rec-text">LIVE SESSION</div>
           </div>
-          <div className="live-timer">{formatMmSs(sec)}</div>
+          <div className="live-timer">
+            {formatMmSs(sec)}
+            {maxDurationSec != null && (
+              <span
+                className={[
+                  'live-timer-remaining',
+                  maxDurationSec - sec <= 30 ? 'live-timer-remaining--warn' : '',
+                ].filter(Boolean).join(' ')}
+              >
+                {' / '}{formatMmSs(Math.max(0, maxDurationSec - sec))} 남음
+              </span>
+            )}
+          </div>
           <div className="live-actions">
             {camOn && (
               <button
@@ -371,12 +484,12 @@ export function LiveSessionScreen() {
                 className={`btn-record${recording ? ' btn-record--active' : ''}`}
                 onClick={() => (recording ? stopPracticeRecording() : startPracticeRecording())}
                 disabled={!camOn}
-                title="Records your camera + mic stream in this browser only"
+                title="Records camera + mic in this browser; after stop, replay shows subtitles from your speech"
               >
                 {recording ? '● Stop recording' : '○ Record practice'}
               </button>
             )}
-            <button type="button" className="btn-end" onClick={endSession}>
+            <button type="button" className="btn-end" onClick={() => endSession('user')}>
               End Session ■
             </button>
           </div>
@@ -472,16 +585,12 @@ export function LiveSessionScreen() {
                 <div className="cm-label">Speech Rate</div>
                 <div className={`cm-value ${wpmOk || wpm === 0 ? 'good' : 'warn'}`}>
                   {wpm || '—'}{' '}
-                  <span className="cm-unit">syll/min</span>
+                  <span className="cm-unit">wpm</span>
                 </div>
               </div>
               <div className="cam-metric">
                 <div className="cm-label">Voice</div>
-                <div className="wave-bars">
-                  {[1, 2, 3, 4, 5, 6].map((i) => (
-                    <div key={i} className="wave-bar" />
-                  ))}
-                </div>
+                <LiveWaveBars stream={mediaStream} onSample={handleVolumeSample} />
               </div>
               <div className="cam-metric">
                 <div className="cm-label">Gaze</div>
@@ -511,8 +620,11 @@ export function LiveSessionScreen() {
                     Close
                   </button>
                 </div>
-                <video className="live-replay-video" src={replayUrl} controls playsInline />
-                <p className="live-replay-hint">Stored only in this browser until you close or clear data.</p>
+                <PracticeReplayPlayer src={replayUrl} cues={replayCues} />
+                <p className="live-replay-hint">
+                  Stored only in this browser. Subtitles are synced from this session&apos;s speech log (colors = word
+                  emphasis when mic levels were captured).
+                </p>
               </div>
             )}
           </div>
@@ -543,13 +655,28 @@ export function LiveSessionScreen() {
               </div>
             </div>
 
-            <CoachingGuideStrip />
+            <div className={`live-caption-bar${recognitionError ? ' live-caption-bar--error' : ''}`} aria-live="polite" aria-label="Live speech recognition">
+              <span className={`lcb-dot${recognitionError ? ' lcb-dot--error' : ''}`} />
+              <span className={`lcb-badge${recognitionError ? ' lcb-badge--error' : ''}`}>
+                {recognitionError ? 'Mic Error' : 'Listening'}
+              </span>
+              {recognitionError ? (
+                <span className="lcb-text lcb-text--error">{recognitionError}</span>
+              ) : interimText ? (
+                <span className="lcb-text">
+                  {interimText}
+                  <span className="lcb-cursor" aria-hidden="true" />
+                </span>
+              ) : (
+                <span className="lcb-text lcb-text--idle">AI is listening to your speech…</span>
+              )}
+            </div>
 
             <div className="metrics-grid">
               <div className={wpmCard}>
                 <div className="mc-label">🎙 Speech Rate</div>
                 <div className="mc-val">{wpm || '—'}</div>
-                <div className="mc-sub">syll/min · target 250–350</div>
+                <div className="mc-sub">wpm · target 100–180</div>
                 <div className="prog-bar">
                   <div
                     className="prog-fill"

@@ -5,11 +5,28 @@ import connectorPrompt from './personas/brene-brown-connector.md?raw';
 
 export type GazeSensitivity = 'high' | 'mid' | 'low';
 
+/** 실시간 자막 구간 내 단어 강도 분산 기준(페르소나마다 민감도 다름) */
+export interface LiveVoiceSpreadThresholds {
+  minWords: number;
+  /** max(rel)−min(rel)이 이 값 미만이면 톤이 너무 비슷하다고 안내 */
+  flatBelowSpread: number;
+  /** max(rel)−min(rel)이 이 값 초과이면 강약이 과도하다고 안내 */
+  chaoticAboveSpread: number;
+}
+
+/** 페르소나 미선택 시 실시간 톤 분산 기본값 */
+export const DEFAULT_LIVE_VOICE_SPREAD: LiveVoiceSpreadThresholds = {
+  minWords: 4,
+  flatBelowSpread: 0.24,
+  chaoticAboveSpread: 0.88,
+};
+
 export interface PersonaConfig {
   wpmRange: [number, number];
   gazeSensitivity: GazeSensitivity;
   gestureIntensity: number;
   feedbackTone: string;
+  liveVoiceSpread: LiveVoiceSpreadThresholds;
 }
 
 /** Short copy shown in the home “style detail” sheet (not the full AI prompt). */
@@ -42,6 +59,7 @@ export const PERSONAS: Record<PersonaType, Persona> = {
       gazeSensitivity: 'high',
       gestureIntensity: 0.4,
       feedbackTone: 'sharp',
+      liveVoiceSpread: { minWords: 4, flatBelowSpread: 0.3, chaoticAboveSpread: 0.93 },
     },
     systemPrompt: visionaryPrompt,
     cardImage: '/personas/visionary.png',
@@ -69,6 +87,7 @@ export const PERSONAS: Record<PersonaType, Persona> = {
       gazeSensitivity: 'mid',
       gestureIntensity: 0.6,
       feedbackTone: 'encouraging',
+      liveVoiceSpread: { minWords: 4, flatBelowSpread: 0.24, chaoticAboveSpread: 0.87 },
     },
     systemPrompt: oratorPrompt,
     cardImage: '/personas/orator.png',
@@ -96,6 +115,7 @@ export const PERSONAS: Record<PersonaType, Persona> = {
       gazeSensitivity: 'low',
       gestureIntensity: 0.7,
       feedbackTone: 'warm',
+      liveVoiceSpread: { minWords: 4, flatBelowSpread: 0.2, chaoticAboveSpread: 0.84 },
     },
     systemPrompt: connectorPrompt,
     cardImage: '/personas/connector.png',

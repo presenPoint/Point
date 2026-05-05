@@ -82,3 +82,13 @@ ALTER TABLE speech_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE nonverbal_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE qa_exchanges ENABLE ROW LEVEL SECURITY;
 ALTER TABLE reports ENABLE ROW LEVEL SECURITY;
+
+-- Migration: extended session report columns
+-- Run once against your Supabase project if upgrading from the initial schema.
+ALTER TABLE sessions ADD COLUMN IF NOT EXISTS speech_score     SMALLINT;
+ALTER TABLE sessions ADD COLUMN IF NOT EXISTS nonverbal_score  SMALLINT;
+ALTER TABLE sessions ADD COLUMN IF NOT EXISTS qa_score         SMALLINT;
+ALTER TABLE sessions ADD COLUMN IF NOT EXISTS strengths        JSONB;
+ALTER TABLE sessions ADD COLUMN IF NOT EXISTS improvements     JSONB;
+ALTER TABLE sessions ADD COLUMN IF NOT EXISTS persona_style_coaching JSONB;
+ALTER TABLE sessions ADD COLUMN IF NOT EXISTS transcript_log   JSONB;

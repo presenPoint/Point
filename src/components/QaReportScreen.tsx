@@ -8,6 +8,9 @@ import { downloadReportPdfFromElement } from '../lib/reportPdf';
 import { ScoreRing } from './ScoreRing';
 import { ReportPentagonCard } from './ReportPentagonCard';
 import { ReportTranscriptSection } from './ReportTranscriptSection';
+import { VolumeTimelineChart } from './VolumeTimelineChart';
+import { WordEmphasisSection } from './WordEmphasisSection';
+
 import { AnimatedPointLogo } from './AnimatedPointLogo';
 
 function QaTopBar({
@@ -324,6 +327,31 @@ export function QaReportScreen() {
                     );
                   })}
                 </div>
+
+      {session.speech_coaching.word_emphasis_log.length > 0 && (
+        <>
+          <div className="report-section-title">Word-Level Emphasis</div>
+          <p className="report-transcript-lead">
+            Each word is coloured by how loudly you spoke it relative to the surrounding phrase.
+            Brighter words carried more emphasis.
+          </p>
+          <WordEmphasisSection log={session.speech_coaching.word_emphasis_log} />
+        </>
+      )}
+
+      {session.speech_coaching.volume_samples.length >= 2 && (
+        <>
+          <div className="report-section-title">Voice Emphasis Timeline</div>
+          <p className="report-transcript-lead">
+            Volume level throughout your presentation. Amber dots mark emphasis peaks — moments where your delivery spiked above 70% intensity.
+          </p>
+          <VolumeTimelineChart
+            samples={session.speech_coaching.volume_samples}
+            sessionStartedAt={session.started_at}
+            totalDurationSec={session.speech_coaching.total_duration_sec}
+          />
+        </>
+      )}
 
       <ReportTranscriptSection
         transcriptLog={session.speech_coaching.transcript_log}

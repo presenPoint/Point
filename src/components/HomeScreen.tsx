@@ -1,11 +1,9 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { useSessionStore, loadSessionHistory, type SessionHistoryItem, type PersonaType } from '../store/sessionStore';
+import { useLayoutEffect, useRef, useState } from 'react';
+import { useSessionStore, type PersonaType } from '../store/sessionStore';
 import { PERSONA_LIST, PERSONAS } from '../constants/personas';
 import { PersonaInfoModal } from './PersonaInfoModal';
 import { CoachVoiceStrip } from './CoachVoiceStrip';
-import type { ReactNode } from 'react';
-
-// startPersonaStyleQuiz / startWithDefaultCoaching 는 App.tsx 에서 props로 전달됩니다.
+import { PointWordmark } from './PointWordmark';
 
 function coachInitials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -39,68 +37,20 @@ function PersonaCardPhoto({ name, src }: { name: string; src: string }) {
   );
 }
 
-function HistorySection({ userId }: { userId: string }) {
-  const [history, setHistory] = useState<SessionHistoryItem[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    loadSessionHistory(userId).then((data) => {
-      setHistory(data);
-      setLoading(false);
-    });
-  }, [userId]);
-
-  if (loading) return <div className="history-loading">Loading past sessions…</div>;
-  if (history.length === 0) return null;
-
-  return (
-    <div className="history-section">
-      <h2 className="history-title">Your Progress</h2>
-      <div className="history-list">
-        {history.map((s) => (
-          <div key={s.session_id} className="history-card">
-            <div className="history-card-top">
-              <span className="history-date">
-                {new Date(s.started_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-              </span>
-              <span className="history-duration">
-                {Math.round(s.total_duration_sec / 60)} min
-              </span>
-            </div>
-            <div className="history-scores">
-              <div className="history-score">
-                <span className="hs-val">{s.composite_score}</span>
-                <span className="hs-label">Overall</span>
-              </div>
-              <div className="history-score">
-                <span className="hs-val">{s.speech_score}</span>
-                <span className="hs-label">Speech</span>
-              </div>
-              <div className="history-score">
-                <span className="hs-val">{s.nonverbal_score}</span>
-                <span className="hs-label">Nonverbal</span>
-              </div>
-              <div className="history-score">
-                <span className="hs-val">{s.qa_score}</span>
-                <span className="hs-label">Q&A</span>
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
 
 interface HomeScreenProps {
-  userBar?: ReactNode;
+  userName?: string;
+  userAvatar?: string;
   userId?: string;
   onBack?: () => void;
+  onSignOut?: () => void;
+  onShowDashboard?: () => void;
+  onShowPricing?: () => void;
   startPersonaStyleQuiz: () => void;
   startWithDefaultCoaching: () => void;
 }
 
-export function HomeScreen({ userBar, userId, onBack, startPersonaStyleQuiz, startWithDefaultCoaching }: HomeScreenProps) {
+export function HomeScreen({ userName, userAvatar, userId, onBack, onSignOut, onShowDashboard, onShowPricing, startPersonaStyleQuiz, startWithDefaultCoaching }: HomeScreenProps) {
   const setAppStarted = useSessionStore((s) => s.setAppStarted);
   const setPersona   = useSessionStore((s) => s.setPersona);
   const [detailPersonaId, setDetailPersonaId] = useState<PersonaType | null>(null);
@@ -132,16 +82,43 @@ export function HomeScreen({ userBar, userId, onBack, startPersonaStyleQuiz, sta
 
   return (
     <main id="screen-home" className="point-screen screen-home" role="main">
-      {/* 코치 선택 + 진행 기록을 한 장의 노트 시트로 (상단 계정 바 포함) */}
+      {/* 코치 선택 + 진행 기록을 한 장의 노트 시트로 */}
       <div className="home-notebook-sheet">
-        <div className="coach-select-topbar coach-select-topbar--in-sheet">
-          {onBack && (
-            <button type="button" className="coach-select-back" onClick={onBack} aria-label="Back to landing">
-              ← Back
+        <nav className="home-topnav" aria-label="Main navigation">
+          <div className="home-topnav-brand">
+            <PointWordmark
+              onHomeClick={onBack}
+              ariaLabel="Point — Back to start"
+              className="home-topnav-wordmark"
+            />
+          </div>
+          <div className="home-topnav-links">
+            <button type="button" className="home-topnav-link" onClick={onShowPricing}>
+              Pricing
             </button>
-          )}
-          <div className="coach-select-topbar-right">{userBar}</div>
-        </div>
+            {userId && onShowDashboard && (
+              <button type="button" className="home-topnav-link" onClick={onShowDashboard}>
+                My Progress
+              </button>
+            )}
+            <div className="home-topnav-user">
+              {userAvatar && (
+                <img
+                  className="home-topnav-avatar"
+                  src={userAvatar}
+                  alt={userName ?? ''}
+                  referrerPolicy="no-referrer"
+                />
+              )}
+              {userName && <span className="home-topnav-username">{userName}</span>}
+              {onSignOut && (
+                <button type="button" className="home-topnav-signout" onClick={onSignOut}>
+                  Sign out
+                </button>
+              )}
+            </div>
+          </div>
+        </nav>
 
         <section className="home-persona-section home-persona-section--page" aria-labelledby="home-persona-heading">
           <div className="home-persona-section-inner">
@@ -204,10 +181,6 @@ export function HomeScreen({ userBar, userId, onBack, startPersonaStyleQuiz, sta
 
           <CoachVoiceStrip />
         </section>
-
-        <div className="home-content home-content--after-cards">
-          {userId && <HistorySection userId={userId} />}
-        </div>
       </div>
 
       {detailPersonaId && (
