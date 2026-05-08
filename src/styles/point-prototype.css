@@ -5393,6 +5393,118 @@ h1.login-logo {
   .circle-val { font-size:16px; }
 }
 
+/* ══════════════════════════════════
+   RESPONSIVE — MOBILE LANDSCAPE
+   (폰 가로 모드: 높이 ≤ 500px + landscape)
+   태블릿 landscape는 높이 ≥ 700px이라 미적용
+══════════════════════════════════ */
+@media (orientation: landscape) and (max-height: 500px) {
+  /* topbar: 타이머 + End 버튼만 — 높이 40px */
+  .live-shell {
+    grid-template-rows: 40px 1fr;
+    height: 100dvh;
+  }
+  .live-topbar {
+    padding: 0 10px;
+    height: 40px;
+    min-height: 40px;
+    flex-wrap: nowrap;
+    gap: 8px;
+  }
+  /* 가로 모드에서 불필요한 topbar 요소 숨김 */
+  .live-logo     { display: none; }
+  .rec-indicator { display: none; }
+  .btn-record    { display: none; }
+  .live-timer    { font-size: 13px; }
+  .btn-end       { padding: 5px 12px; font-size: 11px; }
+
+  /* ticker 숨김 — 높이 절약 */
+  .live-ticker { display: none; }
+
+  /* 메인: 좌우 분할 (세로 스택 override) */
+  .live-main {
+    grid-template-columns: 1fr 220px !important;
+    grid-template-rows: 1fr !important;
+    overflow: hidden;
+    height: calc(100dvh - 40px);
+  }
+
+  /* 코칭 패널: 우측 고정, 스크롤 가능 */
+  .coaching-panel {
+    width: 220px;
+    border-left: 1px solid var(--border);
+    border-top: none;
+    overflow-y: auto;
+    overflow-x: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* 코칭 알림: topbar 아래, 코칭 패널 왼쪽 */
+  .coaching-alert {
+    top: 48px;
+    right: calc(220px + 8px);
+    left: 8px;
+    max-width: none;
+  }
+
+  /* 카메라 시점 토글: 좌하단 */
+  .cam-perspective-toggle {
+    top: auto;
+    bottom: 8px;
+    left: 8px;
+    right: auto;
+  }
+
+  /* 카메라 오버레이 배지: 패널이 메트릭 보여주므로 숨김 */
+  .cam-overlays { display: none; }
+
+  /* PiP 관객 캠: 가로 모드 위치 조정 */
+  .camera-feed--pip-audience {
+    bottom: max(48px, calc(env(safe-area-inset-bottom, 0px) + 40px));
+    right: max(8px, env(safe-area-inset-right, 0px));
+    width: clamp(72px, 16vw, 130px);
+    max-height: 28vh;
+  }
+
+  /* CP 헤더 컴팩트 */
+  .cp-header  { padding: 7px 10px; }
+  .cp-title   { font-size: 12px; }
+
+  /* 캡션 바 컴팩트 */
+  .live-caption-bar {
+    margin: 5px 8px 0;
+    padding: 5px 8px;
+    min-height: 30px;
+    gap: 6px;
+  }
+  .lcb-dot   { width: 6px; height: 6px; }
+  .lcb-badge { font-size: 8px; }
+  .lcb-text  { font-size: 10.5px; }
+
+  /* 메트릭 그리드: 2×2 컴팩트 */
+  .metrics-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 4px;
+    padding: 6px 8px;
+  }
+  .metric-card { padding: 6px 8px; }
+  .mc-label    { font-size: 8px; margin-bottom: 2px; }
+  .mc-val      { font-size: 15px; margin-bottom: 0; }
+  .mc-sub      { display: none; }
+  .prog-bar    { display: none; }
+
+  /* 피드백 피드: 컴팩트 + 스크롤 */
+  .feedback-feed  { font-size: 11px; }
+  .fb-item        { padding: 6px 8px; gap: 3px; }
+  .fb-text        { font-size: 11px; line-height: 1.4; }
+  .fb-actions     { display: none; }
+  .fb-speech-snippet { display: none; }
+
+  /* Nonverbal 패널: 높이 부족하므로 숨김 */
+  .nonverbal-panel { display: none; }
+}
+
 /* ── TRANSITIONS ── */
 .btn-primary, .btn-sm, .btn-start, .btn-end, .btn-send, .btn-submit-q, .fs-btn-save, .fs-btn-cancel {
   transition:all 0.2s ease;
