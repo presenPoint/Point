@@ -216,16 +216,21 @@ export async function calcScriptCoverage(
   sessionId: string,
   transcript: string,
 ): Promise<number | null> {
-  const cached = memStore.get(sessionId);
-  if (!cached || cached.length === 0) return null;
+  try {
+    const cached = memStore.get(sessionId);
+    if (!cached || cached.length === 0) return null;
 
-  const transcriptVec = await embedText(transcript.slice(0, 6_000));
-  if (!transcriptVec) return null;
+    const transcriptVec = await embedText(transcript.slice(0, 6_000));
+    if (!transcriptVec) return null;
 
-  // A chunk is "covered" if cosine similarity with transcript ≥ 0.40
-  const covered = cached.filter(
-    (c) => c.embedding.length > 0 && cosine(transcriptVec, c.embedding) >= 0.40,
-  ).length;
+    // A chunk is "covered" if cosine similarity with transcript ≥ 0.40
+    const covered = cached.filter(
+      (c) => c.embedding.length > 0 && cosine(transcriptVec, c.embedding) >= 0.40,
+    ).length;
 
-  return covered / cached.length;
+    return covered / cached.length;
+  } catch (e) {
+    console.warn('calcScriptCoverage failed', e);
+    return null;
+  }
 }

@@ -1,7 +1,7 @@
 /**
  * Agent 4 — Post-Presentation Q&A. Spec: ./AGENT.md
  */
-import { chatJson, hasOpenAI } from '../../lib/openai';
+import { chatCompletionText, chatJson, hasOpenAI } from '../../lib/openai';
 import type { QaDifficultyLevel, QaExchange, SessionContext } from '../../types/session';
 import { buildPresentationTopicBlock } from '../../lib/presentationTopicContext';
 
@@ -34,7 +34,10 @@ function pressureBlock(level: QaDifficultyLevel): string {
 
 function buildSystemPrompt(ctx: SessionContext, currentTurn: number, pressure: QaDifficultyLevel): string {
   const total = ctx.qa.planned_rounds ?? 5;
-  const off = ctx.speech_coaching.off_topic_log.map((e) => e.excerpt).join(' / ');
+  const off = ctx.speech_coaching.off_topic_log
+    .map((e) => (typeof e.excerpt === 'string' ? e.excerpt : ''))
+    .filter(Boolean)
+    .join(' / ');
 
   const scriptBlock = ctx.material.script_text?.trim()
     ? `\n[Presenter's Script — key sections for deep questioning]\n${ctx.material.script_text.slice(0, 3_000)}\n`
@@ -109,26 +112,15 @@ export async function qaNextQuestion(
   const temperature =
     pressure === 'intense' ? 0.38 : pressure === 'firm' ? 0.45 : 0.5;
 
-  const res = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${import.meta.env.VITE_OPENAI_API_KEY}`,
-    },
-    body: JSON.stringify({
-      model: 'gpt-4o',
-      temperature,
-      messages: [
-        { role: 'system', content: buildSystemPrompt(ctx, nextTurn, pressure) },
-        { role: 'user', content: userMsg },
-      ],
-    }),
-  });
-  if (!res.ok) {
-    return { text: 'Failed to generate a question. Please check your API key.', isComplete: false };
+  const text = await chatCompletionText(
+    'gpt-4o',
+    buildSystemPrompt(ctx, nextTurn, pressure),
+    userMsg,
+    temperature,
+  );
+  if (!text) {
+    return { text: 'Failed to generate a question. Please check your API key or server OpenAI proxy.', isComplete: false };
   }
-  const data = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> };
-  const text = data.choices?.[0]?.message?.content?.trim() ?? '';
   const { message, isComplete } = parseGptResponse(text);
   return { text: message, isComplete };
 }

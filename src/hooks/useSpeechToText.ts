@@ -1,6 +1,5 @@
 import { useCallback, useRef, useState } from 'react';
-
-const OPENAI_KEY = import.meta.env.VITE_OPENAI_API_KEY as string | undefined;
+import { hasOpenAI, transcribeAudioBlob } from '../lib/openai';
 
 interface MimeChoice { mimeType: string; ext: string }
 
@@ -18,28 +17,6 @@ function pickAudioMime(): MimeChoice {
   return { mimeType: '', ext: 'webm' };
 }
 
-async function transcribeWithWhisper(audioBlob: Blob, ext: string): Promise<string> {
-  if (!OPENAI_KEY) throw new Error('OpenAI API key is not configured.');
-
-  const formData = new FormData();
-  formData.append('file', audioBlob, `audio.${ext}`);
-  formData.append('model', 'whisper-1');
-
-  const res = await fetch('https://api.openai.com/v1/audio/transcriptions', {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${OPENAI_KEY}` },
-    body: formData,
-  });
-
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`Whisper API error (${res.status}): ${text}`);
-  }
-
-  const data = (await res.json()) as { text?: string };
-  return data.text?.trim() ?? '';
-}
-
 export function useSpeechToText() {
   const [transcript, setTranscript] = useState('');
   const [listening, setListening] = useState(false);
@@ -53,8 +30,10 @@ export function useSpeechToText() {
     setError(null);
     setTranscript('');
 
-    if (!OPENAI_KEY) {
-      setError('OpenAI API key is not set. Please add VITE_OPENAI_API_KEY to your .env file.');
+    if (!hasOpenAI()) {
+      setError(
+        'OpenAI가 설정되지 않았습니다. 프로덕션: Vercel에 OPENAI_API_KEY와 빌드용 VITE_OPENAI_SERVER_PROXY=1을 설정하세요. 로컬: .env에 VITE_OPENAI_API_KEY 또는 vercel dev로 프록시를 쓰세요.',
+      );
       return;
     }
 
@@ -86,7 +65,7 @@ export function useSpeechToText() {
         setTranscribing(true);
 
         try {
-          const text = await transcribeWithWhisper(blob, actualExt);
+          const text = await transcribeAudioBlob(blob, actualExt);
           if (text) {
             setTranscript(text);
           } else {
