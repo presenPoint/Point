@@ -43,6 +43,7 @@ export interface StartSessionResult {
 
 export async function startServerSession(): Promise<StartSessionResult | null> {
   if (!supabase) return null;
+  if (import.meta.env.DEV) return null;
   const { data, error } = await supabase.functions.invoke<StartSessionResult>('start-session', {
     body: {},
   });
