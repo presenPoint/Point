@@ -1,5 +1,7 @@
 import type { ReactNode } from 'react';
 import { useSessionStore } from '../store/sessionStore';
+import { useT } from '../hooks/useT';
+import { LanguageSwitcher } from './LanguageSwitcher';
 
 interface Props {
   userBar?: ReactNode;
@@ -8,6 +10,7 @@ interface Props {
 }
 
 export function PresentationModeSelect({ userBar, onBack, onSelectWithMaterials }: Props) {
+  const t = useT();
   const startPresenting = useSessionStore((s) => s.startPresenting);
 
   const handleDirect = () => {
@@ -19,21 +22,24 @@ export function PresentationModeSelect({ userBar, onBack, onSelectWithMaterials 
       <div className="home-notebook-sheet">
         <div className="coach-select-topbar coach-select-topbar--in-sheet">
           {onBack && (
-            <button type="button" className="coach-select-back" onClick={onBack} aria-label="Back to coach selection">
-              ← Back
+            <button type="button" className="coach-select-back" onClick={onBack} aria-label={t('mode.backAria')}>
+              {t('mode.back')}
             </button>
           )}
-          <div className="coach-select-topbar-right">{userBar}</div>
+          <div className="coach-select-topbar-right">
+            <LanguageSwitcher className="lang-switcher--topnav" />
+            {userBar}
+          </div>
         </div>
 
         <section className="mode-select-section home-persona-section--page" aria-labelledby="mode-select-heading">
           <div className="home-persona-section-inner mode-select-inner">
-            <p className="home-persona-eyebrow">Presentation setup</p>
+            <p className="home-persona-eyebrow">{t('mode.eyebrow')}</p>
             <h1 id="mode-select-heading" className="home-persona-heading">
-              How would you like to start?
+              {t('mode.title')}
             </h1>
             <p className="home-persona-lead">
-              Upload your materials for AI-powered coaching, or jump straight into presenting.
+              {t('mode.lead')}
             </p>
 
             <div className="mode-select-cards">
@@ -43,8 +49,12 @@ export function PresentationModeSelect({ userBar, onBack, onSelectWithMaterials 
                 onClick={onSelectWithMaterials}
               >
                 <span className="mode-select-card-icon" aria-hidden="true">📄</span>
-                <span className="mode-select-card-title">자료 업로드</span>
-                <span className="mode-select-card-desc">슬라이드·스크립트를 업로드하고<br />AI 분석 및 사전 퀴즈를 진행합니다</span>
+                <span className="mode-select-card-title">{t('mode.card1Title')}</span>
+                <span className="mode-select-card-desc">
+                  {t('mode.card1Line1')}
+                  <br />
+                  {t('mode.card1Line2')}
+                </span>
               </button>
 
               <button
@@ -53,8 +63,12 @@ export function PresentationModeSelect({ userBar, onBack, onSelectWithMaterials 
                 onClick={handleDirect}
               >
                 <span className="mode-select-card-icon" aria-hidden="true">🎙</span>
-                <span className="mode-select-card-title">바로 발표 시작</span>
-                <span className="mode-select-card-desc">자료 없이 바로 발표를 시작하고<br />실시간 코칭을 받습니다</span>
+                <span className="mode-select-card-title">{t('mode.card2Title')}</span>
+                <span className="mode-select-card-desc">
+                  {t('mode.card2Line1')}
+                  <br />
+                  {t('mode.card2Line2')}
+                </span>
               </button>
             </div>
           </div>

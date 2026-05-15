@@ -20,7 +20,7 @@ function PhraseLine({ entry }: { entry: WordEmphasisEntry }) {
         const level = emphasisLevel(w.rms, maxRms);
         const pct = maxRms > 0 ? Math.round((w.rms / maxRms) * 100) : 0;
         return (
-          <span key={i} className={`wem-word wem-word--${level}`} title={`강도 ${pct}% (구간 최대 대비)`}>
+          <span key={i} className={`wem-word wem-word--${level}`} title={`Intensity ${pct}% (vs loudest word in phrase)`}>
             {w.word}
           </span>
         );
@@ -35,10 +35,13 @@ export function WordEmphasisSection({ log }: Props) {
   return (
     <div className="wem-wrap">
       <div className="wem-legend">
-        <span className="wem-swatch wem-swatch--high" />높음
-        <span className="wem-swatch wem-swatch--mid" />중간
-        <span className="wem-swatch wem-swatch--low" />낮음
-        <span className="wem-tip">단어에 마우스를 올리면 강도(%)</span>
+        <span className="wem-swatch wem-swatch--high" />
+        High
+        <span className="wem-swatch wem-swatch--mid" />
+        Mid
+        <span className="wem-swatch wem-swatch--low" />
+        Low
+        <span className="wem-tip">Hover a word for intensity (%)</span>
       </div>
       <div className="wem-lines">
         {log.map((entry, i) => (

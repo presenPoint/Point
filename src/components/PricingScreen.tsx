@@ -4,72 +4,74 @@ import { createCheckoutSession } from '../lib/billing';
 import { isPro, FREE_LIMITS } from '../types/billing';
 import type { Plan } from '../types/billing';
 import { PointWordmark } from './PointWordmark';
+import { LanguageSwitcher } from './LanguageSwitcher';
+import { useT } from '../hooks/useT';
+import type { MessageKey } from '../locales/messages';
 
 interface Props {
   userBar?: ReactNode;
   onBack?: () => void;
 }
 
-interface PlanCard {
-  id: 'free' | 'pro_monthly' | 'pro_yearly';
-  title: string;
+type PlanCardId = 'free' | 'pro_monthly' | 'pro_yearly';
+
+interface PlanDef {
+  id: PlanCardId;
   price: string;
-  priceSub: string;
-  features: string[];
+  titleKey: MessageKey;
+  priceSubKey: MessageKey;
+  featureKeys: MessageKey[];
   highlighted?: boolean;
 }
 
-const PLAN_CARDS: PlanCard[] = [
+const PLAN_DEFS: PlanDef[] = [
   {
     id: 'free',
-    title: 'Free',
     price: '$0',
-    priceSub: 'Forever free',
-    features: [
-      '5분 발표 / 세션',
-      '월 3 세션',
-      '실시간 음성·제스처 코칭',
-      'Q&A 1라운드',
-      '리포트 7일 보관',
+    titleKey: 'pricing.plan.free.title',
+    priceSubKey: 'pricing.plan.free.priceSub',
+    featureKeys: [
+      'pricing.plan.free.f0',
+      'pricing.plan.free.f1',
+      'pricing.plan.free.f2',
+      'pricing.plan.free.f3',
+      'pricing.plan.free.f4',
     ],
   },
   {
     id: 'pro_monthly',
-    title: 'Pro',
     price: '$9.99',
-    priceSub: 'per month',
+    titleKey: 'pricing.plan.pro.title',
+    priceSubKey: 'pricing.plan.pro.priceSub',
     highlighted: true,
-    features: [
-      '무제한 발표 시간',
-      '무제한 세션',
-      '실시간 음성·제스처 코칭',
-      'Q&A 3~5라운드',
-      '리포트 영구 보관',
-      '코치 voice override',
+    featureKeys: [
+      'pricing.plan.pro.f0',
+      'pricing.plan.pro.f1',
+      'pricing.plan.pro.f2',
+      'pricing.plan.pro.f3',
+      'pricing.plan.pro.f4',
+      'pricing.plan.pro.f5',
     ],
   },
   {
     id: 'pro_yearly',
-    title: 'Pro Yearly',
     price: '$79',
-    priceSub: 'per year · 2개월 할인',
-    features: [
-      'Pro의 모든 기능',
-      '연간 결제로 약 17% 할인',
-      '월 환산 ≈ $6.6',
-    ],
+    titleKey: 'pricing.plan.yearly.title',
+    priceSubKey: 'pricing.plan.yearly.priceSub',
+    featureKeys: ['pricing.plan.yearly.f0', 'pricing.plan.yearly.f1', 'pricing.plan.yearly.f2'],
   },
 ];
 
 export function PricingScreen({ userBar, onBack }: Props) {
+  const t = useT();
   const subscription = useBillingStore((s) => s.subscription);
-  const [busyPlan, setBusyPlan] = useState<Plan | null>(null);
+  const [busyPlan, setBusyPlan] = useState<PlanCardId | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const currentPlan: Plan = subscription?.plan ?? 'free';
   const userIsPro = isPro(subscription);
 
-  const handleSelect = async (plan: PlanCard['id']) => {
+  const handleSelect = async (plan: PlanCardId) => {
     setError(null);
     if (plan === 'free') return;
     if (plan === currentPlan && userIsPro) return;
@@ -77,7 +79,7 @@ export function PricingScreen({ userBar, onBack }: Props) {
     try {
       const url = await createCheckoutSession(plan);
       if (!url) {
-        setError('결제 페이지를 열 수 없어요. 잠시 후 다시 시도해주세요.');
+        setError(t('pricing.checkoutError'));
         return;
       }
       window.location.href = url;
@@ -89,18 +91,19 @@ export function PricingScreen({ userBar, onBack }: Props) {
   return (
     <main id="screen-pricing" className="point-screen screen-pricing" role="main">
       <div className="home-notebook-sheet">
-        <nav className="home-topnav" aria-label="Pricing navigation">
+        <nav className="home-topnav" aria-label={t('pricing.navAria')}>
           <div className="home-topnav-brand">
             <PointWordmark
               onHomeClick={onBack}
-              ariaLabel="Point — Back"
+              ariaLabel={t('nav.pointBack')}
               className="home-topnav-wordmark"
             />
           </div>
           <div className="home-topnav-links">
+            <LanguageSwitcher className="lang-switcher--topnav" />
             {onBack && (
               <button type="button" className="home-topnav-link" onClick={onBack}>
-                ← Back
+                {t('nav.back')}
               </button>
             )}
             {userBar}
@@ -109,17 +112,19 @@ export function PricingScreen({ userBar, onBack }: Props) {
 
         <section className="pricing-section">
           <div className="pricing-inner">
-            <p className="home-persona-eyebrow">Pricing</p>
-            <h1 className="home-persona-heading">Choose your plan</h1>
+            <p className="home-persona-eyebrow">{t('pricing.eyebrow')}</p>
+            <h1 className="home-persona-heading">{t('pricing.title')}</h1>
             <p className="home-persona-lead">
-              Free로 시작해서 발표를 더 길게 연습하고 싶을 때 Pro로 업그레이드하세요.
-              {' '}Free는 세션당 {FREE_LIMITS.maxDurationSec / 60}분, 월 {FREE_LIMITS.monthlySessions}회까지 제공돼요.
+              {t('pricing.lead', {
+                minutes: String(FREE_LIMITS.maxDurationSec / 60),
+                sessions: String(FREE_LIMITS.monthlySessions),
+              })}
             </p>
 
             {error && <div className="pricing-error" role="alert">{error}</div>}
 
             <div className="pricing-cards">
-              {PLAN_CARDS.map((card) => {
+              {PLAN_DEFS.map((card) => {
                 const isCurrent = card.id === currentPlan;
                 const isBusy = busyPlan === card.id;
                 return (
@@ -131,15 +136,15 @@ export function PricingScreen({ userBar, onBack }: Props) {
                       isCurrent ? 'pricing-card--current' : '',
                     ].filter(Boolean).join(' ')}
                   >
-                    {card.highlighted && <span className="pricing-card-badge">Recommended</span>}
-                    <h2 className="pricing-card-title">{card.title}</h2>
+                    {card.highlighted && <span className="pricing-card-badge">{t('pricing.badgeRecommended')}</span>}
+                    <h2 className="pricing-card-title">{t(card.titleKey)}</h2>
                     <div className="pricing-card-price">
                       <span className="pricing-card-price-num">{card.price}</span>
-                      <span className="pricing-card-price-sub">{card.priceSub}</span>
+                      <span className="pricing-card-price-sub">{t(card.priceSubKey)}</span>
                     </div>
                     <ul className="pricing-card-features">
-                      {card.features.map((f) => (
-                        <li key={f}>{f}</li>
+                      {card.featureKeys.map((fk) => (
+                        <li key={fk}>{t(fk)}</li>
                       ))}
                     </ul>
                     <button
@@ -149,26 +154,24 @@ export function PricingScreen({ userBar, onBack }: Props) {
                         card.highlighted ? 'pricing-card-cta--primary' : '',
                       ].filter(Boolean).join(' ')}
                       disabled={isCurrent || isBusy || card.id === 'free'}
-                      onClick={() => handleSelect(card.id)}
+                      onClick={() => void handleSelect(card.id)}
                     >
                       {isCurrent
-                        ? 'Current plan'
+                        ? t('pricing.cta.current')
                         : card.id === 'free'
-                        ? 'Free forever'
-                        : isBusy
-                        ? 'Loading…'
-                        : userIsPro
-                        ? 'Switch'
-                        : 'Upgrade'}
+                          ? t('pricing.cta.freeForever')
+                          : isBusy
+                            ? t('pricing.cta.loading')
+                            : userIsPro
+                              ? t('pricing.cta.switch')
+                              : t('pricing.cta.upgrade')}
                     </button>
                   </article>
                 );
               })}
             </div>
 
-            <p className="pricing-note">
-              결제는 Stripe Checkout으로 안전하게 처리됩니다. 언제든 취소 가능하며, 다음 결제일까지는 Pro 기능이 유지돼요.
-            </p>
+            <p className="pricing-note">{t('pricing.note')}</p>
           </div>
         </section>
       </div>

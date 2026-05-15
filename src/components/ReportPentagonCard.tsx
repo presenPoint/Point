@@ -2,16 +2,64 @@ import { useMemo } from 'react';
 import type { SessionContext } from '../types/session';
 import {
   buildPentagonAxes,
-  buildShareBlurb,
   derivePresenterArchetypeFromSession,
   radarDataPolygon,
   radarPoint,
+  type PentagonAxisId,
+  type PresenterAccentId,
+  type PresenterArchetypeId,
 } from '../lib/reportPentagon';
 import { useToastStore } from '../store/toastStore';
+import { useT } from '../hooks/useT';
+import type { MessageKey } from '../locales/messages';
 
 const VIEW = { cx: 110, cy: 112, rMax: 78, rGrid: 82, rLabel: 96 };
 
+const AXIS_LABEL: Record<PentagonAxisId, MessageKey> = {
+  voice: 'report.axis.voice.label',
+  body: 'report.axis.body.label',
+  pressure: 'report.axis.pressure.label',
+  prep: 'report.axis.prep.label',
+  connection: 'report.axis.connection.label',
+};
+
+const AXIS_SHORT: Record<PentagonAxisId, MessageKey> = {
+  voice: 'report.axis.voice.short',
+  body: 'report.axis.body.short',
+  pressure: 'report.axis.pressure.short',
+  prep: 'report.axis.prep.short',
+  connection: 'report.axis.connection.short',
+};
+
+const ARCH_TITLE: Record<PresenterArchetypeId, MessageKey> = {
+  spotlight_closer: 'report.archetype.spotlight_closer.title',
+  stage_ready_operator: 'report.archetype.stage_ready_operator.title',
+  rising_presenter: 'report.archetype.rising_presenter.title',
+  physical_storyteller: 'report.archetype.physical_storyteller.title',
+  cool_under_questions: 'report.archetype.cool_under_questions.title',
+  rebuild_sprint: 'report.archetype.rebuild_sprint.title',
+};
+
+const ARCH_TAGLINE: Record<PresenterArchetypeId, MessageKey> = {
+  spotlight_closer: 'report.archetype.spotlight_closer.tagline',
+  stage_ready_operator: 'report.archetype.stage_ready_operator.tagline',
+  rising_presenter: 'report.archetype.rising_presenter.tagline',
+  physical_storyteller: 'report.archetype.physical_storyteller.tagline',
+  cool_under_questions: 'report.archetype.cool_under_questions.tagline',
+  rebuild_sprint: 'report.archetype.rebuild_sprint.tagline',
+};
+
+const ACCENT: Record<PresenterAccentId, MessageKey> = {
+  balanced: 'report.accent.balanced',
+  voice_forward: 'report.accent.voice_forward',
+  presence_forward: 'report.accent.presence_forward',
+  pressure_tested: 'report.accent.pressure_tested',
+  prep_strong: 'report.accent.prep_strong',
+  connection_led: 'report.accent.connection_led',
+};
+
 export function ReportPentagonCard({ session }: { session: SessionContext }) {
+  const t = useT();
   const axes = useMemo(() => buildPentagonAxes(session), [session]);
   const archetype = useMemo(() => derivePresenterArchetypeFromSession(session), [session]);
   const dataPts = useMemo(
@@ -19,30 +67,38 @@ export function ReportPentagonCard({ session }: { session: SessionContext }) {
     [axes],
   );
 
-  const gridPolygons = [0.25, 0.5, 0.75, 1].map((t) =>
+  const gridPolygons = [0.25, 0.5, 0.75, 1].map((tStep) =>
     axes
       .map((_, i) => {
-        const [x, y] = radarPoint(VIEW.cx, VIEW.cy, VIEW.rGrid * t, i);
+        const [x, y] = radarPoint(VIEW.cx, VIEW.cy, VIEW.rGrid * tStep, i);
         return `${x},${y}`;
       })
       .join(' '),
   );
 
   const copyShare = async () => {
-    const text = buildShareBlurb(session, archetype);
+    const rep = session.report;
+    const axisParts = axes.map((a) => `${t(AXIS_SHORT[a.id])} ${a.value}`).join(' · ');
+    const title = t(ARCH_TITLE[archetype.variantId]);
+    const text = t('report.shareBlurb', {
+      emoji: archetype.emoji,
+      title,
+      score: rep.composite_score,
+      axes: axisParts,
+    });
     try {
       await navigator.clipboard.writeText(text);
-      useToastStore.getState().showToast('Copied share snippet');
+      useToastStore.getState().showToast(t('report.copyShareOk'));
     } catch {
-      useToastStore.getState().showToast('Copy blocked — select text manually');
+      useToastStore.getState().showToast(t('report.copyShareFail'));
     }
   };
 
   return (
     <div className="report-pentagon-card">
-      <div className="report-section-title">Presenter profile</div>
+      <div className="report-section-title">{t('report.pentagon.title')}</div>
       <p className="report-pentagon-lead">
-        Five practice dimensions (0–100). This is a playful snapshot — not a psychometric test.
+        {t('report.pentagon.lead')}
       </p>
 
       <div className="report-pentagon-layout">
@@ -51,7 +107,7 @@ export function ReportPentagonCard({ session }: { session: SessionContext }) {
             className="report-pentagon-svg"
             viewBox="0 0 220 220"
             role="img"
-            aria-label="Pentagon radar chart of practice dimensions"
+            aria-label={t('report.pentagon.radarAria')}
           >
             <defs>
               <linearGradient id="radarFillGrad" x1="0%" y1="0%" x2="0%" y2="100%">
@@ -103,7 +159,7 @@ export function ReportPentagonCard({ session }: { session: SessionContext }) {
                   textAnchor="middle"
                   dominantBaseline="middle"
                 >
-                  {a.short}
+                  {t(AXIS_SHORT[a.id])}
                 </text>
               );
             })}
@@ -116,26 +172,26 @@ export function ReportPentagonCard({ session }: { session: SessionContext }) {
               {archetype.emoji}
             </span>
             <div>
-              <div className="report-pentagon-type-title">{archetype.title}</div>
-              <div className="report-pentagon-type-accent">{archetype.accent}</div>
+              <div className="report-pentagon-type-title">{t(ARCH_TITLE[archetype.variantId])}</div>
+              <div className="report-pentagon-type-accent">{t(ACCENT[archetype.accentId])}</div>
             </div>
           </div>
-          <p className="report-pentagon-tagline">{archetype.tagline}</p>
+          <p className="report-pentagon-tagline">{t(ARCH_TAGLINE[archetype.variantId])}</p>
           <ul className="report-pentagon-legend">
             {axes.map((a) => (
               <li key={a.id}>
-                <span className="report-pentagon-legend-label">{a.label}</span>
+                <span className="report-pentagon-legend-label">{t(AXIS_LABEL[a.id])}</span>
                 <span className="report-pentagon-legend-val">{a.value}</span>
               </li>
             ))}
           </ul>
           <div className="report-pentagon-actions">
             <button type="button" className="btn-sm" onClick={() => void copyShare()}>
-              Copy share snippet
+              {t('report.pentagon.copyShare')}
             </button>
           </div>
           <p className="report-pentagon-footnote">
-            Session history &amp; trend charts: planned — pair with saved scores when you enable cloud sync.
+            {t('report.pentagon.footnote')}
           </p>
         </div>
       </div>

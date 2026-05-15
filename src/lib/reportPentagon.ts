@@ -1,19 +1,33 @@
 import type { SessionContext } from '../types/session';
 
+export type PentagonAxisId = 'voice' | 'body' | 'pressure' | 'prep' | 'connection';
+
 export type PentagonAxis = {
-  id: string;
-  label: string;
-  short: string;
+  id: PentagonAxisId;
   /** 0–100 */
   value: number;
 };
 
+export type PresenterArchetypeId =
+  | 'spotlight_closer'
+  | 'stage_ready_operator'
+  | 'rising_presenter'
+  | 'physical_storyteller'
+  | 'cool_under_questions'
+  | 'rebuild_sprint';
+
+export type PresenterAccentId =
+  | 'balanced'
+  | 'voice_forward'
+  | 'presence_forward'
+  | 'pressure_tested'
+  | 'prep_strong'
+  | 'connection_led';
+
 export type PresenterArchetype = {
   emoji: string;
-  title: string;
-  tagline: string;
-  /** secondary flair e.g. "Voice-forward" */
-  accent: string;
+  variantId: PresenterArchetypeId;
+  accentId: PresenterAccentId;
 };
 
 function clamp100(n: number): number {
@@ -36,11 +50,11 @@ export function buildPentagonAxes(session: SessionContext): PentagonAxis[] {
   }
 
   return [
-    { id: 'voice', label: 'Voice & clarity', short: 'Voice', value: speech },
-    { id: 'body', label: 'Stage presence', short: 'Body', value: body },
-    { id: 'pressure', label: 'Under pressure', short: 'Q&A', value: pressure },
-    { id: 'prep', label: 'Material prep', short: 'Prep', value: prep },
-    { id: 'connection', label: 'Eye connection', short: 'Eyes', value: gazeConn },
+    { id: 'voice', value: speech },
+    { id: 'body', value: body },
+    { id: 'pressure', value: pressure },
+    { id: 'prep', value: prep },
+    { id: 'connection', value: gazeConn },
   ];
 }
 
@@ -51,36 +65,29 @@ export function derivePresenterArchetype(axes: PentagonAxis[], composite: number
   const body = byId.body ?? 0;
   const pressure = byId.pressure ?? 0;
 
-  let accent = 'Balanced';
-  if (top?.id === 'voice') accent = 'Voice-forward';
-  else if (top?.id === 'body') accent = 'Presence-forward';
-  else if (top?.id === 'pressure') accent = 'Pressure-tested';
-  else if (top?.id === 'prep') accent = 'Prep-strong';
-  else if (top?.id === 'connection') accent = 'Connection-led';
+  let accentId: PresenterAccentId = 'balanced';
+  if (top?.id === 'voice') accentId = 'voice_forward';
+  else if (top?.id === 'body') accentId = 'presence_forward';
+  else if (top?.id === 'pressure') accentId = 'pressure_tested';
+  else if (top?.id === 'prep') accentId = 'prep_strong';
+  else if (top?.id === 'connection') accentId = 'connection_led';
 
   if (composite >= 86) {
-    return { emoji: '🌟', title: 'Spotlight closer', tagline: 'Polished delivery with standout moments.', accent };
+    return { emoji: '🌟', variantId: 'spotlight_closer', accentId };
   }
   if (composite >= 72) {
-    return { emoji: '🎯', title: 'Stage-ready operator', tagline: 'Reliable structure — tighten one weak axis next run.', accent };
+    return { emoji: '🎯', variantId: 'stage_ready_operator', accentId };
   }
   if (composite >= 55) {
-    return { emoji: '🌱', title: 'Rising presenter', tagline: 'Momentum is there — focus drills on your lowest radar spoke.', accent };
+    return { emoji: '🌱', variantId: 'rising_presenter', accentId };
   }
   if (voice < 52 && body > pressure) {
-    return { emoji: '🎭', title: 'Physical storyteller', tagline: 'Body leads the room — bring the script energy up to match.', accent };
+    return { emoji: '🎭', variantId: 'physical_storyteller', accentId };
   }
   if (pressure > voice + 8) {
-    return { emoji: '⚡', title: 'Cool under questions', tagline: 'Q&A is a strength — now widen verbal color.', accent };
+    return { emoji: '⚡', variantId: 'cool_under_questions', accentId };
   }
-  return { emoji: '🔧', title: 'Rebuild sprint', tagline: 'Treat the next session as a focused technique pass.', accent };
-}
-
-export function buildShareBlurb(session: SessionContext, archetype: PresenterArchetype): string {
-  const rep = session.report;
-  const axes = buildPentagonAxes(session);
-  const parts = axes.map((a) => `${a.short} ${a.value}`).join(' · ');
-  return `Point practice — ${archetype.emoji} ${archetype.title} (${rep.composite_score}/100). ${parts}`;
+  return { emoji: '🔧', variantId: 'rebuild_sprint', accentId };
 }
 
 const RAD_STEP = 360 / 5;

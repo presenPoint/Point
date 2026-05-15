@@ -83,7 +83,8 @@ Deno.serve(async (req) => {
       return new Response(
         JSON.stringify({
           error: 'monthly_limit_reached',
-          message: 'Free 플랜 월 3 세션을 모두 사용했어요. Pro로 업그레이드하면 무제한 사용 가능합니다.',
+          message:
+            'You have used all 3 Free sessions this month. Upgrade to Pro for unlimited sessions.',
         }),
         { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       );

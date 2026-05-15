@@ -1,10 +1,19 @@
 import type { VolumeSample } from '../types/session';
 
+export interface VolumeCoachingMarker {
+  /** Seconds from the start of the plotted session */
+  sec: number;
+  /** Tooltip / legend text */
+  label: string;
+}
+
 interface Props {
   samples: VolumeSample[];
   /** @deprecated no longer used — kept for call-site compatibility */
   sessionStartedAt?: string;
   totalDurationSec: number;
+  /** Vertical guides from actionable coaching timestamps (e.g. 0m28s → 28) */
+  coachingMarkers?: VolumeCoachingMarker[];
 }
 
 function fmtTime(sec: number): string {
@@ -20,7 +29,12 @@ function downsample(samples: VolumeSample[], maxPts: number): VolumeSample[] {
   return Array.from({ length: maxPts }, (_, i) => samples[Math.round(i * step)]);
 }
 
-export function VolumeTimelineChart({ samples, sessionStartedAt: _sessionStartedAt, totalDurationSec }: Props) {
+export function VolumeTimelineChart({
+  samples,
+  sessionStartedAt: _sessionStartedAt,
+  totalDurationSec,
+  coachingMarkers = [],
+}: Props) {
   if (samples.length < 2) return null;
 
   // Use the first sample's timestamp as origin so the chart aligns with
@@ -32,6 +46,9 @@ export function VolumeTimelineChart({ samples, sessionStartedAt: _sessionStarted
     sampleSpanMs,
     1,
   );
+  const durationSec = Math.max(durationMs / 1000, 0.001);
+  /** Shared horizontal scale for ticks, peaks, and coaching markers */
+  const plotAxisSec = Math.max(totalDurationSec, durationSec, 0.001);
 
   const pts = downsample(samples, 300);
 
@@ -60,9 +77,9 @@ export function VolumeTimelineChart({ samples, sessionStartedAt: _sessionStarted
   const peaks = pts.filter((s) => s.rms >= peakThreshold);
 
   // x-axis tick interval (every ~30 s)
-  const tickSec = totalDurationSec <= 120 ? 30 : totalDurationSec <= 300 ? 60 : 120;
+  const tickSec = plotAxisSec <= 120 ? 30 : plotAxisSec <= 300 ? 60 : 120;
   const ticks: number[] = [];
-  for (let t = 0; t <= totalDurationSec; t += tickSec) ticks.push(t);
+  for (let t = 0; t <= plotAxisSec; t += tickSec) ticks.push(t);
 
   return (
     <div className="vol-chart-wrap">
@@ -96,7 +113,7 @@ export function VolumeTimelineChart({ samples, sessionStartedAt: _sessionStarted
 
         {/* x-axis ticks */}
         {ticks.map((t) => {
-          const x = pad.left + (t / totalDurationSec) * plotW;
+          const x = pad.left + (t / plotAxisSec) * plotW;
           return (
             <g key={t}>
               <line x1={x} y1={pad.top + plotH} x2={x} y2={pad.top + plotH + 3}
@@ -129,6 +146,31 @@ export function VolumeTimelineChart({ samples, sessionStartedAt: _sessionStarted
             <title>{`${fmtTime(Math.round((s.timestamp - startMs) / 1000))}: emphasis`}</title>
           </circle>
         ))}
+
+        {/* coaching moment guides */}
+        {coachingMarkers.map((mk, i) => {
+          const clamped = Math.min(Math.max(mk.sec, 0), plotAxisSec);
+          const x = pad.left + (clamped / plotAxisSec) * plotW;
+          return (
+            <g key={`cm-${i}-${mk.sec}`}>
+              <line
+                x1={x}
+                y1={pad.top}
+                x2={x}
+                y2={pad.top + plotH}
+                stroke="var(--violet)"
+                strokeWidth="1"
+                strokeDasharray="4 3"
+                opacity="0.55"
+              >
+                <title>{mk.label}</title>
+              </line>
+              <circle cx={x} cy={pad.top + plotH + 2} r="2.5" fill="var(--violet)" opacity="0.85">
+                <title>{mk.label}</title>
+              </circle>
+            </g>
+          );
+        })}
       </svg>
 
       <div className="vol-chart-legend">
@@ -136,6 +178,12 @@ export function VolumeTimelineChart({ samples, sessionStartedAt: _sessionStarted
         <span className="vol-legend-label">Volume level</span>
         <span className="vol-peak-dot" />
         <span className="vol-legend-label">Emphasis peak (top 30% of your volume)</span>
+        {coachingMarkers.length > 0 && (
+          <>
+            <span className="vol-coach-marker" aria-hidden="true" />
+            <span className="vol-legend-label">Coaching moment</span>
+          </>
+        )}
       </div>
     </div>
   );

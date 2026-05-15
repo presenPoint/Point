@@ -263,7 +263,7 @@ export function UploadWorkspace() {
     if (currentId === 'material_prep') {
       const h = filesPanelRef.current;
       if (h?.hasEntries() && !h.save()) return;
-      if (h?.hasEntries()) useToastStore.getState().showToast('저장 완료');
+      if (h?.hasEntries()) useToastStore.getState().showToast('Saved');
     }
 
     if (currentId === 'analyze' && analysisReady(session) && session.material.quiz.length === 0) {

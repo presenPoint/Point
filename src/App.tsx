@@ -16,12 +16,14 @@ import { PricingScreen } from './components/PricingScreen';
 import { PointWordmark } from './components/PointWordmark';
 import { CursorDot } from './components/CursorDot';
 import { GlobalToast } from './components/GlobalToast';
+import { useT } from './hooks/useT';
 
 /**
  * 앱 플로우:
  *  랜딩 → "포인트 시작하기" → 로그인 → 코치 선택(Home) → 발표 준비(Upload) → 발표(Live) → 결과(QA)
  */
 export default function App() {
+  const t = useT();
   const { user, loading, signOut } = useAuth();
   const appStarted          = useSessionStore((s) => s.appStarted);
   const skipPersonaSurvey   = useSessionStore((s) => s.skipPersonaSurvey);
@@ -142,7 +144,7 @@ export default function App() {
         {user.user_metadata?.full_name ?? user.email}
       </span>
       <button type="button" className="btn-sign-out" onClick={signOut}>
-        Sign out
+        {t('nav.signOut')}
       </button>
     </div>
   );

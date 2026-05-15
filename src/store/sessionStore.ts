@@ -548,14 +548,14 @@ export const useSessionStore = create<State>((set, get) => ({
             nonverbal_score: 0,
             qa_score: 0,
             strengths: [
-              '점수 산출 단계에서 오류가 발생했습니다. 세션 데이터가 불완전할 수 있습니다.',
+              'An error occurred while calculating scores. Session data may be incomplete.',
             ],
             improvements: [
               {
-                label: '복구 안내',
+                label: 'What to do next',
                 situation: msg,
                 stop_doing: '',
-                start_doing: '앱을 새로고침한 뒤 다시 시도하거나, 문제가 계속되면 새 세션을 시작해 주세요.',
+                start_doing: 'Refresh the app and try again, or start a new session if the problem persists.',
                 expected_impact: '',
                 time_markers: [],
               },

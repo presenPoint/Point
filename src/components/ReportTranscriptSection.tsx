@@ -136,8 +136,8 @@ export function ReportTranscriptSection({
         </button>
         {!hasOpenAI() && (
           <p className="report-transcript-polish-warn">
-            로컬은 <code>VITE_OPENAI_API_KEY</code> 또는 서버 프록시(<code>VITE_OPENAI_SERVER_PROXY=1</code> +{' '}
-            <code>vercel dev</code>). 배포는 Vercel <code>OPENAI_API_KEY</code>만 있으면 됩니다.
+            Local dev: set <code>VITE_OPENAI_API_KEY</code> or use the server proxy (<code>VITE_OPENAI_SERVER_PROXY=1</code>{' '}
+            + <code>vercel dev</code>). In production on Vercel, only <code>OPENAI_API_KEY</code> is required.
           </p>
         )}
         {polishError && <p className="report-transcript-polish-error">{polishError}</p>}

@@ -7,20 +7,20 @@ function formatTranscript(
   durationSec: number,
 ): string {
   const lines: string[] = [];
-  const date = new Date().toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' });
+  const date = new Date().toLocaleString('en-US', { timeZone: 'UTC' });
 
-  lines.push(`=== 발표 스크립트 ===`);
-  lines.push(`세션 ID: ${sessionId}`);
-  lines.push(`사용자: ${userId}`);
-  lines.push(`기록 일시: ${date}`);
-  lines.push(`총 발표 시간: ${Math.floor(durationSec / 60)}분 ${durationSec % 60}초`);
-  lines.push(`발화 횟수: ${entries.length}회`);
+  lines.push('=== Presentation transcript ===');
+  lines.push(`Session ID: ${sessionId}`);
+  lines.push(`User: ${userId}`);
+  lines.push(`Exported: ${date}`);
+  lines.push(`Total duration: ${Math.floor(durationSec / 60)}m ${durationSec % 60}s`);
+  lines.push(`Utterances: ${entries.length}`);
   lines.push('');
-  lines.push('--- 발화 내용 ---');
+  lines.push('--- Transcript ---');
   lines.push('');
 
   if (entries.length === 0) {
-    lines.push('(기록된 발화 없음)');
+    lines.push('(No utterances recorded)');
   } else {
     const start = entries[0].timestamp;
     for (const entry of entries) {

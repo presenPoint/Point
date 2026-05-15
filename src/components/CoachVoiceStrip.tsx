@@ -1,15 +1,17 @@
 import { COACH_TTS_VOICE_OPTIONS } from '../lib/coachTtsVoice';
 import { useSessionStore } from '../store/sessionStore';
+import { useT } from '../hooks/useT';
 
 export function CoachVoiceStrip() {
+  const t = useT();
   const value = useSessionStore((s) => s.coachTtsVoiceOverride);
   const setVoice = useSessionStore((s) => s.setCoachTtsVoiceOverride);
 
   return (
-    <div className="coach-voice-strip" aria-label="Coach narration voice">
+    <div className="coach-voice-strip" aria-label={t('persona.coachVoice.aria')}>
       <div className="coach-voice-strip-head">
-        <span className="coach-voice-strip-label">Narration voice (TTS)</span>
-        <span className="coach-voice-strip-hint">Pre-quiz, Q&amp;A, live coach — overrides persona default when set.</span>
+        <span className="coach-voice-strip-label">{t('persona.coachVoice.label')}</span>
+        <span className="coach-voice-strip-hint">{t('persona.coachVoice.hint')}</span>
       </div>
       <select
         className="coach-voice-select"

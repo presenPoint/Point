@@ -47,11 +47,28 @@
   border-bottom: 0.5px solid rgba(255, 255, 255, 0.07);
 }
 
-.nv-nav-logo {
-  font-size: clamp(22px, 2.6vw, 28px);
-  font-weight: 800;
-  letter-spacing: -0.03em;
-  color: #fff;
+/* Icon-only mark in nav — avoids “Point” twice next to hero title */
+.nv-nav-mark {
+  appearance: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  background: transparent;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  border-radius: 10px;
+  line-height: 0;
+}
+.nv-nav-mark:focus-visible {
+  outline: 2px solid rgba(120, 160, 255, 0.55);
+  outline-offset: 3px;
+}
+.nv-nav-mark-img {
+  width: 32px;
+  height: 32px;
+  display: block;
+  border-radius: 8px;
 }
 
 .nv-nav-cta {
@@ -7633,13 +7650,6 @@ body {
   -webkit-backdrop-filter: blur(14px);
 }
 
-.nv-nav-logo {
-  color: #2a2620 !important;
-  font-size: clamp(22px, 2.6vw, 28px) !important;
-  font-weight: 800 !important;
-  letter-spacing: -0.03em !important;
-}
-
 .nv-nav-cta {
   background: rgba(42, 38, 32, 0.06) !important;
   border: 0.5px solid rgba(55, 45, 35, 0.18) !important;
@@ -9667,6 +9677,193 @@ textarea {
 }
 .vol-legend-label { color: var(--muted2); }
 
+.vol-legend-label { color: var(--muted2); }
+.vol-coach-marker {
+  display: inline-block;
+  width: 0;
+  height: 12px;
+  border-left: 2px dashed var(--violet);
+  margin-left: 10px;
+  flex-shrink: 0;
+  opacity: 0.85;
+}
+
+/* ═══════════════════════════════════════════════
+   REPORT — Session signals (timeline + transcript)
+═══════════════════════════════════════════════ */
+.report-session-signals {
+  margin: 20px 0 28px;
+  padding: 18px 18px 20px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+}
+.report-session-signals-head {
+  margin-bottom: 14px;
+}
+.report-signals-lead {
+  margin: 6px 0 0;
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--muted2);
+}
+.report-session-signals__grid {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+@media (min-width: 920px) {
+  .report-session-signals__grid:not(.report-session-signals__grid--transcript-only) {
+    display: grid;
+    grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+    gap: 20px;
+    align-items: start;
+  }
+}
+.report-session-signals__grid--transcript-only {
+  display: block;
+}
+.report-session-signals__col--charts {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.report-signal-block {
+  min-width: 0;
+}
+.report-subhead {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+.report-micro-lead {
+  margin: 0 0 10px;
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--muted2);
+}
+.report-micro-lead--below-title {
+  margin: -4px 0 12px;
+}
+.report-corrections-lead--tight {
+  font-size: 12px;
+  line-height: 1.45;
+  margin-bottom: 12px;
+}
+.insight-list--tight {
+  gap: 6px;
+}
+.insight-item--tight {
+  padding: 10px 12px;
+}
+.insight-desc--clamp {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+.insight-list--coaching {
+  gap: 8px;
+}
+.coaching-details-card {
+  background: var(--surface2);
+  border: 1px solid var(--border2);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.coaching-details-card[open] {
+  border-color: var(--accent);
+  box-shadow: 0 2px 14px rgba(126, 156, 248, 0.06);
+}
+.coaching-details-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 12px 14px;
+  cursor: pointer;
+  list-style: none;
+  font-size: 13px;
+}
+.coaching-details-summary::-webkit-details-marker {
+  display: none;
+}
+.coaching-details-summary::after {
+  content: '▸';
+  margin-left: auto;
+  font-size: 10px;
+  color: var(--muted);
+  transition: transform 0.15s ease;
+}
+.coaching-details-card[open] .coaching-details-summary::after {
+  transform: rotate(90deg);
+}
+.coaching-details-ts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  width: 100%;
+  margin-top: 2px;
+}
+@media (min-width: 640px) {
+  .coaching-details-ts {
+    width: auto;
+    margin-top: 0;
+    margin-left: auto;
+    flex: 1;
+    justify-content: flex-end;
+  }
+}
+.coaching-ts-badge--inline {
+  padding: 3px 8px;
+  font-size: 11px;
+}
+.coaching-details-body {
+  padding: 0 14px 14px;
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+}
+.coaching-section--compact {
+  margin-bottom: 10px;
+}
+.coaching-section--compact:last-child {
+  margin-bottom: 0;
+}
+.coaching-text--compact {
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+.report-persona-pack {
+  margin: 16px 0 20px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+}
+.report-persona-pack-summary {
+  padding: 12px 14px;
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+  list-style: none;
+  color: var(--text);
+}
+.report-persona-pack-summary::-webkit-details-marker {
+  display: none;
+}
+.report-persona-panel--in-details {
+  margin: 0;
+  padding: 0 14px 14px;
+  border-top: 1px solid var(--border);
+  border-radius: 0;
+  border: none;
+  background: transparent;
+}
+
 /* ═══════════════════════════════════════════════
    REPORT — Word-Level Emphasis
 ═══════════════════════════════════════════════ */
@@ -9761,6 +9958,89 @@ textarea {
   display: flex;
   align-items: center;
   gap: 2px;
+}
+
+/* Language (EN / KO) */
+.lang-switcher {
+  display: inline-flex;
+  align-items: stretch;
+  border-radius: 9px;
+  overflow: hidden;
+  border: 1px solid var(--border2, rgba(255, 255, 255, 0.12));
+  flex-shrink: 0;
+}
+.lang-switcher-btn {
+  font-family: 'Manrope', sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 5px 10px;
+  border: none;
+  background: transparent;
+  color: rgba(42, 38, 32, 0.78);
+  cursor: pointer;
+  line-height: 1.2;
+}
+.lang-switcher-btn:hover {
+  color: #141210;
+  background: rgba(255, 255, 255, 0.06);
+}
+.lang-switcher-btn--active {
+  background: rgba(126, 156, 248, 0.32);
+  color: #141210;
+}
+.lang-switcher--topnav {
+  margin-right: 6px;
+}
+.lang-switcher--login {
+  align-self: center;
+  margin-bottom: 12px;
+}
+.login-card .lang-switcher {
+  border-color: rgba(255, 255, 255, 0.16);
+}
+.login-card .lang-switcher-btn:not(.lang-switcher-btn--active) {
+  color: rgba(240, 242, 250, 0.92);
+}
+.login-card .lang-switcher-btn:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.08);
+}
+.login-card .lang-switcher-btn--active {
+  color: #fff;
+  background: rgba(126, 156, 248, 0.38);
+}
+.home-notebook-sheet .lang-switcher {
+  border-color: rgba(55, 45, 35, 0.22);
+}
+.home-notebook-sheet .lang-switcher-btn:not(.lang-switcher-btn--active) {
+  color: #1a1714;
+  font-weight: 700;
+}
+.home-notebook-sheet .lang-switcher-btn:hover {
+  color: #0f0d0b;
+  background: rgba(55, 45, 35, 0.1);
+}
+.home-notebook-sheet .lang-switcher-btn--active {
+  color: #141210;
+  background: rgba(126, 156, 248, 0.4);
+}
+/* 랜딩 내비는 라이트(크림) 배경 — 비활성 탭은 진한 글자로 대비 확보 */
+.lang-switcher--nv {
+  border-color: rgba(55, 45, 35, 0.22);
+  margin-right: 8px;
+}
+.lang-switcher--nv .lang-switcher-btn:not(.lang-switcher-btn--active) {
+  color: #1a1714;
+  font-weight: 700;
+}
+.lang-switcher--nv .lang-switcher-btn:hover {
+  color: #0f0d0b;
+  background: rgba(55, 45, 35, 0.1);
+}
+.lang-switcher--nv .lang-switcher-btn--active {
+  background: rgba(90, 111, 168, 0.42);
+  color: #fff;
+  font-weight: 700;
 }
 
 .home-topnav-link {

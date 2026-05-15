@@ -46,7 +46,7 @@ export function PracticeReplayPlayer({ src, cues }: Props) {
               const tier = emphasisTierForWord(w.rms, maxRms);
               const pct = relativeIntensityPercent(w.rms, maxRms);
               return (
-                <span key={i} className={`prs-word prs-word--${tier}`} title={`강도 ${pct}%`}>
+                <span key={i} className={`prs-word prs-word--${tier}`} title={`Intensity ${pct}%`}>
                   {w.word}
                   {i < active.words.length - 1 ? '\u00a0' : ''}
                 </span>
@@ -54,17 +54,17 @@ export function PracticeReplayPlayer({ src, cues }: Props) {
             })}
           </div>
         ) : cues.length === 0 ? (
-          <div className="practice-replay-sub-empty">이 녹화 구간에 표시할 전사가 없습니다.</div>
+          <div className="practice-replay-sub-empty">No transcript cues for this recording window.</div>
         ) : null}
       </div>
       {cues.length > 0 && (
         <div className="practice-replay-legend" aria-hidden="true">
           <span className="prs-dot prs-dot--high" />
-          <span>높음</span>
+          <span>High</span>
           <span className="prs-dot prs-dot--mid" />
-          <span>중간</span>
+          <span>Mid</span>
           <span className="prs-dot prs-dot--low" />
-          <span>낮음</span>
+          <span>Low</span>
         </div>
       )}
     </div>

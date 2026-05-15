@@ -163,14 +163,14 @@ export async function speakCoachQuestion(text: string, persona: PersonaType | nu
 }
 
 /** 라이브 코칭 패널 — 정중한 말투·속도 데모 (듣고 따라 말하기용) */
-export type CoachGuideDemoId = 'formal_ko' | 'steady_en';
+export type CoachGuideDemoId = 'formal_en' | 'steady_en';
 
 const GUIDE_DEMOS: Record<CoachGuideDemoId, { text: string; instructions: string; browserRate: number }> = {
-  formal_ko: {
-    text: '안녕하십니까. 오늘 말씀드릴 내용은 세 가지입니다. 바쁘신 가운데 시간 내주셔서 감사합니다.',
+  formal_en: {
+    text: 'Good afternoon. I have three brief points. Thank you for making time in a busy schedule.',
     instructions:
-      'You are modeling formal Korean business speech. Read ONLY the input text once. ' +
-      'Use polite formal Korean (합니다/습니다), calm respectful tone, clear pauses between sentences. ' +
+      'You are modeling formal English business speech. Read ONLY the input text once. ' +
+      'Polished, respectful tone, clear pauses between sentences, no colloquial fillers. ' +
       'Do not translate, explain, or add filler.',
     browserRate: 0.9,
   },

@@ -95,7 +95,7 @@ export interface SessionContext {
 
   /** Selected topic keys `categoryId:subId` (multi). Includes `other:custom` when using free-text. */
   presentation_topic_keys: string[];
-  /** Free text when “기타” is used or the presenter adds extra context. */
+  /** Free text when "other" is used or the presenter adds extra context. */
   presentation_topic_custom: string;
 
   material: {

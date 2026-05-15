@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { feedbackQueue } from '../agents';
 import { useLivePresenting } from '../hooks/useLivePresenting';
 import { useVolumeAnalyzer } from '../hooks/useVolumeAnalyzer';
@@ -12,6 +12,8 @@ import { useToastStore } from '../store/toastStore';
 import type { FeedbackItem, FeedbackLevel } from '../types/session';
 import { AnimatedPointLogo } from './AnimatedPointLogo';
 import { PracticeReplayPlayer } from './PracticeReplayPlayer';
+import { useT } from '../hooks/useT';
+import type { MessageKey } from '../locales/messages';
 
 function formatMmSs(sec: number): string {
   const m = String(Math.floor(sec / 60)).padStart(2, '0');
@@ -25,9 +27,9 @@ function levelToFeedClass(level: FeedbackLevel): string {
   return 'type-info';
 }
 
-function sourceToCat(source: FeedbackItem['source']): { cls: string; label: string } {
-  if (source === 'SPEECH_RULE' || source === 'SPEECH_SEMANTIC') return { cls: 'cat-voice', label: 'VOICE' };
-  return { cls: 'cat-gaze', label: 'NONVERBAL' };
+function sourceToCat(source: FeedbackItem['source']): { cls: string; labelKey: MessageKey } {
+  if (source === 'SPEECH_RULE' || source === 'SPEECH_SEMANTIC') return { cls: 'cat-voice', labelKey: 'live.feedVoice' };
+  return { cls: 'cat-gaze', labelKey: 'live.feedNonverbal' };
 }
 
 const LIVE_PRIVACY_STORAGE_KEY = 'point_live_privacy_ok_v1';
@@ -80,6 +82,7 @@ function LiveWaveBars({
 }
 
 export function LiveSessionScreen() {
+  const t = useT();
   const captionResultRef = useRef<((e: SpeechRecognitionEvent) => void) | null>(null);
 
   const { presentingStartRef, startPoseTracking, stopPoseTracking } = useLivePresenting(captionResultRef);
@@ -96,7 +99,7 @@ export function LiveSessionScreen() {
   const voiceFeedbackRef = useRef(false);
   const [alertUi, setAlertUi] = useState<{
     msg: string;
-    typeLabel: string;
+    typeLabelKey: MessageKey;
     color: string;
   } | null>(null);
   const lastAlertId = useRef<string | null>(null);
@@ -184,14 +187,14 @@ export function LiveSessionScreen() {
     const remaining = maxDurationSec - sec;
     if (remaining <= 30 && remaining > 0 && !warned30sRef.current) {
       warned30sRef.current = true;
-      showToast(`발표 시간 ${remaining}초 남았어요. Pro로 업그레이드하면 무제한으로 발표할 수 있어요.`);
+      showToast(t('live.toast.planSecondsLeft', { remaining }));
     }
     if (remaining <= 0 && !timeLimitEndedRef.current) {
       timeLimitEndedRef.current = true;
-      showToast('시간 제한 도달 — 발표를 마무리합니다.');
+      showToast(t('live.toast.timeLimitEnd'));
       endSessionRef.current('time_limit');
     }
-  }, [sec, maxDurationSec, showToast]);
+  }, [sec, maxDurationSec, showToast, t]);
 
   useEffect(() => onSpeakingChange(setIsSpeaking), []);
 
@@ -214,9 +217,13 @@ export function LiveSessionScreen() {
         lastAlertId.current = top.id;
         const color =
           top.level === 'CRITICAL' ? 'var(--red)' : top.level === 'WARN' ? 'var(--amber)' : 'var(--cyan)';
-        const typeLabel =
-          top.source === 'NONVERBAL' ? 'NONVERBAL' : top.level === 'CRITICAL' ? 'ALERT' : 'VOICE COACH';
-        setAlertUi({ msg: top.msg, typeLabel, color });
+        const typeLabelKey: MessageKey =
+          top.source === 'NONVERBAL'
+            ? 'live.alert.nonverbal'
+            : top.level === 'CRITICAL'
+              ? 'live.alert.alert'
+              : 'live.alert.voiceCoach';
+        setAlertUi({ msg: top.msg, typeLabelKey, color });
         if (alertT.current) clearTimeout(alertT.current);
         alertT.current = setTimeout(() => setAlertUi(null), 3500);
         if (voiceFeedbackRef.current) {
@@ -288,7 +295,11 @@ export function LiveSessionScreen() {
 
   const dynamismLog = session.nonverbal_coaching.dynamism_log;
   const lastDynamism = dynamismLog.length > 0 ? dynamismLog[dynamismLog.length - 1].level : 'natural';
-  const dynamismLabel = lastDynamism === 'stiff' ? '⚠ Stiff' : lastDynamism === 'restless' ? '⚠ Restless' : '✓ Natural';
+  const dynamismLabel = useMemo(() => {
+    if (lastDynamism === 'stiff') return t('live.moveStiff');
+    if (lastDynamism === 'restless') return t('live.moveRestless');
+    return t('live.moveNatural');
+  }, [lastDynamism, t]);
   const dynamismOk = lastDynamism === 'natural';
 
   const wpmProg = Math.min(100, wpm === 0 ? 8 : (wpm / 240) * 100);
@@ -315,16 +326,16 @@ export function LiveSessionScreen() {
     const v = videoRef.current;
     const stream = v?.srcObject;
     if (!stream || !(stream instanceof MediaStream)) {
-      useToastStore.getState().showToast('Turn on the camera first to record.');
+      useToastStore.getState().showToast(t('live.toast.recordNeedCam'));
       return;
     }
     if (typeof MediaRecorder === 'undefined') {
-      useToastStore.getState().showToast('Recording is not supported in this browser.');
+      useToastStore.getState().showToast(t('live.toast.recordUnsupported'));
       return;
     }
     const mime = pickPracticeRecordMime();
     if (!mime) {
-      useToastStore.getState().showToast('No supported recording format (WebM).');
+      useToastStore.getState().showToast(t('live.toast.recordNoFormat'));
       return;
     }
     try {
@@ -348,19 +359,19 @@ export function LiveSessionScreen() {
         const blob = new Blob(recordChunksRef.current, { type: mime.split(';')[0] });
         recordChunksRef.current = [];
         if (blob.size < 256) {
-          useToastStore.getState().showToast('Recording was too short.');
+          useToastStore.getState().showToast(t('live.toast.recordTooShort'));
           setReplayCues([]);
           return;
         }
         const url = URL.createObjectURL(blob);
         replayUrlRef.current = url;
         setReplayUrl(url);
-        useToastStore.getState().showToast('Recording ready — subtitles from your speech appear in the replay.');
+        useToastStore.getState().showToast(t('live.toast.recordReady'));
       };
       rec.start(1000);
       setRecording(true);
     } catch {
-      useToastStore.getState().showToast('Could not start recording.');
+      useToastStore.getState().showToast(t('live.toast.recordStartFail'));
     }
   };
 
@@ -401,12 +412,15 @@ export function LiveSessionScreen() {
 
   endSessionRef.current = endSession;
 
-  const tickerItems = [
-    `🎙 Speech Rate ${wpm || '—'} (wpm) · target 100–180`,
-    `👁 Eye contact ${gazePct}%`,
-    `⚠ Fillers ${fillers} times`,
-    `🧍 Posture stability ${posturePct} pts`,
-  ];
+  const tickerItems = useMemo(
+    () => [
+      t('live.tickerSpeech', { wpm: wpm || '—' }),
+      t('live.tickerEye', { pct: gazePct }),
+      t('live.tickerFillers', { n: fillers }),
+      t('live.tickerPosture', { pts: posturePct }),
+    ],
+    [wpm, gazePct, fillers, posturePct, t],
+  );
 
   return (
     <div id="screen-live" className="point-screen">
@@ -414,25 +428,15 @@ export function LiveSessionScreen() {
         <div className="live-privacy-overlay" role="dialog" aria-modal="true" aria-labelledby="live-privacy-title">
           <div className="live-privacy-card">
             <h2 id="live-privacy-title" className="live-privacy-title">
-              Privacy &amp; your practice data
+              {t('live.privacy.title')}
             </h2>
             <ul className="live-privacy-list">
-              <li>
-                Point does <strong>not</strong> use your camera or microphone to train third-party foundation models.
-              </li>
-              <li>
-                Video/audio are processed in this session for coaching feedback. What you record with &quot;Record
-                practice&quot; stays in <strong>this browser</strong> until you close the tab or clear site data.
-                After recording, a subtitle track from your speech (with emphasis coloring when volume data is
-                available) is shown on the replay preview only — it is not burned into the video file.
-              </li>
-              <li>
-                Retention on our servers (if you use cloud features) follows your workspace policy — demo/local mode
-                keeps transcripts on-device where configured.
-              </li>
+              <li>{t('live.privacy.b1')}</li>
+              <li>{t('live.privacy.b2')}</li>
+              <li>{t('live.privacy.b3')}</li>
             </ul>
             <button type="button" className="btn-primary live-privacy-ok" onClick={acknowledgePrivacy}>
-              Got it
+              {t('live.privacy.gotIt')}
             </button>
           </div>
         </div>
@@ -444,7 +448,7 @@ export function LiveSessionScreen() {
             <div className="ca-header">
               <span className="ca-icon">⚡</span>
               <span className="ca-type" style={{ color: alertUi.color }}>
-                {alertUi.typeLabel}
+                {t(alertUi.typeLabelKey)}
               </span>
             </div>
             <div className="ca-text">{alertUi.msg}</div>
@@ -457,12 +461,12 @@ export function LiveSessionScreen() {
           <div className="live-logo">
             <AnimatedPointLogo
               onHomeClick={() => useSessionStore.getState().setAppStarted(false)}
-              ariaLabel="Point — Home"
+              ariaLabel={t('live.logoHome')}
             />
           </div>
           <div className="rec-indicator">
             <div className="rec-dot" />
-            <div className="rec-text">LIVE SESSION</div>
+            <div className="rec-text">{t('live.sessionBadge')}</div>
           </div>
           <div className="live-timer">
             {formatMmSs(sec)}
@@ -473,7 +477,7 @@ export function LiveSessionScreen() {
                   maxDurationSec - sec <= 30 ? 'live-timer-remaining--warn' : '',
                 ].filter(Boolean).join(' ')}
               >
-                {' / '}{formatMmSs(Math.max(0, maxDurationSec - sec))} 남음
+                {' / '}{formatMmSs(Math.max(0, maxDurationSec - sec))} {t('live.timerLeft')}
               </span>
             )}
           </div>
@@ -484,13 +488,13 @@ export function LiveSessionScreen() {
                 className={`btn-record${recording ? ' btn-record--active' : ''}`}
                 onClick={() => (recording ? stopPracticeRecording() : startPracticeRecording())}
                 disabled={!camOn}
-                title="Records camera + mic in this browser; after stop, replay shows subtitles from your speech"
+                title={t('live.recordTitle')}
               >
-                {recording ? '● Stop recording' : '○ Record practice'}
+                {recording ? t('live.recordStop') : t('live.recordStart')}
               </button>
             )}
             <button type="button" className="btn-end" onClick={() => endSession('user')}>
-              End Session ■
+              {t('live.endSession')}
             </button>
           </div>
         </div>
@@ -531,11 +535,9 @@ export function LiveSessionScreen() {
                     </div>
                   )}
                   <div className="audience-stage-caption">
-                    <span className="audience-stage-title">Your audience</span>
+                    <span className="audience-stage-title">{t('live.audienceTitle')}</span>
                     <span className="audience-stage-sub">
-                      {camOn
-                        ? 'Your live feed is the small window — focus on the audience. Point still tracks pose from that feed.'
-                        : 'Turn on the camera so Point can track gaze & posture while you face the room.'}
+                      {camOn ? t('live.audienceSubCamOn') : t('live.audienceSubCamOff')}
                     </span>
                   </div>
                 </div>
@@ -545,30 +547,30 @@ export function LiveSessionScreen() {
                   className={`cam-placeholder${stageView === 'audience' ? ' cam-placeholder--over-audience' : ''}`}
                 >
                   <div className="cam-icon" aria-hidden="true">📹</div>
-                  <div className="cam-label">Camera is optional · Voice coaching works with mic only</div>
+                  <div className="cam-label">{t('live.camPlaceholder')}</div>
                   <div className="cam-action">
                     <button type="button" className="btn-primary btn-cam" onClick={startCamera}>
-                      Turn on Camera
+                      {t('live.turnOnCamera')}
                     </button>
                   </div>
                 </div>
               )}
             </div>
             {camOn && (
-              <div className="cam-perspective-toggle" role="group" aria-label="Main stage view">
+              <div className="cam-perspective-toggle" role="group" aria-label={t('live.stageToggleAria')}>
                 <button
                   type="button"
                   className={`cam-perspective-btn${stageView === 'audience' ? ' active' : ''}`}
                   onClick={() => setStageView('audience')}
                 >
-                  Audience
+                  {t('live.stageAudience')}
                 </button>
                 <button
                   type="button"
                   className={`cam-perspective-btn${stageView === 'self' ? ' active' : ''}`}
                   onClick={() => setStageView('self')}
                 >
-                  Self cam
+                  {t('live.stageSelf')}
                 </button>
               </div>
             )}
@@ -582,30 +584,30 @@ export function LiveSessionScreen() {
 
             <div className="cam-overlays">
               <div className="cam-metric">
-                <div className="cm-label">Speech Rate</div>
+                <div className="cm-label">{t('live.metricSpeechRate')}</div>
                 <div className={`cm-value ${wpmOk || wpm === 0 ? 'good' : 'warn'}`}>
                   {wpm || '—'}{' '}
                   <span className="cm-unit">wpm</span>
                 </div>
               </div>
               <div className="cam-metric">
-                <div className="cm-label">Voice</div>
+                <div className="cm-label">{t('live.metricVoice')}</div>
                 <LiveWaveBars stream={mediaStream} onSample={handleVolumeSample} />
               </div>
               <div className="cam-metric">
-                <div className="cm-label">Gaze</div>
+                <div className="cm-label">{t('live.metricGaze')}</div>
                 <div className={`cm-value ${gazePct >= 55 ? 'good' : 'warn'}`}>
-                  {gazePct >= 55 ? 'Front ✓' : 'Off'}
+                  {gazePct >= 55 ? t('live.gazeFront') : t('live.gazeOff')}
                 </div>
               </div>
               <div className="cam-metric">
-                <div className="cm-label">Posture</div>
+                <div className="cm-label">{t('live.metricPosture')}</div>
                 <div className={`cm-value ${posturePct >= 60 ? 'good' : 'warn'}`}>
-                  {posturePct >= 60 ? 'Stable' : '⚠ Check'}
+                  {posturePct >= 60 ? t('live.postureStable') : t('live.postureWarn')}
                 </div>
               </div>
               <div className="cam-metric">
-                <div className="cm-label">Movement</div>
+                <div className="cm-label">{t('live.metricMovement')}</div>
                 <div className={`cm-value ${dynamismOk ? 'good' : 'warn'}`}>
                   {dynamismLabel}
                 </div>
@@ -613,17 +615,16 @@ export function LiveSessionScreen() {
             </div>
 
             {replayUrl && (
-              <div className="live-replay-panel" role="region" aria-label="Practice recording replay">
+              <div className="live-replay-panel" role="region" aria-label={t('live.replayAria')}>
                 <div className="live-replay-head">
-                  <span className="live-replay-label">Practice replay</span>
+                  <span className="live-replay-label">{t('live.replayLabel')}</span>
                   <button type="button" className="btn-sm live-replay-close" onClick={stopReplay}>
-                    Close
+                    {t('live.replayClose')}
                   </button>
                 </div>
                 <PracticeReplayPlayer src={replayUrl} cues={replayCues} />
                 <p className="live-replay-hint">
-                  Stored only in this browser. Subtitles are synced from this session&apos;s speech log (colors = word
-                  emphasis when mic levels were captured).
+                  {t('live.replayHint')}
                 </p>
               </div>
             )}
@@ -631,34 +632,34 @@ export function LiveSessionScreen() {
 
           <div className="coaching-panel">
             <div className="cp-header">
-              <div className="cp-title">Live Coaching</div>
+              <div className="cp-title">{t('live.coachingTitle')}</div>
               <div className="cp-mode-toggle">
                 <button
                   type="button"
                   className={`mode-btn${coachVisual ? ' active' : ''}`}
-                  title="Overlay alerts only"
+                  title={t('live.modeVisualTitle')}
                   onClick={() => setCoachVisual(true)}
                 >
-                  Visual
+                  {t('live.modeVisual')}
                 </button>
                 <button
                   type="button"
                   className={`mode-btn${!coachVisual ? ' active' : ''}${!coachVisual && isSpeaking ? ' speaking' : ''}`}
-                  title="OpenAI TTS + 자동재생 허용을 위해 이 버튼을 한 번 눌러 주세요"
+                  title={t('live.modeVoiceTitle')}
                   onClick={() => {
                     primeFeedbackAudio();
                     setCoachVisual(false);
                   }}
                 >
-                  Voice{!coachVisual && isSpeaking && <span className="speaking-dot" aria-label="재생 중" />}
+                  {t('live.modeVoice')}{!coachVisual && isSpeaking && <span className="speaking-dot" aria-label={t('live.voicePlaying')} />}
                 </button>
               </div>
             </div>
 
-            <div className={`live-caption-bar${recognitionError ? ' live-caption-bar--error' : ''}`} aria-live="polite" aria-label="Live speech recognition">
+            <div className={`live-caption-bar${recognitionError ? ' live-caption-bar--error' : ''}`} aria-live="polite" aria-label={t('live.captionAria')}>
               <span className={`lcb-dot${recognitionError ? ' lcb-dot--error' : ''}`} />
               <span className={`lcb-badge${recognitionError ? ' lcb-badge--error' : ''}`}>
-                {recognitionError ? 'Mic Error' : 'Listening'}
+                {recognitionError ? t('live.micError') : t('live.listening')}
               </span>
               {recognitionError ? (
                 <span className="lcb-text lcb-text--error">{recognitionError}</span>
@@ -668,15 +669,15 @@ export function LiveSessionScreen() {
                   <span className="lcb-cursor" aria-hidden="true" />
                 </span>
               ) : (
-                <span className="lcb-text lcb-text--idle">AI is listening to your speech…</span>
+                <span className="lcb-text lcb-text--idle">{t('live.listeningIdle')}</span>
               )}
             </div>
 
             <div className="metrics-grid">
               <div className={wpmCard}>
-                <div className="mc-label">🎙 Speech Rate</div>
+                <div className="mc-label">{t('live.metricSpeechRateCard')}</div>
                 <div className="mc-val">{wpm || '—'}</div>
-                <div className="mc-sub">wpm · target 100–180</div>
+                <div className="mc-sub">{t('live.metricSpeechSub')}</div>
                 <div className="prog-bar">
                   <div
                     className="prog-fill"
@@ -688,9 +689,9 @@ export function LiveSessionScreen() {
                 </div>
               </div>
               <div className={fillerCard}>
-                <div className="mc-label">😶 Fillers</div>
+                <div className="mc-label">{t('live.metricFillers')}</div>
                 <div className="mc-val">{fillers}</div>
-                <div className="mc-sub">count · cumulative</div>
+                <div className="mc-sub">{t('live.metricFillersSub')}</div>
                 <div className="prog-bar">
                   <div
                     className="prog-fill"
@@ -702,9 +703,9 @@ export function LiveSessionScreen() {
                 </div>
               </div>
               <div className={gazeCard}>
-                <div className="mc-label">👁 Eye Contact</div>
+                <div className="mc-label">{t('live.metricEye')}</div>
                 <div className="mc-val">{gazePct}</div>
-                <div className="mc-sub">pts · gaze rate</div>
+                <div className="mc-sub">{t('live.metricEyeSub')}</div>
                 <div className="prog-bar">
                   <div
                     className="prog-fill"
@@ -713,9 +714,9 @@ export function LiveSessionScreen() {
                 </div>
               </div>
               <div className={postureCard}>
-                <div className="mc-label">🧍 Posture</div>
+                <div className="mc-label">{t('live.metricPostureCard')}</div>
                 <div className="mc-val">{posturePct}</div>
-                <div className="mc-sub">pts · stability</div>
+                <div className="mc-sub">{t('live.metricPostureSub')}</div>
                 <div className="prog-bar">
                   <div
                     className="prog-fill"
@@ -728,25 +729,25 @@ export function LiveSessionScreen() {
             <div className="feedback-feed" ref={feedRef}>
               <div className="fb-item type-info">
                 <div className="fb-header">
-                  <span className="fb-cat cat-content">CONTENT</span>
+                  <span className="fb-cat cat-content">{t('live.feedContent')}</span>
                   <span className="fb-time">{formatMmSs(0)}</span>
                 </div>
-                <div className="fb-text">Presentation started. AI coaching is active.</div>
+                <div className="fb-text">{t('live.feedStarted')}</div>
               </div>
               {feed.map((item) => {
-                const { cls, label } = sourceToCat(item.source);
-                const t = new Date(item.createdAt);
-                const time = `${String(t.getMinutes()).padStart(2, '0')}:${String(t.getSeconds()).padStart(2, '0')}`;
+                const { cls, labelKey } = sourceToCat(item.source);
+                const msgTime = new Date(item.createdAt);
+                const time = `${String(msgTime.getMinutes()).padStart(2, '0')}:${String(msgTime.getSeconds()).padStart(2, '0')}`;
                 return (
                   <div key={item.id} className={`fb-item ${levelToFeedClass(item.level)}`}>
                     <div className="fb-header">
-                      <span className={`fb-cat ${cls}`}>{label}</span>
+                      <span className={`fb-cat ${cls}`}>{t(labelKey)}</span>
                       <span className="fb-time">{time}</span>
                     </div>
                     <div className="fb-text">{item.msg}</div>
                     {item.speechSnippet ? (
                       <details className="fb-speech-snippet">
-                        <summary className="fb-speech-snippet-summary">내가 말한 구간 (음성 인식)</summary>
+                        <summary className="fb-speech-snippet-summary">{t('live.speechSnippetSummary')}</summary>
                         <p className="fb-speech-snippet-body">{item.speechSnippet}</p>
                       </details>
                     ) : null}
@@ -754,13 +755,13 @@ export function LiveSessionScreen() {
                       <button
                         type="button"
                         className="btn-sm fb-hear-coach-btn"
-                        aria-label="멘토 음성으로 이 피드백 듣기"
+                        aria-label={t('live.playMentorAria')}
                         onClick={() => {
                           primeFeedbackAudio();
                           enqueueFeedback(item.msg, { level: item.level, preempt: true });
                         }}
                       >
-                        멘토 음성으로 듣기
+                        {t('live.playMentorVoice')}
                       </button>
                     </div>
                   </div>
@@ -768,24 +769,24 @@ export function LiveSessionScreen() {
               })}
             </div>
 
-            <div className="nonverbal-panel" aria-label="Nonverbal summary metrics">
-              <div className="nv-title">Nonverbal Summary</div>
+            <div className="nonverbal-panel" aria-label={t('live.nvSummaryAria')}>
+              <div className="nv-title">{t('live.nvTitle')}</div>
               <div className="nv-row">
-                <span className="nv-label">Eye Contact</span>
+                <span className="nv-label">{t('live.nvEye')}</span>
                 <div className="nv-bar-wrap">
                   <div className="nv-bar-fill nv-fill-green" style={{ width: `${gazePct}%` }} />
                 </div>
                 <span className="nv-score nv-score-green">{gazePct}</span>
               </div>
               <div className="nv-row">
-                <span className="nv-label">Posture Stability</span>
+                <span className="nv-label">{t('live.nvPosture')}</span>
                 <div className="nv-bar-wrap">
                   <div className="nv-bar-fill nv-fill-amber" style={{ width: `${posturePct}%` }} />
                 </div>
                 <span className="nv-score nv-score-amber">{posturePct}</span>
               </div>
               <div className="nv-row">
-                <span className="nv-label">Gestures (excess events)</span>
+                <span className="nv-label">{t('live.nvGestures')}</span>
                 <div className="nv-bar-wrap">
                   <div
                     className="nv-bar-fill nv-fill-violet"
@@ -801,7 +802,7 @@ export function LiveSessionScreen() {
         </div>
 
         <div className="live-ticker">
-          <div className="ticker-label">LIVE AI</div>
+          <div className="ticker-label">{t('live.tickerLabel')}</div>
           <div className="ticker-track">
             <div className="ticker-inner">
               {[...tickerItems, ...tickerItems].map((text, i) => (

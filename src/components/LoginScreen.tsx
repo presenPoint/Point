@@ -1,17 +1,20 @@
 import { useAuth, isInAppBrowser } from '../hooks/useAuth';
 import { hasSupabase } from '../lib/supabase';
 import { PointWordmark } from './PointWordmark';
+import { LanguageSwitcher } from './LanguageSwitcher';
+import { useT } from '../hooks/useT';
 
 export function LoginScreen({ onLogoHome }: { onLogoHome?: () => void }) {
   const { signInWithGoogle, loading } = useAuth();
   const inApp = isInAppBrowser();
+  const t = useT();
 
   if (!hasSupabase()) {
     return (
       <main className="login-screen">
         <div className="login-card">
           <h1 className="login-logo">
-            <PointWordmark onHomeClick={onLogoHome} className="login-logo-mark" ariaLabel="Point — Home" />
+            <PointWordmark onHomeClick={onLogoHome} className="login-logo-mark" ariaLabel={t('nav.pointHome')} />
           </h1>
           <p className="login-error">
             Supabase is not configured. Please set <code>VITE_SUPABASE_URL</code> and{' '}
@@ -25,34 +28,30 @@ export function LoginScreen({ onLogoHome }: { onLogoHome?: () => void }) {
   return (
     <main className="login-screen">
       <div className="login-card">
+        <LanguageSwitcher className="lang-switcher--login" />
         <h1 className="login-logo">
-          <PointWordmark onHomeClick={onLogoHome} className="login-logo-mark" ariaLabel="Point — Home" />
+          <PointWordmark onHomeClick={onLogoHome} className="login-logo-mark" ariaLabel={t('nav.pointHome')} />
         </h1>
-        <p className="login-tagline">AI-Powered Presentation Coach</p>
+        <p className="login-tagline">{t('login.tagline')}</p>
 
         {inApp ? (
           <div className="inapp-browser-notice">
-            <p className="inapp-browser-title">브라우저에서 열어주세요</p>
+            <p className="inapp-browser-title">{t('login.inappTitle')}</p>
             <p className="inapp-browser-body">
-              Google 로그인은 카카오톡·Instagram 등 앱 내 브라우저에서 지원되지 않습니다.
+              {t('login.inappLine1')}
               <br />
-              주소(<strong>pointpresent.com</strong>)를 복사한 뒤 Chrome 또는 Safari에서 열어주세요.
+              {t('login.inappLine2')}
             </p>
             <button
               type="button"
               className="btn-copy-url"
               onClick={() => navigator.clipboard.writeText(window.location.href)}
             >
-              주소 복사
+              {t('login.copyUrl')}
             </button>
           </div>
         ) : (
-          <button
-            type="button"
-            className="btn-google"
-            onClick={signInWithGoogle}
-            disabled={loading}
-          >
+          <button type="button" className="btn-google" onClick={signInWithGoogle} disabled={loading}>
             <svg className="google-icon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
               <path
                 d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"
@@ -71,13 +70,11 @@ export function LoginScreen({ onLogoHome }: { onLogoHome?: () => void }) {
                 fill="#EA4335"
               />
             </svg>
-            {loading ? 'Loading…' : 'Sign in with Google'}
+            {loading ? t('login.loading') : t('login.signInGoogle')}
           </button>
         )}
 
-        <p className="login-footer">
-          Practice presentations with real-time AI feedback
-        </p>
+        <p className="login-footer">{t('login.footer')}</p>
       </div>
     </main>
   );

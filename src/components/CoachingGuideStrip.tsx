@@ -23,16 +23,18 @@ export function CoachingGuideStrip() {
 
       <div className="cg-card-grid">
         <div className="cg-card">
-          <div className="cg-card-label">Formal tone</div>
-          <p className="cg-card-quote">&ldquo;안녕하십니까. 오늘 말씀드릴 내용은…&rdquo;</p>
-          <p className="cg-card-tip">Korean business open: calm, full sentences, 존댓말.</p>
+          <div className="cg-card-label">Formal open</div>
+          <p className="cg-card-quote">
+            &ldquo;Good afternoon. I have three brief points—first the outcome, then proof, then the ask.&rdquo;
+          </p>
+          <p className="cg-card-tip">Boardroom-style English: calm pacing, full sentences, no filler.</p>
           <button
             type="button"
             className="btn-sm cg-card-btn"
             disabled={demoBusy !== null}
-            onClick={() => playDemo('formal_ko')}
+            onClick={() => playDemo('formal_en')}
           >
-            {demoBusy === 'formal_ko' ? 'Playing…' : '▶ Hear formal (KO)'}
+            {demoBusy === 'formal_en' ? 'Playing…' : '▶ Hear formal (EN)'}
           </button>
         </div>
         <div className="cg-card">

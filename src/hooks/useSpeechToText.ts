@@ -32,7 +32,7 @@ export function useSpeechToText() {
 
     if (!hasOpenAI()) {
       setError(
-        'OpenAI가 설정되지 않았습니다. 프로덕션: Vercel에 OPENAI_API_KEY와 빌드용 VITE_OPENAI_SERVER_PROXY=1을 설정하세요. 로컬: .env에 VITE_OPENAI_API_KEY 또는 vercel dev로 프록시를 쓰세요.',
+        'OpenAI is not configured. Production: set OPENAI_API_KEY on Vercel and VITE_OPENAI_SERVER_PROXY=1 for the build. Local: add VITE_OPENAI_API_KEY to .env or run vercel dev with the proxy.',
       );
       return;
     }

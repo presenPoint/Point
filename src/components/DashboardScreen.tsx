@@ -94,9 +94,9 @@ function AIAnalysisPanel({ history }: { history: SessionHistoryItem[] }) {
 
       {!hasOpenAI() && (
         <p className="db-ai-warn">
-          로컬: <code>.env</code>에 <code>VITE_OPENAI_API_KEY</code> 또는 <code>VITE_OPENAI_SERVER_PROXY=1</code> +{' '}
-          <code>vercel dev</code>. 배포: Vercel에 서버용 <code>OPENAI_API_KEY</code>만 설정(프로덕션 빌드는{' '}
-          <code>/api/openai</code> 사용).
+          Local: add <code>VITE_OPENAI_API_KEY</code> to <code>.env</code> or <code>VITE_OPENAI_SERVER_PROXY=1</code> +{' '}
+          <code>vercel dev</code>. Production: set server <code>OPENAI_API_KEY</code> on Vercel (builds use{' '}
+          <code>/api/openai</code>).
         </p>
       )}
       {error && <p className="db-ai-error">{error}</p>}

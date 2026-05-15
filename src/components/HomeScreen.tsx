@@ -1,9 +1,12 @@
 import { useLayoutEffect, useRef, useState } from 'react';
 import { useSessionStore, type PersonaType } from '../store/sessionStore';
 import { PERSONA_LIST, PERSONAS } from '../constants/personas';
+import { PERSONA_UI_KEYS } from '../constants/personaUiKeys';
 import { PersonaInfoModal } from './PersonaInfoModal';
 import { CoachVoiceStrip } from './CoachVoiceStrip';
 import { PointWordmark } from './PointWordmark';
+import { LanguageSwitcher } from './LanguageSwitcher';
+import { useT } from '../hooks/useT';
 
 function coachInitials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -51,6 +54,7 @@ interface HomeScreenProps {
 }
 
 export function HomeScreen({ userName, userAvatar, userId, onBack, onSignOut, onShowDashboard, onShowPricing, startPersonaStyleQuiz, startWithDefaultCoaching }: HomeScreenProps) {
+  const t = useT();
   const setAppStarted = useSessionStore((s) => s.setAppStarted);
   const setPersona   = useSessionStore((s) => s.setPersona);
   const [detailPersonaId, setDetailPersonaId] = useState<PersonaType | null>(null);
@@ -84,21 +88,22 @@ export function HomeScreen({ userName, userAvatar, userId, onBack, onSignOut, on
     <main id="screen-home" className="point-screen screen-home" role="main">
       {/* 코치 선택 + 진행 기록을 한 장의 노트 시트로 */}
       <div className="home-notebook-sheet">
-        <nav className="home-topnav" aria-label="Main navigation">
+        <nav className="home-topnav" aria-label={t('nav.mainNavigation')}>
           <div className="home-topnav-brand">
             <PointWordmark
               onHomeClick={onBack}
-              ariaLabel="Point — Back to start"
+              ariaLabel={t('nav.pointBack')}
               className="home-topnav-wordmark"
             />
           </div>
           <div className="home-topnav-links">
+            <LanguageSwitcher className="lang-switcher--topnav" />
             <button type="button" className="home-topnav-link" onClick={onShowPricing}>
-              Pricing
+              {t('nav.pricing')}
             </button>
             {userId && onShowDashboard && (
               <button type="button" className="home-topnav-link" onClick={onShowDashboard}>
-                My Progress
+                {t('nav.myProgress')}
               </button>
             )}
             <div className="home-topnav-user">
@@ -113,7 +118,7 @@ export function HomeScreen({ userName, userAvatar, userId, onBack, onSignOut, on
               {userName && <span className="home-topnav-username">{userName}</span>}
               {onSignOut && (
                 <button type="button" className="home-topnav-signout" onClick={onSignOut}>
-                  Sign out
+                  {t('nav.signOut')}
                 </button>
               )}
             </div>
@@ -122,29 +127,30 @@ export function HomeScreen({ userName, userAvatar, userId, onBack, onSignOut, on
 
         <section className="home-persona-section home-persona-section--page" aria-labelledby="home-persona-heading">
           <div className="home-persona-section-inner">
-            <p className="home-persona-eyebrow">Coaching styles</p>
+            <p className="home-persona-eyebrow">{t('home.eyebrow')}</p>
             <h1 id="home-persona-heading" className="home-persona-heading">
-              Pick your coach
+              {t('home.title')}
             </h1>
-            <p className="home-persona-lead">
-              Each coach brings a different energy. Choose the style that fits your presentation.
-            </p>
-            <div className="coach-select-cta-row" role="group" aria-label="빠른 시작 옵션">
+            <p className="home-persona-lead">{t('home.lead')}</p>
+            <div className="coach-select-cta-row" role="group" aria-label={t('home.groupQuickStart')}>
               <button type="button" className="home-cta-primary" onClick={startPersonaStyleQuiz}>
-                Find My Match
-                <span className="home-cta-sub">Take the quiz · 30 sec</span>
+                {t('home.ctaQuiz')}
+                <span className="home-cta-sub">{t('home.ctaQuizSub')}</span>
               </button>
               <button type="button" className="home-cta-secondary" onClick={startWithDefaultCoaching}>
-                Quick Start
-                <span className="home-cta-sub">Skip to default coaching</span>
+                {t('home.ctaQuick')}
+                <span className="home-cta-sub">{t('home.ctaQuickSub')}</span>
               </button>
             </div>
           </div>
 
           <div className="home-persona-strip">
             <div className="home-persona-scroll" ref={personaScrollRef}>
-              <div className="home-persona-scroll-inner" role="list" aria-label="Coach style cards">
-                {PERSONA_LIST.map((p) => (
+              <div className="home-persona-scroll-inner" role="list" aria-label={t('home.coachCardsAria')}>
+                {PERSONA_LIST.map((p) => {
+                  const ui = PERSONA_UI_KEYS[p.id];
+                  const displayName = t(ui.name);
+                  return (
                   <article
                     key={p.id}
                     className="home-persona-card home-persona-card--compact"
@@ -155,14 +161,14 @@ export function HomeScreen({ userName, userAvatar, userId, onBack, onSignOut, on
                       type="button"
                       className="hpc-card-tap"
                       onClick={() => setDetailPersonaId(p.id)}
-                      aria-label={`View ${p.name} presentation style`}
+                      aria-label={t('persona.viewStyleAria', { name: displayName })}
                     >
-                      <PersonaCardPhoto name={p.name} src={p.cardImage} />
+                      <PersonaCardPhoto name={displayName} src={p.cardImage} />
                       <div className="hpc-card-body hpc-card-body--compact">
-                        <h3 className="hpc-name hpc-name--compact">{p.name}</h3>
-                        <p className="hpc-desc hpc-desc--compact">{p.description}</p>
+                        <h3 className="hpc-name hpc-name--compact">{displayName}</h3>
+                        <p className="hpc-desc hpc-desc--compact">{t(ui.description)}</p>
                         <p className="hpc-meta-inline">
-                          {p.presentationInfo.archetype}
+                          {t(ui.archetype)}
                         </p>
                       </div>
                     </button>
@@ -171,10 +177,11 @@ export function HomeScreen({ userName, userAvatar, userId, onBack, onSignOut, on
                       className="btn-persona-pick btn-persona-pick--compact"
                       onClick={() => selectPersonaAndStart(p.id)}
                     >
-                      Select
+                      {t('home.selectCoach')}
                     </button>
                   </article>
-                ))}
+                  );
+                })}
               </div>
             </div>
           </div>

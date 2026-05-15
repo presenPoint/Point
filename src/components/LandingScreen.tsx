@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { PointWordmark } from './PointWordmark';
+import { LanguageSwitcher } from './LanguageSwitcher';
+import { useT } from '../hooks/useT';
 
 const HERO_TITLE = 'Point';
 
@@ -151,6 +152,7 @@ interface Props {
 }
 
 export function LandingScreen({ onStart, userName, userAvatar, userId, isAuthLoading, onSignOut, onShowDashboard, onShowPricing }: Props) {
+  const t = useT();
   const pageRef = useRef<HTMLDivElement>(null);
 
   /* 스크롤 진입 시 .nv-block → .nv-visible */
@@ -174,21 +176,34 @@ export function LandingScreen({ onStart, userName, userAvatar, userId, isAuthLoa
     <div className="nv-page" ref={pageRef}>
 
       {/* ── Nav ── */}
-      <nav className="nv-nav" aria-label="Main navigation">
-        <PointWordmark
-          className="nv-nav-logo"
-          ariaLabel="Point — top of page"
-          onHomeClick={() => {
+      <nav className="nv-nav" aria-label={t('nav.mainNavigation')}>
+        <button
+          type="button"
+          className="nv-nav-mark"
+          onClick={() => {
             pageRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
           }}
-        />
+          aria-label={t('nav.pointHome')}
+        >
+          <img
+            className="nv-nav-mark-img"
+            src={`${import.meta.env.BASE_URL}favicon.svg`}
+            alt=""
+            width={32}
+            height={32}
+            decoding="async"
+          />
+        </button>
         <div className="nv-nav-links">
-          <button type="button" className="nv-nav-link" onClick={onShowPricing}>
-            Pricing
-          </button>
+          <LanguageSwitcher className="lang-switcher--nv" />
+          {onShowPricing && (
+            <button type="button" className="nv-nav-link" onClick={onShowPricing}>
+              {t('nav.pricing')}
+            </button>
+          )}
           {userId && onShowDashboard && (
             <button type="button" className="nv-nav-link" onClick={onShowDashboard}>
-              My Progress
+              {t('nav.myProgress')}
             </button>
           )}
           <div className="nv-nav-auth">
@@ -205,12 +220,12 @@ export function LandingScreen({ onStart, userName, userAvatar, userId, isAuthLoa
                   )}
                   {userName && <span className="nv-nav-username">{userName}</span>}
                   <button type="button" className="nv-nav-signout" onClick={onSignOut}>
-                    Sign out
+                    {t('nav.signOut')}
                   </button>
                 </>
               ) : (
                 <button type="button" className="nv-nav-cta" onClick={onStart}>
-                  Get started
+                  {t('nav.getStarted')}
                 </button>
               )
             )}
@@ -223,19 +238,15 @@ export function LandingScreen({ onStart, userName, userAvatar, userId, isAuthLoa
         <div className="nv-paper-margin" aria-hidden="true" />
 
         {/* ── Hero ── */}
-        <section className="nv-hero nv-block nv-hero-wrap" aria-label="Hero">
+        <section className="nv-hero nv-block nv-hero-wrap" aria-label={t('landing.heroAria')}>
           <p className="nv-scribble nv-scribble--hero" aria-hidden="true">
-            nervous? same.
+            {t('landing.scribbleHero')}
           </p>
           <HeroTitleLoop />
-          <p className="nv-hero-tagline nv-hand">Your AI presentation coach</p>
-          <p className="nv-hero-sub">
-            Live feedback on{' '}
-            <span className="nv-marker">voice, eye contact, and Q&A</span>
-            {' '}— while you present.
-          </p>
+          <p className="nv-hero-tagline nv-hand">{t('landing.heroTagline')}</p>
+          <p className="nv-hero-sub">{t('landing.heroSub')}</p>
           <button type="button" className="nv-hero-btn" onClick={onStart}>
-            Start with Point
+            {t('landing.heroBtn')}
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
               <path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" strokeWidth="1.8"
                 strokeLinecap="round" strokeLinejoin="round" />
@@ -245,168 +256,139 @@ export function LandingScreen({ onStart, userName, userAvatar, userId, isAuthLoa
 
         {/* ── Content ── */}
         <div className="nv-content">
-
-        <section className="nv-section nv-section--insight" aria-label="Why practice alone falls short">
+        <section className="nv-section nv-section--insight" aria-label={t('landing.sectionInsightAria')}>
           <div className="nv-block nv-block--rel">
             <p className="nv-scribble nv-scribble--side1" aria-hidden="true">
-              ugh relatable
+              {t('landing.scribbleInsight')}
             </p>
             <div className="nv-callout nv-callout--amber">
               <span className="nv-callout-icon" aria-hidden="true">💡</span>
-              <p>
-                Most people practice presentations <span className="nv-hl">alone</span>. No real feedback. No pressure.{' '}
-                <span className="nv-hl">No growth</span>.
-              </p>
+              <p>{t('landing.insightCallout')}</p>
             </div>
           </div>
         </section>
 
-        <section className="nv-section nv-section--pain" aria-label="Common struggles">
+        <section className="nv-section nv-section--pain" aria-label={t('landing.sectionPainAria')}>
           <div className="nv-block nv-block--rel">
             <p className="nv-scribble nv-scribble--side2" aria-hidden="true">
-              check these ↓
+              {t('landing.scribblePain')}
             </p>
             <h2 className="nv-h2">
-              <span className="nv-h2-text">Sound familiar?</span>
+              <span className="nv-h2-text">{t('landing.h2SoundFamiliar')}</span>
             </h2>
-            <ul className="nv-checklist" aria-label="Common presentation problems">
-              <li className="nv-check">Slides are done — but you still feel unprepared</li>
+            <ul className="nv-checklist" aria-label={t('landing.checklistPainAria')}>
+              <li className="nv-check">{t('landing.check1')}</li>
               <li className="nv-check nv-check--annotated">
-                <span className="nv-check-main">
-                  Voice gets <span className="nv-hl">shaky</span> when it actually matters
+                <span className="nv-check-main">{t('landing.check2Main')}</span>
+                <span className="nv-check-note nv-hand" aria-hidden="true">
+                  {t('landing.check2Note')}
                 </span>
-                <span className="nv-check-note nv-hand" aria-hidden="true">me every time</span>
               </li>
-              <li className="nv-check">Can&apos;t hold eye contact under pressure</li>
-              <li className="nv-check">
-                Q&amp;A sessions feel like an <span className="nv-hl">ambush</span>
-              </li>
+              <li className="nv-check">{t('landing.check3')}</li>
+              <li className="nv-check">{t('landing.check4')}</li>
             </ul>
           </div>
         </section>
 
-        <section className="nv-section nv-section--promise" aria-label="What Point does">
+        <section className="nv-section nv-section--promise" aria-label={t('landing.sectionPromiseAria')}>
           <div className="nv-block nv-block--rel">
             <p className="nv-scribble nv-scribble--side3" aria-hidden="true">
-              the fix →
+              {t('landing.scribbleFix')}
             </p>
             <div className="nv-callout nv-callout--blue">
               <span className="nv-callout-icon" aria-hidden="true">✨</span>
               <div>
-                <strong>
-                  Point watches you present — <span className="nv-hl">live</span>.
-                </strong>
-                <p>
-                  Voice, eye contact, and Q&amp;A coaching in{' '}
-                  <span className="nv-hl">real time</span>.
-                  Not in a report you forget to read.
-                </p>
+                <strong>{t('landing.promiseLead')}</strong>
+                <p>{t('landing.promiseBody')}</p>
               </div>
             </div>
           </div>
         </section>
 
-        <section className="nv-section nv-section--flow" aria-label="How it works">
+        <section className="nv-section nv-section--flow" aria-label={t('landing.sectionFlowAria')}>
           <div className="nv-block nv-block--rel">
             <p className="nv-scribble nv-scribble--steps" aria-hidden="true">
-              3 steps. that’s it.
+              {t('landing.scribbleSteps')}
             </p>
             <h2 className="nv-h2">
-              <span className="nv-h2-text">How it works</span>
+              <span className="nv-h2-text">{t('landing.h2HowItWorks')}</span>
             </h2>
-            <ol className="nv-steps" aria-label="Steps">
+            <ol className="nv-steps" aria-label={t('landing.stepsAria')}>
               <li className="nv-step">
                 <span className="nv-step-num" aria-hidden="true">01</span>
                 <div>
-                  <div className="nv-step-title">Drop in your slides</div>
-                  <div className="nv-step-desc">
-                    Point reads them, preps quiz questions, <span className="nv-hl">knows your material</span>
-                  </div>
+                  <div className="nv-step-title">{t('landing.step01Title')}</div>
+                  <div className="nv-step-desc">{t('landing.step01Desc')}</div>
                 </div>
               </li>
               <li className="nv-step">
                 <span className="nv-step-num" aria-hidden="true">02</span>
                 <div>
-                  <div className="nv-step-title">Pick a coaching style</div>
-                  <div className="nv-step-desc">
-                    Different energy, pace, and feedback tone for every presenter
-                  </div>
+                  <div className="nv-step-title">{t('landing.step02Title')}</div>
+                  <div className="nv-step-desc">{t('landing.step02Desc')}</div>
                   <p className="nv-step-comment nv-hand" aria-hidden="true">
-                    pick your vibe →
+                    {t('landing.step02Scribble')}
                   </p>
                 </div>
               </li>
               <li className="nv-step">
                 <span className="nv-step-num" aria-hidden="true">03</span>
                 <div>
-                  <div className="nv-step-title">Just present</div>
-                  <div className="nv-step-desc">
-                    Your coach watches live — feedback lands exactly{' '}
-                    <span className="nv-hl">when you need it</span>
-                  </div>
+                  <div className="nv-step-title">{t('landing.step03Title')}</div>
+                  <div className="nv-step-desc">{t('landing.step03Desc')}</div>
                 </div>
               </li>
             </ol>
           </div>
         </section>
 
-        <section className="nv-section nv-section--tracks" aria-label="What Point tracks">
+        <section className="nv-section nv-section--tracks" aria-label={t('landing.sectionTracksAria')}>
           <div className="nv-block nv-block--rel">
             <p className="nv-scribble nv-scribble--tracks" aria-hidden="true">
-              all scored live
+              {t('landing.scribbleTracks')}
             </p>
             <h2 className="nv-h2 nv-h2--scribble">
-              <span className="nv-h2-text">What it tracks</span>
+              <span className="nv-h2-text">{t('landing.h2Tracks')}</span>
             </h2>
             <div className="nv-features">
               <div className="nv-feature-callout">
                 <span className="nv-feature-icon" aria-hidden="true">🎤</span>
                 <div>
-                  <div className="nv-feature-title">Voice</div>
-                  <div className="nv-feature-desc">
-                    Filler words, pace, off-topic moments — flagged{' '}
-                    <span className="nv-hl">as they happen</span>
-                  </div>
+                  <div className="nv-feature-title">{t('landing.featVoiceTitle')}</div>
+                  <div className="nv-feature-desc">{t('landing.featVoiceDesc')}</div>
                 </div>
               </div>
               <div className="nv-feature-callout">
                 <span className="nv-feature-icon" aria-hidden="true">👀</span>
                 <div>
-                  <div className="nv-feature-title">Body language</div>
-                  <div className="nv-feature-desc">
-                    Eye contact and gesture intensity scored live through your camera
-                  </div>
+                  <div className="nv-feature-title">{t('landing.featBodyTitle')}</div>
+                  <div className="nv-feature-desc">{t('landing.featBodyDesc')}</div>
                 </div>
               </div>
               <div className="nv-feature-callout">
                 <span className="nv-feature-icon" aria-hidden="true">🤖</span>
                 <div>
-                  <div className="nv-feature-title">Q&A readiness</div>
-                  <div className="nv-feature-desc">
-                    Practice the <span className="nv-hl">hard questions</span> your audience will ask — before they do
-                  </div>
+                  <div className="nv-feature-title">{t('landing.featQaTitle')}</div>
+                  <div className="nv-feature-desc">{t('landing.featQaDesc')}</div>
                 </div>
               </div>
             </div>
           </div>
         </section>
 
-        <section className="nv-section nv-section--cta-band" aria-label="Get started">
+        <section className="nv-section nv-section--cta-band" aria-label={t('landing.sectionCtaAria')}>
           <div className="nv-cta-block nv-block nv-block--rel">
             <p className="nv-scribble nv-scribble--cta" aria-hidden="true">
-              do it!!
+              {t('landing.scribbleCta')}
             </p>
             <div className="nv-callout nv-callout--cta">
               <div className="nv-cta-inner">
                 <h2 className="nv-cta-heading">
-                  Ready to stop{' '}
-                  <span className="nv-marker nv-marker--strong">practicing alone?</span>
+                  <span className="nv-marker nv-marker--strong">{t('landing.ctaHeading')}</span>
                 </h2>
-                <p className="nv-cta-sub">
-                  Choose your coach style and start your <span className="nv-hl">first session</span>.
-                </p>
+                <p className="nv-cta-sub">{t('landing.ctaSub')}</p>
                 <button type="button" className="nv-cta-btn" onClick={onStart}>
-                  Start with Point
+                  {t('landing.ctaBtn')}
                   <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
                     <path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" strokeWidth="1.8"
                       strokeLinecap="round" strokeLinejoin="round" />
@@ -420,7 +402,7 @@ export function LandingScreen({ onStart, userName, userAvatar, userId, isAuthLoa
         </div>
 
         <footer className="nv-footer nv-footer--paper">
-          © 2026 Point · AI Presentation Coach
+          {t('landing.footer')}
         </footer>
       </div>
     </div>
