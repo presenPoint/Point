@@ -112,12 +112,18 @@ export async function qaNextQuestion(
   const temperature =
     pressure === 'intense' ? 0.38 : pressure === 'firm' ? 0.45 : 0.5;
 
-  const text = await chatCompletionText(
-    'gpt-4o',
-    buildSystemPrompt(ctx, nextTurn, pressure),
-    userMsg,
-    temperature,
-  );
+  let text: string | null;
+  try {
+    text = await chatCompletionText(
+      'gpt-4o',
+      buildSystemPrompt(ctx, nextTurn, pressure),
+      userMsg,
+      temperature,
+    );
+  } catch (e) {
+    const detail = e instanceof Error ? e.message : String(e);
+    return { text: `Failed to generate a question: ${detail}`, isComplete: false };
+  }
   if (!text) {
     return { text: 'Failed to generate a question. Please check your API key or server OpenAI proxy.', isComplete: false };
   }

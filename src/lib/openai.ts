@@ -102,36 +102,45 @@ export async function chatCompletionText(
     ],
   };
 
-  try {
-    let res: Response;
-    if (useServerProxy()) {
-      res = await fetch('/api/openai', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ route: 'chat', openai }),
-      });
-    } else {
-      if (!BROWSER_KEY) return null;
-      res = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${BROWSER_KEY}`,
-        },
-        body: JSON.stringify(openai),
-      });
-    }
+  let res: Response;
+  if (useServerProxy()) {
+    res = await fetch('/api/openai', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ route: 'chat', openai }),
+    });
+  } else {
+    if (!BROWSER_KEY) return null;
+    res = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${BROWSER_KEY}`,
+      },
+      body: JSON.stringify(openai),
+    });
+  }
 
-    if (!res.ok) {
-      console.error('chatCompletionText', await res.text());
-      return null;
+  if (!res.ok) {
+    const errText = await res.text();
+    console.error('chatCompletionText', errText);
+    let detail = `HTTP ${res.status}`;
+    try {
+      const parsed = JSON.parse(errText) as { error?: { message?: string } };
+      if (parsed?.error?.message) detail = parsed.error.message;
+    } catch {
+      if (errText) detail = errText.slice(0, 200);
     }
+    throw new Error(detail);
+  }
+
+  try {
     const data = (await res.json()) as {
       choices?: Array<{ message?: { content?: string } }>;
     };
     return data.choices?.[0]?.message?.content?.trim() ?? null;
   } catch (e) {
-    console.error('chatCompletionText request failed', e);
+    console.error('chatCompletionText parse failed', e);
     return null;
   }
 }

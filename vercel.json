@@ -1,6 +1,7 @@
 {
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
+  "devCommand": "vite --port 5173",
   "redirects": [
     {
       "source": "/(.*)",
