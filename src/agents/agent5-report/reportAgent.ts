@@ -244,7 +244,10 @@ function scriptPlanExcerpt(ctx: SessionContext, maxChars = 1500): string {
 }
 
 function transcriptExcerpt(ctx: SessionContext, maxChars = 1800): string {
-  const parts = ctx.speech_coaching.transcript_log.slice(-24).map((e) => e.text.trim()).filter(Boolean);
+  const parts = ctx.speech_coaching.transcript_log
+    .slice(-24)
+    .map((e) => (typeof e.text === 'string' ? e.text : '').trim())
+    .filter(Boolean);
   const joined = parts.join(' ').replace(/\s+/g, ' ').trim();
   if (!joined) return '';
   return joined.length > maxChars ? joined.slice(-maxChars) : joined;
@@ -321,7 +324,9 @@ function buildTimeline(ctx: SessionContext, sessionStart: number): string {
   }
 
   for (const entry of ctx.speech_coaching.off_topic_log) {
-    events.push({ ts: entry.timestamp, desc: `Off-topic: "${entry.excerpt.slice(0, 60)}" — ${entry.reason}` });
+    const ex = typeof entry.excerpt === 'string' ? entry.excerpt : '';
+    const reason = typeof entry.reason === 'string' ? entry.reason : '';
+    events.push({ ts: entry.timestamp, desc: `Off-topic: "${ex.slice(0, 60)}" — ${reason}` });
   }
 
   for (const ft of ctx.speech_coaching.filler_timestamps.slice(0, 10)) {
@@ -395,7 +400,9 @@ export async function generateReportNarrative(
         );
 
   const sessionStart = new Date(ctx.started_at).getTime();
-  const offExcerpts = ctx.speech_coaching.off_topic_log.map((e) => `[${tsToLabel(e.timestamp, sessionStart)}] "${e.excerpt}"`).join(' / ');
+  const offExcerpts = ctx.speech_coaching.off_topic_log
+    .map((e) => `[${tsToLabel(e.timestamp, sessionStart)}] "${typeof e.excerpt === 'string' ? e.excerpt : ''}"`)
+    .join(' / ');
   const contextBlock = formatInsightsForGPT(scores.contextAnalysis, sessionStart);
   const timelineBlock = buildTimeline(ctx, sessionStart);
   const durationMin = Math.round(ctx.speech_coaching.total_duration_sec / 60);
@@ -547,7 +554,7 @@ ${personaStyleBlock}`;
   return { strengths: parsed.strengths, improvements: parsed.improvements };
 }
 
-function buildFallbackNarrative(
+export function buildFallbackNarrative(
   ctx: SessionContext,
   scores: ReportScores & { contextAnalysis: ContextAnalysisResult },
   persona?: Persona | null,

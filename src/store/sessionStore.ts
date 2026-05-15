@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import {
   analyzeMaterial,
   gradePreQuiz,
+  buildFallbackNarrative,
   calcCompositeScore,
   generateReportNarrative,
   gradeQaExchanges,
@@ -522,21 +523,76 @@ export const useSessionStore = create<State>((set, get) => ({
     set((s) => ({
       session: { ...s.session, status: 'REPORT' },
       busy: 'Generating report…',
+      error: null,
     }));
     const ctx = get().session;
     const persona = get().selectedPersona ? PERSONAS[get().selectedPersona!] : null;
     const wpmRange = persona ? persona.config.wpmRange : undefined;
-    const scoresWithContext = calcCompositeScore(ctx, wpmRange);
-    const { compositeScore, speechScore, nonverbalScore, qaScore } = scoresWithContext;
 
-    // Compute script coverage if script was provided
-    let scriptCoverage: number | null = null;
-    if (ctx.material.script_text.trim().length > 0) {
-      const fullTranscript = ctx.speech_coaching.transcript_log.map((e) => e.text).join(' ');
-      scriptCoverage = await calcScriptCoverage(ctx.session_id, fullTranscript);
+    let scoresWithContext: ReturnType<typeof calcCompositeScore>;
+    try {
+      scoresWithContext = calcCompositeScore(ctx, wpmRange);
+    } catch (e) {
+      console.error('calcCompositeScore failed', e);
+      const msg = e instanceof Error ? e.message : String(e);
+      const generated_at = new Date().toISOString();
+      set((s) => ({
+        busy: null,
+        error: msg,
+        session: {
+          ...s.session,
+          status: 'DONE',
+          report: {
+            composite_score: 0,
+            speech_score: 0,
+            nonverbal_score: 0,
+            qa_score: 0,
+            strengths: [
+              '점수 산출 단계에서 오류가 발생했습니다. 세션 데이터가 불완전할 수 있습니다.',
+            ],
+            improvements: [
+              {
+                label: '복구 안내',
+                situation: msg,
+                stop_doing: '',
+                start_doing: '앱을 새로고침한 뒤 다시 시도하거나, 문제가 계속되면 새 세션을 시작해 주세요.',
+                expected_impact: '',
+                time_markers: [],
+              },
+            ],
+            generated_at,
+          },
+        },
+      }));
+      feedbackQueue.clearQueue();
+      await get().persistSession();
+      return;
     }
 
-    const narrative = await generateReportNarrative(ctx, scoresWithContext, persona, scriptCoverage);
+    const { compositeScore, speechScore, nonverbalScore, qaScore } = scoresWithContext;
+
+    let scriptCoverage: number | null = null;
+    if (ctx.material.script_text.trim().length > 0) {
+      const fullTranscript = ctx.speech_coaching.transcript_log
+        .map((e) => (typeof e.text === 'string' ? e.text : ''))
+        .join(' ');
+      try {
+        scriptCoverage = await calcScriptCoverage(ctx.session_id, fullTranscript);
+      } catch (e) {
+        console.warn('Script coverage skipped', e);
+      }
+    }
+
+    let narrative: Awaited<ReturnType<typeof generateReportNarrative>>;
+    let reportError: string | null = null;
+    try {
+      narrative = await generateReportNarrative(ctx, scoresWithContext, persona, scriptCoverage);
+    } catch (e) {
+      console.error('generateReportNarrative failed', e);
+      reportError = e instanceof Error ? e.message : String(e);
+      narrative = buildFallbackNarrative(ctx, scoresWithContext, persona);
+    }
+
     const generated_at = new Date().toISOString();
     set((s) => ({
       session: {
@@ -558,6 +614,7 @@ export const useSessionStore = create<State>((set, get) => ({
         status: 'DONE',
       },
       busy: null,
+      error: reportError,
     }));
     feedbackQueue.clearQueue();
     await get().persistSession();

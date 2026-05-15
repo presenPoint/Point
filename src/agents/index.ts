@@ -18,6 +18,10 @@ export {
 export type { WpmHistorySample } from './agent2-live-speech';
 export type { SpeechRuleConfig } from './agent2-live-speech';
 export { qaNextQuestion, gradeQaExchanges, parseGptResponse } from './agent4-post-qa/qaAgent';
-export { calcCompositeScore, generateReportNarrative } from './agent5-report/reportAgent';
+export {
+  buildFallbackNarrative,
+  calcCompositeScore,
+  generateReportNarrative,
+} from './agent5-report/reportAgent';
 export { suggestTranscriptPolish } from './transcriptPolishAgent';
 export type { TranscriptPolishPair } from './transcriptPolishAgent';

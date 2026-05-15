@@ -26,7 +26,8 @@ function findKeywordMoments(
   const lowerKeywords = keywords.map((k) => k.toLowerCase());
 
   for (const entry of transcriptLog) {
-    const text = entry.text.toLowerCase();
+    const text = (typeof entry.text === 'string' ? entry.text : '').toLowerCase();
+    if (!text) continue;
     for (const kw of lowerKeywords) {
       if (text.includes(kw)) {
         moments.push({ timestamp: entry.timestamp, keyword: keywords[lowerKeywords.indexOf(kw)] });
@@ -109,7 +110,7 @@ function detectFreezes(
 export function analyzeContext(ctx: SessionContext): ContextAnalysisResult {
   const { transcript_log, filler_timestamps, total_duration_sec } = ctx.speech_coaching;
   const { gesture_log, posture_log, dynamism_log } = ctx.nonverbal_coaching;
-  const { keywords } = ctx.material;
+  const keywords = Array.isArray(ctx.material?.keywords) ? ctx.material.keywords : [];
 
   const insights: ContextInsight[] = [];
   let keywordGestureHits = 0;

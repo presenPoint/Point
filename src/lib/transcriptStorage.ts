@@ -40,6 +40,8 @@ export async function saveTranscriptToBlob(
   transcriptLog: TranscriptEntry[],
   durationSec: number,
 ): Promise<string | null> {
+  if (import.meta.env.DEV) return null;
+
   const transcriptText = formatTranscript(sessionId, userId, transcriptLog, durationSec);
 
   try {

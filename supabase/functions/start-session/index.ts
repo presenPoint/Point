@@ -6,7 +6,12 @@
 // Response: { session_id, max_duration_sec, server_started_at, plan }
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { corsHeaders } from '../_shared/cors.ts';
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, stripe-signature',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+};
 
 const FREE_MAX_DURATION_SEC = 5 * 60;
 const PRO_MAX_DURATION_SEC = 60 * 60;
