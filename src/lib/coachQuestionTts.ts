@@ -4,7 +4,6 @@
  */
 
 import { createSpeechAudio, hasOpenAI } from './openai';
-import { effectiveOpenAiTtsVoice } from './coachTtsVoice';
 import type { PersonaType } from '../store/sessionStore';
 
 let currentAudio: HTMLAudioElement | null = null;
@@ -31,24 +30,24 @@ function hasHangul(text: string): boolean {
   return /[ㄱ-힝]/.test(text);
 }
 
-/** 페르소나별 OpenAI TTS voice + 읽기 스타일 instructions */
+/** 페르소나별 OpenAI TTS voice + 읽기 스타일 (수동 오버라이드 없음) */
 export function coachTtsParams(persona: PersonaType | null): { voice: string; instructions: string } {
   switch (persona) {
-    case 'visionary':
+    case 'visionary': // Steve Jobs — 날카롭고 또렷한 키노트 톤
       return {
         voice: 'coral',
         instructions:
           'You are a minimalist keynote coach: crisp, confident, slightly slower pacing, short pauses between ideas. ' +
           'Read the following as a single quiz question — do not add commentary. Match the language of the text.',
       };
-    case 'orator':
+    case 'orator': // Barack Obama — 깊고 리듬감 있는 연설 톤
       return {
         voice: 'onyx',
         instructions:
           'You are a warm, rhythmic public speaker: clear cadence, inclusive tone, slight emphasis on key words. ' +
           'Read the following as one quiz question only — no preamble. Match the language of the text.',
       };
-    case 'connector':
+    case 'connector': // Brené Brown — 따뜻하고 대화하듯 안정적인 톤
       return {
         voice: 'sage',
         instructions:
@@ -135,8 +134,7 @@ export async function speakCoachQuestion(text: string, persona: PersonaType | nu
   stopCoachQuestionSpeech();
 
   if (hasOpenAI()) {
-    const { voice: personaVoice, instructions } = coachTtsParams(persona);
-    const voice = effectiveOpenAiTtsVoice(personaVoice);
+    const { voice, instructions } = coachTtsParams(persona);
     const blob = await createSpeechAudio({ input: trimmed, voice, instructions });
     if (blob) {
       const url = URL.createObjectURL(blob);
@@ -197,8 +195,7 @@ export async function speakCoachGuideDemo(id: CoachGuideDemoId, persona: Persona
   stopCoachQuestionSpeech();
 
   if (hasOpenAI()) {
-    const { voice: personaVoice } = coachTtsParams(persona);
-    const voice = effectiveOpenAiTtsVoice(personaVoice);
+    const { voice } = coachTtsParams(persona);
     const blob = await createSpeechAudio({
       input: trimmed,
       voice,

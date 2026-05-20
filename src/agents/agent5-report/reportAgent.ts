@@ -11,6 +11,8 @@ import type {
 import type { Persona } from '../../constants/personas';
 import { analyzeContext, type ContextAnalysisResult } from './contextAnalysis';
 import { buildPresentationTopicBlock } from '../../lib/presentationTopicContext';
+import { transcriptPlain } from '../../lib/transcriptScript';
+import { suggestTranscriptPolish } from '../transcriptPolishAgent';
 
 function tsToLabel(ts: number, sessionStart: number): string {
   const elapsed = Math.max(0, Math.round((ts - sessionStart) / 1000));
@@ -273,6 +275,38 @@ function fallbackPersonaStyleCoaching(persona: Persona, ctx: SessionContext, sco
     delivery_practices: persona.presentationInfo.principles.slice(0, 5),
     phrase_rewrites: [],
   };
+}
+
+/** 메인 리포트 JSON에 phrase_rewrites가 비었을 때 전사 기반으로 보충 */
+export async function enrichPhraseRewritesIfMissing(
+  coaching: PersonaStyleCoaching,
+  persona: Persona,
+  ctx: SessionContext,
+): Promise<PersonaStyleCoaching> {
+  if ((coaching.phrase_rewrites?.length ?? 0) > 0) return coaching;
+  const plain = transcriptPlain(
+    ctx.speech_coaching.transcript_log,
+    ctx.speech_coaching.transcript_live_draft,
+  );
+  if (plain.length < 60 || !hasOpenAI()) return coaching;
+  try {
+    const pairs = await suggestTranscriptPolish(plain, {
+      coachName: persona.name,
+      personaSystemPrompt: persona.systemPrompt,
+    });
+    if (!pairs?.length) return coaching;
+    return {
+      ...coaching,
+      phrase_rewrites: pairs.slice(0, 5).map((p) => ({
+        from_session: p.original,
+        persona_aligned_example: p.improved,
+        ...(p.note ? { why: p.note } : {}),
+      })),
+    };
+  } catch (e) {
+    console.warn('[Point] phrase_rewrites enrich skipped', e);
+    return coaching;
+  }
 }
 
 function normalizePersonaStyleCoaching(
@@ -545,9 +579,10 @@ ${personaStyleBlock}`;
   }
 
   if (persona) {
+    const coaching = normalizePersonaStyleCoaching(parsed.persona_style_coaching, persona, ctx, scores);
     return {
       ...parsed,
-      persona_style_coaching: normalizePersonaStyleCoaching(parsed.persona_style_coaching, persona, ctx, scores),
+      persona_style_coaching: await enrichPhraseRewritesIfMissing(coaching, persona, ctx),
     };
   }
 

@@ -129,6 +129,10 @@ export interface SessionContext {
     transcript_log: TranscriptEntry[];
     volume_samples: VolumeSample[];
     word_emphasis_log: WordEmphasisEntry[];
+    /** 연속 인식 중 아직 log에 반영 안 된 초안 */
+    transcript_live_draft?: string;
+    /** 리포트용: 전사가 비었을 때 원인 힌트 */
+    transcript_capture_hint?: import('../lib/transcriptScript').TranscriptCaptureHint;
   };
 
   nonverbal_coaching: {

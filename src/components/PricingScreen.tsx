@@ -50,7 +50,6 @@ const PLAN_DEFS: PlanDef[] = [
       'pricing.plan.pro.f2',
       'pricing.plan.pro.f3',
       'pricing.plan.pro.f4',
-      'pricing.plan.pro.f5',
     ],
   },
   {

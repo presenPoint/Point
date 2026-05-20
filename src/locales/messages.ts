@@ -78,6 +78,28 @@ const en = {
   'home.ctaQuickSub': 'Skip to default coaching',
   'home.selectCoach': 'Select',
 
+  'survey.stepOf': 'Question {n} of {total}',
+  'survey.q1.title': 'What is your primary goal for this presentation?',
+  'survey.q1.subtitle': 'Pick the one that resonates most.',
+  'survey.q1.opt0': 'Inspire the audience with a bold, unforgettable vision',
+  'survey.q1.opt1': 'Move people emotionally and build momentum in the room',
+  'survey.q1.opt2': 'Build genuine trust through authentic personal stories',
+  'survey.q2.title': 'How would you describe your ideal speaking style?',
+  'survey.q2.subtitle': 'Think about how you naturally communicate.',
+  'survey.q2.opt0': 'Minimal — every word earns its place, silence is a tool',
+  'survey.q2.opt1': 'Rhythmic and dynamic — building energy through cadence',
+  'survey.q2.opt2': 'Conversational and warm — like talking to a close friend',
+  'survey.q3.title': 'What feels right for your body language?',
+  'survey.q3.subtitle': 'Imagine yourself on stage right now.',
+  'survey.q3.opt0': 'Still and deliberate — gestures that land like punctuation',
+  'survey.q3.opt1': 'Sweeping eye contact and natural hand movements',
+  'survey.q3.opt2': 'Open and relaxed — gesturing like in everyday conversation',
+  'survey.result.title': 'Your coaching style',
+  'survey.result.targetPace': 'Target pace',
+  'survey.result.gestureLevel': 'Gesture level',
+  'survey.result.coachingTone': 'Coaching tone',
+  'survey.result.continue': 'Start with {name}',
+
   'home.coachCardsAria': 'Coach style cards',
   'persona.viewStyleAria': 'View {name} presentation style',
 
@@ -139,10 +161,6 @@ const en = {
   'persona.feedbackTone.sharp': 'Sharp',
   'persona.feedbackTone.encouraging': 'Encouraging',
   'persona.feedbackTone.warm': 'Warm',
-
-  'persona.coachVoice.aria': 'Coach narration voice',
-  'persona.coachVoice.label': 'Narration voice (TTS)',
-  'persona.coachVoice.hint': 'Pre-quiz, Q&A, live coach — overrides persona default when set.',
 
   'live.privacy.title': 'Privacy & your practice data',
   'live.privacy.b1':
@@ -304,8 +322,16 @@ const en = {
   'report.rewrites.from': 'What you said',
   'report.rewrites.to': 'Coach-style phrasing',
   'report.rewrites.why': 'Why',
-  'report.rewrites.empty':
-    'No line-level rewrites were generated for this session (often when the transcript was too short for fair quotes).',
+  'report.rewrites.emptyNoTranscript':
+    'No speech was saved in the transcript ({duration} recorded, {segments} segments). Check mic permission and the transcript section below — without text we cannot quote your lines.',
+  'report.rewrites.emptySttNoSegments':
+    'We heard you for about {duration}, but the browser never saved speech-to-text segments (0 saved). Use Chrome over HTTPS, keep the live caption bar active while speaking, and allow mic access. Your last on-screen captions are now saved when you end the session.',
+  'report.rewrites.emptyMicBlocked':
+    'Microphone or speech recognition was blocked ({duration} recorded). Allow mic access in the browser, then try again in Chrome.',
+  'report.rewrites.emptyBrowserUnsupported':
+    'This browser does not support live speech-to-text ({duration} recorded). Use Chrome on desktop for transcripts and line rewrites.',
+  'report.rewrites.emptyWithTranscript':
+    'We captured about {chars} characters of speech but could not build line rewrites this time. Use “Polish transcript” in Session detail below, or try another run with the mic on.',
 
   'report.wentWell': 'Went well',
   'report.personaPackSummary': 'Coach note & next reps',
@@ -398,7 +424,6 @@ const en = {
   'pricing.plan.pro.f2': 'Live voice & gesture coaching',
   'pricing.plan.pro.f3': '3–5 Q&A rounds',
   'pricing.plan.pro.f4': 'Reports kept indefinitely',
-  'pricing.plan.pro.f5': 'Coach voice override',
 
   'pricing.plan.yearly.title': 'Pro Yearly',
   'pricing.plan.yearly.priceSub': 'per year · about 2 months free vs monthly',
@@ -499,6 +524,28 @@ const ko: { [K in keyof typeof en]: string } = {
   'home.ctaQuickSub': '기본 코칭으로 건너뛰기',
   'home.selectCoach': '선택',
 
+  'survey.stepOf': '질문 {n} / {total}',
+  'survey.q1.title': '이번 발표에서 가장 중요한 목표는?',
+  'survey.q1.subtitle': '가장 와닿는 하나를 골라 주세요.',
+  'survey.q1.opt0': '대담하고 잊히지 않는 비전으로 청중을 이끌기',
+  'survey.q1.opt1': '감정적으로 움직이고 장의 에너지를 쌓기',
+  'survey.q1.opt2': '진솔한 이야기로 진짜 신뢰 쌓기',
+  'survey.q2.title': '이상적인 말하기 스타일은?',
+  'survey.q2.subtitle': '평소 말하는 방식을 떠올려 보세요.',
+  'survey.q2.opt0': '미니멀 — 말 하나하나가 값지고, 침묵도 도구',
+  'survey.q2.opt1': '리듬감 있고 역동적 — 호흡으로 에너지 쌓기',
+  'survey.q2.opt2': '대화하듯 따뜻하게 — 가까운 친구에게 말하듯',
+  'survey.q3.title': '바디랭귀지는 어떤 느낌이 맞나요?',
+  'survey.q3.subtitle': '지금 무대에 선 자신을 상상해 보세요.',
+  'survey.q3.opt0': '고요하고 의도적 — 제스처는 문장 부호처럼',
+  'survey.q3.opt1': '시선을 돌리며 자연스러운 손 움직임',
+  'survey.q3.opt2': '편하고 열린 — 일상 대화처럼 제스처',
+  'survey.result.title': '당신의 코칭 스타일',
+  'survey.result.targetPace': '목표 속도',
+  'survey.result.gestureLevel': '제스처 수준',
+  'survey.result.coachingTone': '코칭 톤',
+  'survey.result.continue': '{name} 코치로 시작',
+
   'home.coachCardsAria': '코치 스타일 카드',
   'persona.viewStyleAria': '{name} 발표 스타일 자세히 보기',
 
@@ -558,10 +605,6 @@ const ko: { [K in keyof typeof en]: string } = {
   'persona.feedbackTone.sharp': '날카로움',
   'persona.feedbackTone.encouraging': '격려',
   'persona.feedbackTone.warm': '따뜻함',
-
-  'persona.coachVoice.aria': '코치 나레이션 음성',
-  'persona.coachVoice.label': '나레이션 음성 (TTS)',
-  'persona.coachVoice.hint': '사전 퀴즈, Q&A, 라이브 코치 — 설정 시 페르소나 기본 음성을 덮어씁니다.',
 
   'live.privacy.title': '개인정보 · 연습 데이터',
   'live.privacy.b1':
@@ -723,8 +766,16 @@ const ko: { [K in keyof typeof en]: string } = {
   'report.rewrites.from': '실제로 한 말',
   'report.rewrites.to': '코치 스타일 표현',
   'report.rewrites.why': '이유',
-  'report.rewrites.empty':
-    '이 세션에서는 문장 단위 리라이트가 생성되지 않았어요(전사가 짧을 때 흔함).',
+  'report.rewrites.emptyNoTranscript':
+    '전사에 말이 거의 없어요({duration} 녹음, 구간 {segments}개). 마이크 권한·전사 섹션을 확인해 주세요. 글이 없으면 인용 리라이트를 만들 수 없어요.',
+  'report.rewrites.emptySttNoSegments':
+    '약 {duration} 동안 말한 건 감지됐는데, 브라우저가 전사 구간을 확정하지 못했어요(저장 0개). Chrome + HTTPS에서 라이브 자막이 뜨는지 확인하고 마이크를 허용해 주세요. 세션 종료 시 화면에 보이던 자막은 이제 저장됩니다.',
+  'report.rewrites.emptyMicBlocked':
+    '마이크 또는 음성 인식이 차단됐어요({duration} 녹음). 브라우저에서 마이크를 허용한 뒤 Chrome으로 다시 시도해 주세요.',
+  'report.rewrites.emptyBrowserUnsupported':
+    '이 브라우저는 실시간 전사를 지원하지 않아요({duration} 녹음). PC Chrome에서 연습하면 전사·문장 리라이트를 쓸 수 있어요.',
+  'report.rewrites.emptyWithTranscript':
+    '말은 약 {chars}자 정도 잡혔는데 이번엔 문장 리라이트를 만들지 못했어요. 아래 세션 상세의 전사 “다듬기”를 쓰거나, 마이크를 켠 채 짧게 한 번 더 연습해 보세요.',
 
   'report.wentWell': '잘한 점',
   'report.personaPackSummary': '코치 메모 · 다음 연습',
@@ -817,7 +868,6 @@ const ko: { [K in keyof typeof en]: string } = {
   'pricing.plan.pro.f2': '실시간 음성·제스처 코칭',
   'pricing.plan.pro.f3': 'Q&A 3~5라운드',
   'pricing.plan.pro.f4': '리포트 영구 보관',
-  'pricing.plan.pro.f5': '코치 음성 오버라이드',
 
   'pricing.plan.yearly.title': 'Pro 연간',
   'pricing.plan.yearly.priceSub': '연간 · 월납 대비 약 2개월 분 할인',

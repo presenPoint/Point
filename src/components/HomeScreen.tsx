@@ -3,7 +3,6 @@ import { useSessionStore, type PersonaType } from '../store/sessionStore';
 import { PERSONA_LIST, PERSONAS } from '../constants/personas';
 import { PERSONA_UI_KEYS } from '../constants/personaUiKeys';
 import { PersonaInfoModal } from './PersonaInfoModal';
-import { CoachVoiceStrip } from './CoachVoiceStrip';
 import { PointWordmark } from './PointWordmark';
 import { LanguageSwitcher } from './LanguageSwitcher';
 import { useT } from '../hooks/useT';
@@ -186,7 +185,6 @@ export function HomeScreen({ userName, userAvatar, userId, onBack, onSignOut, on
             </div>
           </div>
 
-          <CoachVoiceStrip />
         </section>
       </div>
 

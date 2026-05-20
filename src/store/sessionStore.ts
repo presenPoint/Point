@@ -4,6 +4,7 @@ import {
   gradePreQuiz,
   buildFallbackNarrative,
   calcCompositeScore,
+  enrichPhraseRewritesIfMissing,
   generateReportNarrative,
   gradeQaExchanges,
   qaNextQuestion,
@@ -109,8 +110,6 @@ type State = {
   selectedPersona: PersonaType | null;
   /** Audience Q&A — 질문 난이도(프롬프트) */
   qaDifficulty: QaDifficultyLevel;
-  /** OpenAI TTS voice 오버라이드 — 빈 문자열이면 페르소나 기본 */
-  coachTtsVoiceOverride: string;
 
   setAppStarted: (v: boolean) => void;
   startPersonaStyleQuiz: () => void;
@@ -119,7 +118,6 @@ type State = {
   setLivePresentation: (p: Partial<{ wpm: number; fillerCount: number; volumeRms: number; interimText: string; recognitionError: string }>) => void;
   setPersona: (persona: PersonaType | null) => void;
   setQaDifficulty: (d: QaDifficultyLevel) => void;
-  setCoachTtsVoiceOverride: (voiceId: string) => void;
 
   resetSession: () => void;
   transition: (to: SessionStatus) => void;
@@ -165,7 +163,6 @@ export const useSessionStore = create<State>((set, get) => ({
   livePresentation: { wpm: 0, fillerCount: 0, volumeRms: 0, interimText: '', recognitionError: '' },
   selectedPersona: null,
   qaDifficulty: 'standard',
-  coachTtsVoiceOverride: '',
 
   setAppStarted: (v) =>
     set({
@@ -194,7 +191,6 @@ export const useSessionStore = create<State>((set, get) => ({
     })),
   setPersona: (persona) => set({ selectedPersona: persona }),
   setQaDifficulty: (d) => set({ qaDifficulty: d }),
-  setCoachTtsVoiceOverride: (voiceId) => set({ coachTtsVoiceOverride: voiceId }),
   setLivePresentation: (p) =>
     set((s) => ({
       livePresentation: { ...s.livePresentation, ...p },
@@ -214,7 +210,6 @@ export const useSessionStore = create<State>((set, get) => ({
       livePresentation: { wpm: 0, fillerCount: 0, volumeRms: 0, interimText: '', recognitionError: '' },
       selectedPersona: null,
       qaDifficulty: 'standard',
-      coachTtsVoiceOverride: '',
     });
   },
 
@@ -520,6 +515,8 @@ export const useSessionStore = create<State>((set, get) => ({
   },
 
   runReport: async () => {
+    const { flushLiveTranscriptNow } = await import('../lib/liveTranscriptFlush');
+    flushLiveTranscriptNow();
     set((s) => ({
       session: { ...s.session, status: 'REPORT' },
       busy: 'Generating report…',
@@ -591,6 +588,17 @@ export const useSessionStore = create<State>((set, get) => ({
       console.error('generateReportNarrative failed', e);
       reportError = e instanceof Error ? e.message : String(e);
       narrative = buildFallbackNarrative(ctx, scoresWithContext, persona);
+    }
+
+    if (persona && narrative.persona_style_coaching) {
+      narrative = {
+        ...narrative,
+        persona_style_coaching: await enrichPhraseRewritesIfMissing(
+          narrative.persona_style_coaching,
+          persona,
+          ctx,
+        ),
+      };
     }
 
     const generated_at = new Date().toISOString();

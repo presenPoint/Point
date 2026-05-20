@@ -11,6 +11,7 @@ import { ReportPentagonCard } from './ReportPentagonCard';
 import { ReportTranscriptSection } from './ReportTranscriptSection';
 import { VolumeTimelineChart } from './VolumeTimelineChart';
 import { WordEmphasisSection } from './WordEmphasisSection';
+import { transcriptStats } from '../lib/transcriptScript';
 
 import { AnimatedPointLogo } from './AnimatedPointLogo';
 import { useT } from '../hooks/useT';
@@ -123,6 +124,43 @@ export function QaReportScreen() {
         ),
       })
     : '';
+
+  const { chars: transcriptChars, segments: transcriptSegments } = useMemo(
+    () =>
+      transcriptStats(
+        session.speech_coaching.transcript_log,
+        session.speech_coaching.transcript_live_draft,
+      ),
+    [session.speech_coaching.transcript_log, session.speech_coaching.transcript_live_draft],
+  );
+
+  const transcriptHint = session.speech_coaching.transcript_capture_hint;
+
+  const rewritesEmptyMessage = useMemo(() => {
+    const duration = formatDuration(session.speech_coaching.total_duration_sec);
+    if (transcriptChars >= 60) {
+      return t('report.rewrites.emptyWithTranscript', { chars: transcriptChars });
+    }
+    switch (transcriptHint) {
+      case 'stt_no_segments':
+        return t('report.rewrites.emptySttNoSegments', { duration });
+      case 'permission_blocked':
+        return t('report.rewrites.emptyMicBlocked', { duration });
+      case 'browser_unsupported':
+        return t('report.rewrites.emptyBrowserUnsupported', { duration });
+      default:
+        return t('report.rewrites.emptyNoTranscript', {
+          duration,
+          segments: transcriptSegments,
+        });
+    }
+  }, [
+    transcriptChars,
+    transcriptHint,
+    transcriptSegments,
+    session.speech_coaching.total_duration_sec,
+    t,
+  ]);
 
   const volumeCoachingMarkers = useMemo(() => {
     const improvements = session.report?.improvements ?? [];
@@ -337,9 +375,7 @@ export function QaReportScreen() {
                         ))}
                       </div>
                     ) : (
-                      <div className="report-corrections-empty">
-                        {t('report.rewrites.empty')}
-                      </div>
+                      <div className="report-corrections-empty">{rewritesEmptyMessage}</div>
                     )}
                   </>
                 )}

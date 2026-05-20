@@ -4,6 +4,18 @@
 import { chatCompletionText, chatJson, hasOpenAI } from '../../lib/openai';
 import type { QaDifficultyLevel, QaExchange, SessionContext } from '../../types/session';
 import { buildPresentationTopicBlock } from '../../lib/presentationTopicContext';
+import type { AppLocale } from '../../store/localeStore';
+import { useLocaleStore } from '../../store/localeStore';
+
+function resolveLocale(locale?: AppLocale): AppLocale {
+  return locale ?? useLocaleStore.getState().locale;
+}
+
+function languageRule(locale: AppLocale): string {
+  return locale === 'ko'
+    ? '- 모든 질문은 자연스러운 한국어(존댓말, 청중·패널 톤)로 작성'
+    : '- Respond in English';
+}
 
 type QaGrade = {
   final_score: number;
@@ -32,7 +44,12 @@ function pressureBlock(level: QaDifficultyLevel): string {
   }
 }
 
-function buildSystemPrompt(ctx: SessionContext, currentTurn: number, pressure: QaDifficultyLevel): string {
+function buildSystemPrompt(
+  ctx: SessionContext,
+  currentTurn: number,
+  pressure: QaDifficultyLevel,
+  locale: AppLocale,
+): string {
   const total = ctx.qa.planned_rounds ?? 5;
   const off = ctx.speech_coaching.off_topic_log
     .map((e) => (typeof e.excerpt === 'string' ? e.excerpt : ''))
@@ -70,11 +87,11 @@ ${scriptBlock}${styleBlock}
 - Middle turns (if any): probe weak areas, off-topic moments, or script phrases they may have missed — stricter.
 - Final turn: the sharpest rebuttal or a deep question (e.g. biggest weakness or unstated risk of the pitch).
 - Keep each question concise — two sentences or fewer
-- Respond in English
+${languageRule(locale)}
 ${pressureBlock(pressure)}`;
 }
 
-const MOCK_QUESTIONS = [
+const MOCK_QUESTIONS_EN = [
   'Restate the core message of your presentation in one sentence.',
   'Come up with a question the audience would most likely ask, and answer it yourself.',
   'Explain how you addressed the topics identified as weak areas.',
@@ -82,8 +99,17 @@ const MOCK_QUESTIONS = [
   'What do you think is the biggest limitation of this presentation?',
 ];
 
+const MOCK_QUESTIONS_KO = [
+  '발표의 핵심 메시지를 한 문장으로 요약해 주세요.',
+  '청중이 가장 궁금해할 질문 하나를 정해 직접 답해 보세요.',
+  '사전 퀴즈에서 약점으로 나온 주제들을 발표에서 어떻게 다뤘는지 설명해 주세요.',
+  '발표 중 주제에서 벗어난 부분이 있었다면, 그 이유와 보완 방안을 말씀해 주세요.',
+  '이 발표의 가장 큰 한계는 무엇이라고 보시나요?',
+];
+
 export type QaNextQuestionOpts = {
   pressure?: QaDifficultyLevel;
+  locale?: AppLocale;
 };
 
 /** exchanges: contains only completed Q&A pairs. If empty, generates the first question. */
@@ -93,6 +119,7 @@ export async function qaNextQuestion(
   opts?: QaNextQuestionOpts,
 ): Promise<{ text: string; isComplete: boolean }> {
   const pressure = opts?.pressure ?? 'standard';
+  const locale = resolveLocale(opts?.locale);
   const total = ctx.qa.planned_rounds ?? 5;
   const nextTurn = exchanges.length + 1;
   if (nextTurn > total) {
@@ -100,14 +127,19 @@ export async function qaNextQuestion(
   }
 
   if (!hasOpenAI()) {
-    const q = MOCK_QUESTIONS[nextTurn - 1];
+    const pool = locale === 'ko' ? MOCK_QUESTIONS_KO : MOCK_QUESTIONS_EN;
+    const q = pool[nextTurn - 1];
     return { text: q, isComplete: false };
   }
 
   const userMsg =
     exchanges.length === 0
-      ? 'Output only the first question. There are no user answers yet.'
-      : `Exchanges so far:\n${JSON.stringify(exchanges, null, 2)}\n\nAsk the next question.`;
+      ? locale === 'ko'
+        ? '첫 질문만 출력하세요. 아직 사용자 답변이 없습니다.'
+        : 'Output only the first question. There are no user answers yet.'
+      : locale === 'ko'
+        ? `지금까지의 Q&A:\n${JSON.stringify(exchanges, null, 2)}\n\n다음 질문을 해 주세요.`
+        : `Exchanges so far:\n${JSON.stringify(exchanges, null, 2)}\n\nAsk the next question.`;
 
   const temperature =
     pressure === 'intense' ? 0.38 : pressure === 'firm' ? 0.45 : 0.5;
@@ -116,7 +148,7 @@ export async function qaNextQuestion(
   try {
     text = await chatCompletionText(
       'gpt-4o',
-      buildSystemPrompt(ctx, nextTurn, pressure),
+      buildSystemPrompt(ctx, nextTurn, pressure, locale),
       userMsg,
       temperature,
     );
@@ -131,8 +163,20 @@ export async function qaNextQuestion(
   return { text: message, isComplete };
 }
 
-export async function gradeQaExchanges(exchanges: QaExchange[]): Promise<QaGrade | null> {
+export type GradeQaOpts = { locale?: AppLocale };
+
+export async function gradeQaExchanges(
+  exchanges: QaExchange[],
+  opts?: GradeQaOpts,
+): Promise<QaGrade | null> {
+  const locale = resolveLocale(opts?.locale);
+  const commentLang =
+    locale === 'ko'
+      ? '모든 comment와 overall_comment는 자연스러운 한국어(존댓말)로 작성'
+      : 'Write all comment and overall_comment fields in English';
+
   const sys = `Evaluate the entire Q&A content below and respond with JSON only.
+${commentLang}
 
 Response format:
 {
@@ -151,11 +195,14 @@ Response format:
       per_turn: exchanges.map((e) => ({
         turn: e.turn,
         score: 70,
-        comment: 'Demo grading',
+        comment: locale === 'ko' ? '데모 채점' : 'Demo grading',
       })),
       best_answer_turn: 1,
       worst_answer_turn: exchanges.length || 1,
-      overall_comment: 'Demo score — no OpenAI key provided.',
+      overall_comment:
+        locale === 'ko'
+          ? '데모 점수 — OpenAI API 키가 없습니다.'
+          : 'Demo score — no OpenAI key provided.',
     };
   }
 

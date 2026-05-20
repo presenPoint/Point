@@ -7421,6 +7421,12 @@ textarea {
   pointer-events: none;
 }
 
+.survey-lang-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 10px;
+}
+
 /* 진행 도트 */
 .survey-dot {
   background: rgba(255,255,255,0.12) !important;

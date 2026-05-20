@@ -15,7 +15,13 @@ type CaptionResultRef = { current: ((e: SpeechRecognitionEvent) => void) | null 
 import { PoseTracker, nonverbalConfigFromPersona, getDefaultNonverbalConfig } from '../agents/agent3-live-nonverbal/poseTracker';
 import { PERSONAS } from '../constants/personas';
 import { countSyllables, recentTranscriptPlain, SEMANTIC_INTERVAL_MS, SILENCE_THRESHOLD_MS } from '../lib/speechUtils';
+import {
+  registerLiveSpeechRecognitionRestart,
+  registerLiveTranscriptFlush,
+} from '../lib/liveTranscriptFlush';
+import { hadActiveSpeechVolume, type TranscriptCaptureHint } from '../lib/transcriptScript';
 import { useSessionStore } from '../store/sessionStore';
+import { useLocaleStore } from '../store/localeStore';
 import { buildPresentationTopicSummaryLine } from '../lib/presentationTopicContext';
 import { buildWordVolumeProfile } from '../lib/liveCaptionEmphasis';
 import type { FillerEntry, TranscriptEntry } from '../types/session';
@@ -49,6 +55,136 @@ export function useLivePresenting(captionResultRef?: CaptionResultRef) {
     /** 확정(final) 구간만 누적한 음절 수 — interim은 별도 더함 */
     const cumulativeSyllablesRef = { current: 0 };
     const wpmHistRef: { t: number; s: number }[] = [];
+    const lastPeriodicInterimRef = { current: '' };
+    const sessionTranscriptDraftRef = { current: '' };
+    let upsertTranscriptTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const buildSessionTranscriptFromEvent = (event: SpeechRecognitionEvent): string => {
+      let s = '';
+      for (let i = 0; i < event.results.length; i++) {
+        s += event.results[i][0]?.transcript ?? '';
+      }
+      return s.replace(/\s+/g, ' ').trim();
+    };
+
+    const upsertSessionTranscript = (fullText: string, immediate = false): void => {
+      const d = fullText.trim();
+      if (!d) return;
+      sessionTranscriptDraftRef.current = d;
+
+      const apply = () => {
+        useSessionStore.setState((st) => {
+          const sc = st.session.speech_coaching;
+          const log = sc.transcript_log;
+          const last = log[log.length - 1];
+          let nextLog: TranscriptEntry[];
+
+          if (last && d.startsWith(last.text.trim()) && d.length > last.text.trim().length) {
+            nextLog = [...log.slice(0, -1), { text: d, timestamp: Date.now() }];
+          } else if (last?.text.trim() === d) {
+            nextLog = log;
+          } else {
+            nextLog = [...log, { text: d, timestamp: Date.now() }].slice(-500);
+          }
+
+          return {
+            session: {
+              ...st.session,
+              speech_coaching: {
+                ...sc,
+                transcript_log: nextLog,
+                transcript_live_draft: d,
+                transcript_capture_hint: undefined,
+              },
+            },
+          };
+        });
+      };
+
+      if (immediate) {
+        if (upsertTranscriptTimer) clearTimeout(upsertTranscriptTimer);
+        upsertTranscriptTimer = null;
+        apply();
+        return;
+      }
+      if (upsertTranscriptTimer) clearTimeout(upsertTranscriptTimer);
+      upsertTranscriptTimer = setTimeout(apply, 500);
+    };
+
+    const scheduleUpsertFromEvent = (event: SpeechRecognitionEvent, immediate = false) => {
+      const full = buildSessionTranscriptFromEvent(event);
+      if (full) upsertSessionTranscript(full, immediate);
+    };
+
+    const speechSnapFromBuffer = () =>
+      recentTranscriptPlain(bufferRef, 25_000, 520) || undefined;
+
+    const shouldAppendTranscriptLine = (log: TranscriptEntry[], text: string): boolean => {
+      const t = text.trim();
+      if (!t) return false;
+      const last = log[log.length - 1]?.text.trim() ?? '';
+      if (t === last) return false;
+      return true;
+    };
+
+    const appendFinalTranscript = (finalT: string): void => {
+      const line = finalT.trim();
+      if (!line) return;
+      const log = useSessionStore.getState().session.speech_coaching.transcript_log;
+      if (!shouldAppendTranscriptLine(log, line)) return;
+
+      const ts = Date.now();
+      onTranscriptChunk(line, bufferRef, fillerRef, speechConfig, speechSnapFromBuffer);
+      cumulativeSyllablesRef.current += countSyllables(line);
+
+      const fillers = fillerRef.length;
+      useSessionStore.setState((st) => ({
+        session: {
+          ...st.session,
+          speech_coaching: {
+            ...st.session.speech_coaching,
+            filler_count: fillers,
+            filler_timestamps: fillerRef.map((f) => f.timestamp),
+            transcript_log: [
+              ...st.session.speech_coaching.transcript_log,
+              { text: line, timestamp: ts },
+            ].slice(-500),
+          },
+        },
+      }));
+    };
+
+    const flushPendingTranscript = () => {
+      const st = useSessionStore.getState();
+      const log = st.session.speech_coaching.transcript_log;
+      const pending: TranscriptEntry[] = [];
+
+      for (const e of bufferRef) {
+        const t = e.text.trim();
+        if (!t || log.some((x) => x.text.trim() === t) || pending.some((x) => x.text.trim() === t)) continue;
+        pending.push({ text: t, timestamp: e.timestamp });
+      }
+
+      const interim =
+        sessionTranscriptDraftRef.current.trim() ||
+        prevInterimRef.current.trim() ||
+        (st.livePresentation.interimText ?? '').trim();
+      if (interim) {
+        const known = [...log, ...pending].map((x) => x.text.trim());
+        if (!known.includes(interim)) {
+          pending.push({ text: interim, timestamp: Date.now() });
+        }
+      }
+
+      for (const e of pending) {
+        appendFinalTranscript(e.text);
+      }
+      if (sessionTranscriptDraftRef.current.trim()) {
+        upsertSessionTranscript(sessionTranscriptDraftRef.current, true);
+      }
+    };
+
+    const unregisterFlush = registerLiveTranscriptFlush(flushPendingTranscript);
 
     const recordWpmSample = (): number => {
       const s = cumulativeSyllablesRef.current + countSyllables(prevInterimRef.current);
@@ -154,14 +290,49 @@ export function useLivePresenting(captionResultRef?: CaptionResultRef) {
       }, 180);
     };
 
-    if (RecCtor) {
-      recognition = new RecCtor();
+    if (!RecCtor) {
+      useSessionStore.setState((st) => ({
+        session: {
+          ...st.session,
+          speech_coaching: {
+            ...st.session.speech_coaching,
+            transcript_capture_hint: 'browser_unsupported',
+          },
+        },
+      }));
+    }
+
+    const startRecognition = () => {
+      if (dead || recognitionBlocked || !recognition) return;
+      try {
+        recognition.start();
+      } catch {
+        /* already running */
+      }
+    };
+
+    const unregisterRestart = registerLiveSpeechRecognitionRestart(() => {
+      if (!recognition || recognitionBlocked || dead) return;
+      try {
+        recognition.stop();
+      } catch {
+        /* ignore */
+      }
+      setTimeout(startRecognition, 120);
+    });
+
+    const wireRecognition = (rec: SpeechRecognition) => {
+      const appLocale = useLocaleStore.getState().locale;
       const rawLang =
-        (typeof navigator !== 'undefined' && (navigator.languages?.[0] || navigator.language)) || 'en-US';
-      recognition.lang = normalizeLang(rawLang);
-      recognition.continuous = true;
-      recognition.interimResults = true;
-      recognition.onresult = (event: SpeechRecognitionEvent) => {
+        appLocale === 'ko'
+          ? 'ko-KR'
+          : appLocale === 'en'
+            ? 'en-US'
+            : (typeof navigator !== 'undefined' && (navigator.languages?.[0] || navigator.language)) || 'en-US';
+      rec.lang = normalizeLang(rawLang);
+      rec.continuous = true;
+      rec.interimResults = true;
+      rec.onresult = (event: SpeechRecognitionEvent) => {
         captionResultRef?.current?.(event);
         let text = '';
         let finalText = '';
@@ -222,11 +393,11 @@ export function useLivePresenting(captionResultRef?: CaptionResultRef) {
           ) || undefined;
         onInterimSpeechTick(suffix, fillerRef, speechConfig, snapInterim);
 
+        scheduleUpsertFromEvent(event, Boolean(hasFinal && finalT));
+
         if (hasFinal && finalT) {
-          onTranscriptChunk(finalT, bufferRef, fillerRef, speechConfig, () =>
-            recentTranscriptPlain(bufferRef, 25_000, 520) || undefined,
-          );
-          cumulativeSyllablesRef.current += countSyllables(finalT);
+          appendFinalTranscript(finalT);
+          lastPeriodicInterimRef.current = '';
           prevInterimRef.current = latestInterim;
           interimStartRef.current = latestInterim ? Date.now() : null;
         } else {
@@ -242,14 +413,6 @@ export function useLivePresenting(captionResultRef?: CaptionResultRef) {
               ...st.session.speech_coaching,
               filler_count: fillers,
               filler_timestamps: fillerRef.map((f) => f.timestamp),
-              ...(hasFinal && finalT
-                ? {
-                    transcript_log: [
-                      ...st.session.speech_coaching.transcript_log,
-                      { text: finalT, timestamp: ts },
-                    ].slice(-500),
-                  }
-                : {}),
             },
           },
         }));
@@ -287,9 +450,9 @@ export function useLivePresenting(captionResultRef?: CaptionResultRef) {
           }
         }
 
-        useSessionStore.getState().setLivePresentation({ interimText: latestInterim });
+        useSessionStore.getState().setLivePresentation({ interimText: latestInterim || t });
       };
-      recognition.onerror = (ev: Event) => {
+      rec.onerror = (ev: Event) => {
         const code = (ev as unknown as { error?: string }).error ?? '';
         if (code === 'not-allowed' || code === 'service-not-allowed') {
           recognitionBlocked = true;
@@ -298,21 +461,83 @@ export function useLivePresenting(captionResultRef?: CaptionResultRef) {
               ? 'Speech recognition is unavailable (HTTPS required or blocked by browser policy).'
               : 'Microphone permission denied. Enable mic access in browser settings to get coaching.';
           useSessionStore.getState().setLivePresentation({ recognitionError: msg, interimText: '' });
+          useSessionStore.setState((st) => ({
+            session: {
+              ...st.session,
+              speech_coaching: {
+                ...st.session.speech_coaching,
+                transcript_capture_hint: 'permission_blocked',
+              },
+            },
+          }));
+          return;
+        }
+        if (code === 'network') {
+          useSessionStore.getState().setLivePresentation({
+            recognitionError:
+              'Speech recognition needs an internet connection (Chrome uses cloud STT). Check your network and try again.',
+            interimText: '',
+          });
+          scheduleRecognitionRestart();
           return;
         }
         if (code === 'aborted' || code === 'no-speech') return;
         scheduleRecognitionRestart();
       };
-      recognition.onend = () => {
+      rec.onend = () => {
+        if (sessionTranscriptDraftRef.current.trim()) {
+          upsertSessionTranscript(sessionTranscriptDraftRef.current, true);
+        }
         if (dead) return;
         scheduleRecognitionRestart();
       };
-      try {
-        recognition.start();
-      } catch {
-        /* noop */
+    };
+
+    const bootRecognition = async () => {
+      if (!RecCtor || dead) return;
+      recognition = new RecCtor();
+      wireRecognition(recognition);
+
+      if (navigator.mediaDevices?.getUserMedia) {
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          stream.getTracks().forEach((tr) => tr.stop());
+        } catch {
+          if (dead) return;
+          recognitionBlocked = true;
+          useSessionStore.getState().setLivePresentation({
+            recognitionError:
+              'Microphone permission denied. Allow mic access, then refresh or turn the camera on.',
+            interimText: '',
+          });
+          useSessionStore.setState((st) => ({
+            session: {
+              ...st.session,
+              speech_coaching: {
+                ...st.session.speech_coaching,
+                transcript_capture_hint: 'permission_blocked',
+              },
+            },
+          }));
+          return;
+        }
       }
-    }
+
+      if (dead) return;
+      startRecognition();
+    };
+
+    void bootRecognition();
+
+    /** 브라우저가 final을 안 주는 경우(연속 인식) — 임시 자막을 주기적으로 확정 저장 */
+    const interimCommitId = window.setInterval(() => {
+      const interim =
+        sessionTranscriptDraftRef.current.trim() || prevInterimRef.current.trim();
+      if (interim.length < 4 || interim === lastPeriodicInterimRef.current) return;
+      upsertSessionTranscript(interim, true);
+      appendFinalTranscript(interim);
+      lastPeriodicInterimRef.current = interim;
+    }, 4_000);
 
     // Monotone delivery check — runs every 30 s
     let lastMonotoneWarn = 0;
@@ -341,23 +566,45 @@ export function useLivePresenting(captionResultRef?: CaptionResultRef) {
 
     return () => {
       dead = true;
+      unregisterFlush();
+      unregisterRestart();
+      if (upsertTranscriptTimer) clearTimeout(upsertTranscriptTimer);
       if (restartTimer) clearTimeout(restartTimer);
       clearInterval(uiTick);
       clearInterval(semanticId);
       clearInterval(wpmLogId);
+      clearInterval(interimCommitId);
       clearInterval(monotoneId);
       if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+      flushPendingTranscript();
       recognition?.stop();
       tracker.destroy();
       poseTrackerRef.current = null;
       const sec = Math.round((Date.now() - presentingStartRef.current) / 1000);
-      useSessionStore.setState((st) => ({
-        session: {
-          ...st.session,
-          speech_coaching: { ...st.session.speech_coaching, total_duration_sec: sec },
-        },
-        livePresentation: { wpm: 0, fillerCount: 0, volumeRms: 0, interimText: '', recognitionError: '' },
-      }));
+      useSessionStore.setState((st) => {
+        const sc = st.session.speech_coaching;
+        const draft = (sc.transcript_live_draft ?? sessionTranscriptDraftRef.current).trim();
+        const segments =
+          sc.transcript_log.filter((e) => e.text.trim()).length + (draft ? 1 : 0);
+        let hint: TranscriptCaptureHint | undefined = sc.transcript_capture_hint;
+        if (!segments && sec >= 12 && !hint) {
+          if (!RecCtor) hint = 'browser_unsupported';
+          else if (recognitionBlocked) hint = 'permission_blocked';
+          else if (hadActiveSpeechVolume(sc.volume_samples)) hint = 'stt_no_segments';
+          else hint = 'no_audio';
+        }
+        return {
+          session: {
+            ...st.session,
+            speech_coaching: {
+              ...sc,
+              total_duration_sec: sec,
+              ...(hint ? { transcript_capture_hint: hint } : {}),
+            },
+          },
+          livePresentation: { wpm: 0, fillerCount: 0, volumeRms: 0, interimText: '', recognitionError: '' },
+        };
+      });
     };
   }, []);
 

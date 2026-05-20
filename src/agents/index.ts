@@ -21,6 +21,7 @@ export { qaNextQuestion, gradeQaExchanges, parseGptResponse } from './agent4-pos
 export {
   buildFallbackNarrative,
   calcCompositeScore,
+  enrichPhraseRewritesIfMissing,
   generateReportNarrative,
 } from './agent5-report/reportAgent';
 export { suggestTranscriptPolish } from './transcriptPolishAgent';

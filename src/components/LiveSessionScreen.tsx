@@ -5,6 +5,7 @@ import { useVolumeAnalyzer } from '../hooks/useVolumeAnalyzer';
 import { cancelFeedbackSpeech, enqueueFeedback, onSpeakingChange, primeFeedbackAudio } from '../lib/feedbackTts';
 import { stopCoachQuestionSpeech } from '../lib/coachQuestionTts';
 import { buildReplaySubtitles } from '../lib/replaySubtitles';
+import { flushLiveTranscriptNow, restartLiveSpeechRecognition } from '../lib/liveTranscriptFlush';
 import type { ReplaySubtitleCue } from '../lib/replaySubtitles';
 import { saveTranscriptToBlob } from '../lib/transcriptStorage';
 import { useSessionStore } from '../store/sessionStore';
@@ -167,6 +168,7 @@ export function LiveSessionScreen() {
       /* ignore */
     }
     setPrivacyModalOpen(false);
+    restartLiveSpeechRecognition();
   };
 
   useEffect(() => {
@@ -317,6 +319,7 @@ export function LiveSessionScreen() {
         setCamOn(true);
       }
       setMediaStream(stream);
+      restartLiveSpeechRecognition();
     } catch {
       setCamOn(false);
     }
@@ -390,6 +393,7 @@ export function LiveSessionScreen() {
     if (recording) stopPracticeRecording();
     stopReplay();
     stopPoseTracking();
+    flushLiveTranscriptNow();
     const s = Math.round((Date.now() - presentingStartRef.current) / 1000);
     useSessionStore.setState((st) => ({
       session: {
