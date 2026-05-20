@@ -52,6 +52,7 @@ Supabase CLI 로그인 후:
 ```bash
 supabase functions deploy start-session
 supabase functions deploy create-checkout-session
+supabase functions deploy delete-account
 supabase functions deploy stripe-webhook --no-verify-jwt
 ```
 

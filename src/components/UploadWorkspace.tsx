@@ -1,10 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { speakCoachQuestion, stopCoachQuestionSpeech } from '../lib/coachQuestionTts';
+import { navigateBack } from '../lib/appNavigation';
 import { primeFeedbackAudio } from '../lib/feedbackTts';
 import { hasOpenAI } from '../lib/openai';
 import { hasSupabase } from '../lib/supabase';
 import { useSpeechToText } from '../hooks/useSpeechToText';
 import { useSessionStore } from '../store/sessionStore';
+import { useEffectiveLocale } from '../hooks/useEffectiveLocale';
+import { LanguageSwitcher } from './LanguageSwitcher';
 import { useToastStore } from '../store/toastStore';
 import { PRE_QUIZ_PASS_SCORE } from '../types/session';
 import type { SessionContext } from '../types/session';
@@ -12,9 +15,9 @@ import { FileSubmissionPanel, type FileSubmissionPanelHandle } from './FileSubmi
 import { PresentationTopicPanel } from './PresentationTopicPanel';
 import { ScriptUploadPanel } from './ScriptUploadPanel';
 import { AnimatedPointLogo } from './AnimatedPointLogo';
-
-const PRE_QUIZ_INTRO_TTS =
-  'Here is your short warm-up before you present. Answer each question with your voice or by typing — confirm your answer to reveal the next one.';
+import { useT } from '../hooks/useT';
+import { getMessage, isMessageKey } from '../locales/messages';
+import type { MessageKey } from '../locales/messages';
 
 function VoiceQuizInput({ value, onChange, disabled, onInteract }: {
   value: string;
@@ -22,6 +25,7 @@ function VoiceQuizInput({ value, onChange, disabled, onInteract }: {
   disabled?: boolean;
   onInteract?: () => void;
 }) {
+  const t = useT();
   const { transcript, listening, transcribing, error, start, stop, reset } = useSpeechToText();
   const [useTextFallback, setUseTextFallback] = useState(false);
 
@@ -39,14 +43,18 @@ function VoiceQuizInput({ value, onChange, disabled, onInteract }: {
     onChange(transcript);
   }
 
-  const displayText = listening ? 'Recording...' : transcribing ? 'Transcribing...' : (transcript || value);
+  const displayText = listening
+    ? t('prepare.voice.recording')
+    : transcribing
+      ? t('prepare.voice.transcribing')
+      : transcript || value;
 
   if (useTextFallback) {
     return (
       <div className="voice-quiz-input">
         <textarea
           className="qc-textarea"
-          placeholder="Type your answer..."
+          placeholder={t('prepare.voice.typePlaceholder')}
           value={value}
           onChange={(e) => onChange(e.target.value)}
           onFocus={() => onInteract?.()}
@@ -57,7 +65,7 @@ function VoiceQuizInput({ value, onChange, disabled, onInteract }: {
           className="btn-mic-sm"
           onClick={() => setUseTextFallback(false)}
         >
-          🎙 Switch to voice input
+          {t('prepare.voice.switchToVoice')}
         </button>
       </div>
     );
@@ -69,7 +77,7 @@ function VoiceQuizInput({ value, onChange, disabled, onInteract }: {
         {displayText ? (
           <span className={`voice-transcript-text${transcribing ? ' transcribing' : ''}`}>{displayText}</span>
         ) : (
-          <span className="voice-placeholder">🎙 Press mic to answer with voice</span>
+          <span className="voice-placeholder">{t('prepare.voice.placeholder')}</span>
         )}
         {listening && <span className="voice-pulse" />}
         {transcribing && <span className="voice-spinner" />}
@@ -78,7 +86,7 @@ function VoiceQuizInput({ value, onChange, disabled, onInteract }: {
         <div className="voice-error">
           {error}
           <button type="button" className="voice-fallback-btn" onClick={() => setUseTextFallback(true)}>
-            ⌨ Switch to text input
+            {t('prepare.voice.switchToText')}
           </button>
         </div>
       )}
@@ -87,9 +95,9 @@ function VoiceQuizInput({ value, onChange, disabled, onInteract }: {
         className={`btn-mic-sm${listening ? ' recording' : ''}`}
         disabled={disabled || transcribing}
         onClick={toggleMic}
-        aria-label={listening ? 'Stop recording' : 'Voice recording'}
+        aria-label={listening ? t('prepare.voice.stopRecording') : t('prepare.voice.startRecording')}
       >
-        {listening ? '⏹ Done' : transcribing ? 'Transcribing...' : '🎙 Answer'}
+        {listening ? `⏹ ${t('prepare.voice.done')}` : transcribing ? t('prepare.voice.transcribing') : `🎙 ${t('prepare.voice.answer')}`}
       </button>
     </div>
   );
@@ -118,20 +126,21 @@ function buildPrepareSteps(session: SessionContext): PrepareStepId[] {
   return out;
 }
 
-function stepLabel(id: PrepareStepId): string {
-  if (id === 'material_prep') return 'Topic & materials';
-  if (id === 'script') return 'Optional script';
-  if (id === 'analyze') return 'AI analysis';
-  if (id === 'quiz') return 'Pre-quiz';
-  return 'Step';
+function stepLabelKey(id: PrepareStepId): MessageKey {
+  if (id === 'material_prep') return 'prepare.step.material';
+  if (id === 'script') return 'prepare.step.script';
+  if (id === 'analyze') return 'prepare.step.analyze';
+  if (id === 'quiz') return 'prepare.step.quiz';
+  return 'prepare.step.generic';
 }
 
 export function UploadWorkspace() {
+  const t = useT();
+  const locale = useEffectiveLocale();
   const session = useSessionStore((s) => s.session);
   const busy = useSessionStore((s) => s.busy);
   const error = useSessionStore((s) => s.error);
   const preQuizAnswers = useSessionStore((s) => s.preQuizAnswers);
-  const setAppStarted = useSessionStore((s) => s.setAppStarted);
   const setPreQuizAnswer = useSessionStore((s) => s.setPreQuizAnswer);
   const runMaterialAnalysis = useSessionStore((s) => s.runMaterialAnalysis);
   const submitPreQuiz = useSessionStore((s) => s.submitPreQuiz);
@@ -167,7 +176,7 @@ export function UploadWorkspace() {
   }, [quizKey]);
 
   useEffect(() => {
-    if (busy === 'Analyzing materials...') preQuizAutoJumpKey.current = null;
+    if (busy === 'prepare.busy.analyzing') preQuizAutoJumpKey.current = null;
   }, [busy]);
 
   useEffect(() => {
@@ -205,7 +214,17 @@ export function UploadWorkspace() {
     Boolean(session.material.summary?.trim()) &&
     !busy;
 
-  const isPreQuizGrading = busy === 'Grading...';
+  const isPreQuizGrading = busy === 'prepare.busy.grading';
+  const errorText =
+    error && isMessageKey(error)
+      ? getMessage(
+          locale,
+          error,
+          error === 'prepare.files.error.maxFiles' || error === 'prepare.files.error.partial'
+            ? { max: 20 }
+            : undefined,
+        )
+      : error;
 
   const quizGraded =
     session.material.quiz.length > 0 &&
@@ -263,7 +282,7 @@ export function UploadWorkspace() {
     if (currentId === 'material_prep') {
       const h = filesPanelRef.current;
       if (h?.hasEntries() && !h.save()) return;
-      if (h?.hasEntries()) useToastStore.getState().showToast('Saved');
+      if (h?.hasEntries()) useToastStore.getState().showToast(t('prepare.toast.saved'));
     }
 
     if (currentId === 'analyze' && analysisReady(session) && session.material.quiz.length === 0) {
@@ -286,21 +305,16 @@ export function UploadWorkspace() {
       case 'material_prep':
         return (
           <div className="upload-wizard-panel upload-wizard-panel--stack">
-            <h2 className="upload-wizard-title">Step {stepHuman} — Topic &amp; materials</h2>
-            <p className="upload-wizard-lead">
-              Set the presentation context, then add files. Press <strong>Next</strong> to save materials and continue
-              — no separate save step.
-            </p>
+            <h2 className="upload-wizard-title">{t('prepare.material.title', { step: stepHuman })}</h2>
+            <p className="upload-wizard-lead">{t('prepare.material.lead')}</p>
             <div className="upload-wizard-subpanel">
-              <h3 className="upload-wizard-subtitle">Presentation context</h3>
-              <p className="upload-wizard-sublead">
-                Tell Point what this deck is about. This shapes coaching tone and quiz focus.
-              </p>
+              <h3 className="upload-wizard-subtitle">{t('prepare.material.contextTitle')}</h3>
+              <p className="upload-wizard-sublead">{t('prepare.material.contextLead')}</p>
               <PresentationTopicPanel />
             </div>
             <div className="upload-wizard-subpanel">
-              <h3 className="upload-wizard-subtitle">Materials</h3>
-              <p className="upload-wizard-sublead">TXT, MD, PDF, or PPTX — drag in or use the toolbar.</p>
+              <h3 className="upload-wizard-subtitle">{t('prepare.material.filesTitle')}</h3>
+              <p className="upload-wizard-sublead">{t('prepare.material.filesLead')}</p>
               <FileSubmissionPanel
                 ref={filesPanelRef}
                 globalBusy={!!busy}
@@ -312,23 +326,19 @@ export function UploadWorkspace() {
       case 'script':
         return (
           <div className="upload-wizard-panel">
-            <h2 className="upload-wizard-title">Step {stepHuman} — Optional script</h2>
-            <p className="upload-wizard-lead">
-              If you have a written script, add it for better plan-vs-actual feedback in your report. You can skip this step.
-            </p>
+            <h2 className="upload-wizard-title">{t('prepare.script.title', { step: stepHuman })}</h2>
+            <p className="upload-wizard-lead">{t('prepare.script.lead')}</p>
             <ScriptUploadPanel />
           </div>
         );
       case 'analyze':
         return (
           <div className="upload-wizard-panel">
-            <h2 className="upload-wizard-title">Step {stepHuman} — AI analysis &amp; quiz</h2>
-            <p className="upload-wizard-lead">
-              Run analysis to extract keywords and generate a short pre-presentation quiz. This usually takes a moment.
-            </p>
-            {error && (
+            <h2 className="upload-wizard-title">{t('prepare.analyze.title', { step: stepHuman })}</h2>
+            <p className="upload-wizard-lead">{t('prepare.analyze.lead')}</p>
+            {errorText && (
               <div className="error-box" role="alert">
-                {error}
+                {errorText}
               </div>
             )}
             <button
@@ -337,19 +347,30 @@ export function UploadWorkspace() {
               disabled={!!busy}
               onClick={() => void runMaterialAnalysis()}
             >
-              {busy === 'Analyzing materials...' ? busy : 'AI Analysis & Quiz Generation'}
+              {busy === 'prepare.busy.analyzing' ? t(busy) : t('prepare.analyze.cta')}
             </button>
             {analysisReady(session) && session.material.summary && (
               <div className="analysis-complete-card upload-wizard-analysis-card">
-                <div className="analysis-badge" aria-label="Analysis complete">
-                  🤖 AI ANALYSIS COMPLETE
+                <div className="analysis-badge" aria-label={t('prepare.analyze.badge')}>
+                  🤖 {t('prepare.analyze.badge')}
                 </div>
                 <div className="analysis-detail">
-                  <strong>{session.material.keywords.length}</strong> keywords extracted ·{' '}
-                  <strong>{session.material.quiz.length}</strong> pre-quiz question
-                  {session.material.quiz.length === 1 ? '' : 's'} generated
+                  {t('prepare.analyze.detail', {
+                    keywords: session.material.keywords.length,
+                    questions: session.material.quiz.length,
+                    questionsSuffix:
+                      locale === 'ko' ? '' : session.material.quiz.length === 1 ? '' : 's',
+                  })}
                   <br />
-                  OpenAI: {hasOpenAI() ? 'Connected' : 'Demo'} · Supabase: {hasSupabase() ? 'Configured' : 'Local'}
+                  {t('prepare.analyze.openai', {
+                    status: t(hasOpenAI() ? 'prepare.analyze.status.connected' : 'prepare.analyze.status.demo'),
+                  })}{' '}
+                  ·{' '}
+                  {t('prepare.analyze.supabase', {
+                    status: t(
+                      hasSupabase() ? 'prepare.analyze.status.configured' : 'prepare.analyze.status.local',
+                    ),
+                  })}
                 </div>
               </div>
             )}
@@ -364,22 +385,20 @@ export function UploadWorkspace() {
 
         return (
           <div className="upload-wizard-panel upload-wizard-panel--wide">
-            <h2 className="upload-wizard-title">Pre-presentation check</h2>
+            <h2 className="upload-wizard-title">{t('prepare.quiz.title')}</h2>
             <div className="prequiz-intro-inline">
-              <div className="quiz-badge">📋 PRE-PRESENTATION CHECK</div>
-              <p className="upload-wizard-sublead">
-                Answer each question in your own words — voice or typing. Confirm your answer to reveal the next question.
-              </p>
+              <div className="quiz-badge">📋 {t('prepare.quiz.badge')}</div>
+              <p className="upload-wizard-sublead">{t('prepare.quiz.lead')}</p>
               <div className="coach-question-tts-row">
                 <button
                   type="button"
                   className="btn-sm"
                   onClick={() => {
                     primeFeedbackAudio();
-                    void speakCoachQuestion(PRE_QUIZ_INTRO_TTS, selectedPersona);
+                    void speakCoachQuestion(t('prepare.quiz.introTts'), selectedPersona);
                   }}
                 >
-                  Hear intro
+                  {t('prepare.quiz.hearIntro')}
                 </button>
               </div>
             </div>
@@ -399,7 +418,10 @@ export function UploadWorkspace() {
                   className={`quiz-card ${gradedCls}`.trim()}
                 >
                   <div className="qc-num">
-                    Q {String(idx + 1).padStart(2, '0')} / {String(session.material.quiz.length).padStart(2, '0')}
+                    {t('prepare.quiz.qNum', {
+                      current: String(idx + 1).padStart(2, '0'),
+                      total: String(session.material.quiz.length).padStart(2, '0'),
+                    })}
                   </div>
                   <div className="qc-question">{q.question}</div>
                   <div className="coach-question-tts-row">
@@ -411,7 +433,7 @@ export function UploadWorkspace() {
                         void speakCoachQuestion(q.question, selectedPersona);
                       }}
                     >
-                      Hear question
+                      {t('prepare.quiz.hearQuestion')}
                     </button>
                   </div>
                   <VoiceQuizInput
@@ -423,8 +445,8 @@ export function UploadWorkspace() {
                   {gradeRow != null && (
                     <div className={`qc-grade ${passed ? 'qc-grade-pass' : 'qc-grade-fail'}`}>
                       <div className="qc-grade-head">
-                        <strong>{passed ? 'Correct' : 'Incorrect'}</strong>
-                        <span className="qc-grade-score">{gradeRow.score} pts</span>
+                        <strong>{passed ? t('prepare.quiz.correct') : t('prepare.quiz.incorrect')}</strong>
+                        <span className="qc-grade-score">{t('prepare.quiz.points', { score: gradeRow.score })}</span>
                       </div>
                       <p className="qc-grade-feedback">{gradeRow.feedback}</p>
                     </div>
@@ -440,7 +462,7 @@ export function UploadWorkspace() {
                           setVisibleQuizCount((v) => v + 1);
                         }}
                       >
-                        Next question →
+                        {t('prepare.quiz.nextQuestion')}
                       </button>
                     </div>
                   )}
@@ -459,17 +481,17 @@ export function UploadWorkspace() {
                     void submitPreQuiz();
                   }}
                 >
-                  {isPreQuizGrading ? 'Grading...' : 'Submit all & Grade →'}
+                  {isPreQuizGrading ? t('prepare.busy.grading') : t('prepare.quiz.submitGrade')}
                 </button>
               </div>
             )}
 
             {quizGraded && session.material.pre_quiz_score > 0 && (
               <div className="quiz-score quiz-score-visible quiz-score-after-grade">
-                <div className="qs-label">Content comprehension score</div>
+                <div className="qs-label">{t('prepare.quiz.scoreLabel')}</div>
                 <div className="qs-score">
                   {session.material.pre_quiz_score}
-                  <span className="score-unit">pts</span>
+                  <span className="score-unit">{locale === 'ko' ? '점' : 'pts'}</span>
                 </div>
               </div>
             )}
@@ -485,7 +507,7 @@ export function UploadWorkspace() {
                     void startPresenting();
                   }}
                 >
-                  Start presentation →
+                  {t('prepare.startPresentation')}
                 </button>
               </div>
             )}
@@ -502,18 +524,19 @@ export function UploadWorkspace() {
       <div className="app-shell">
         <div className="topbar">
           <div className="topbar-logo">
-            <AnimatedPointLogo onHomeClick={() => setAppStarted(false)} ariaLabel="Point — Home" />
+            <AnimatedPointLogo onHomeClick={() => navigateBack()} ariaLabel="Point — Home" />
           </div>
           <div className="upload-wizard-topbar-meta" aria-live="polite">
-            <span className="upload-wizard-step-pill">Prepare</span>
+            <span className="upload-wizard-step-pill">{t('prepare.topbar.pill')}</span>
             <span className="upload-wizard-step-count">
-              Step {stepHuman} of {totalSteps}
+              {t('prepare.topbar.stepOf', { current: stepHuman, total: totalSteps })}
             </span>
-            <span className="upload-wizard-step-name">{stepLabel(currentId)}</span>
+            <span className="upload-wizard-step-name">{t(stepLabelKey(currentId))}</span>
           </div>
           <div className="topbar-right">
-            <button type="button" className="btn-sm" onClick={() => setAppStarted(false)}>
-              ← Home
+            <LanguageSwitcher className="lang-switcher--topnav" />
+            <button type="button" className="btn-sm" onClick={() => navigateBack()}>
+              {t('nav.back')}
             </button>
             <button
               type="button"
@@ -524,7 +547,7 @@ export function UploadWorkspace() {
                 void startPresenting();
               }}
             >
-              Start Presentation →
+              {t('prepare.startPresentation')}
             </button>
           </div>
         </div>
@@ -534,8 +557,8 @@ export function UploadWorkspace() {
             <div className="quiz-grading-overlay" role="status" aria-live="polite" aria-busy="true">
               <div className="quiz-grading-card">
                 <div className="quiz-grading-spinner" aria-hidden />
-                <p className="quiz-grading-title">Grading...</p>
-                <p className="quiz-grading-sub">AI is evaluating your answers. Please wait a moment.</p>
+                <p className="quiz-grading-title">{t('prepare.quiz.gradingTitle')}</p>
+                <p className="quiz-grading-sub">{t('prepare.quiz.gradingSub')}</p>
               </div>
             </div>
           )}
@@ -544,7 +567,7 @@ export function UploadWorkspace() {
 
           <div className="upload-wizard-nav">
             <button type="button" className="btn-sm" onClick={goPrev} disabled={stepIndex <= 0 || isPreQuizGrading}>
-              ← Back
+              {t('prepare.navBack')}
             </button>
             <div className="upload-wizard-nav-spacer" />
             <div className="upload-wizard-nav-actions">
@@ -566,8 +589,8 @@ export function UploadWorkspace() {
                   {currentId === 'analyze' &&
                   analysisReady(session) &&
                   session.material.quiz.length === 0
-                    ? 'Start presentation →'
-                    : 'Next →'}
+                    ? t('prepare.startPresentation')
+                    : t('prepare.next')}
                 </button>
               )}
             </div>

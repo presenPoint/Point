@@ -5,12 +5,14 @@ import { useVolumeAnalyzer } from '../hooks/useVolumeAnalyzer';
 import { cancelFeedbackSpeech, enqueueFeedback, onSpeakingChange, primeFeedbackAudio } from '../lib/feedbackTts';
 import { stopCoachQuestionSpeech } from '../lib/coachQuestionTts';
 import { buildReplaySubtitles } from '../lib/replaySubtitles';
+import { navigateBack } from '../lib/appNavigation';
 import { flushLiveTranscriptNow, restartLiveSpeechRecognition } from '../lib/liveTranscriptFlush';
 import type { ReplaySubtitleCue } from '../lib/replaySubtitles';
 import { saveTranscriptToBlob } from '../lib/transcriptStorage';
 import { PERSONAS } from '../constants/personas';
 import { getDefaultPaceRange, getPersonaPaceRange, isPaceInRange } from '../lib/speechRate';
-import { useLocaleStore } from '../store/localeStore';
+import { useEffectiveLocale } from '../hooks/useEffectiveLocale';
+import { LanguageSwitcher } from './LanguageSwitcher';
 import { useSessionStore } from '../store/sessionStore';
 import { useToastStore } from '../store/toastStore';
 import type { FeedbackItem, FeedbackLevel } from '../types/session';
@@ -137,6 +139,30 @@ export function LiveSessionScreen() {
   const [replayCues, setReplayCues] = useState<ReplaySubtitleCue[]>([]);
 
   const [mediaStream, setMediaStream] = useState<MediaStream | null>(null);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
+
+  const stopCamera = useCallback(() => {
+    stopPoseTracking();
+    const v = videoRef.current;
+    const stream =
+      (v?.srcObject instanceof MediaStream ? v.srcObject : null) ?? mediaStreamRef.current;
+    if (stream) {
+      for (const track of stream.getTracks()) {
+        try {
+          track.stop();
+        } catch {
+          /* ignore */
+        }
+      }
+    }
+    if (v) {
+      v.srcObject = null;
+      v.onloadeddata = null;
+    }
+    mediaStreamRef.current = null;
+    setMediaStream(null);
+    setCamOn(false);
+  }, [stopPoseTracking]);
 
   const handleVolumeSample = useCallback((rms: number) => {
     const ts = Date.now();
@@ -262,6 +288,7 @@ export function LiveSessionScreen() {
 
   useEffect(
     () => () => {
+      stopCamera();
       if (replayUrlRef.current) {
         URL.revokeObjectURL(replayUrlRef.current);
         replayUrlRef.current = null;
@@ -276,10 +303,10 @@ export function LiveSessionScreen() {
       }
       recorderRef.current = null;
     },
-    [],
+    [stopCamera],
   );
 
-  const locale = useLocaleStore((s) => s.locale);
+  const locale = useEffectiveLocale();
   const selectedPersona = useSessionStore((s) => s.selectedPersona);
   const paceRange = useMemo(() => {
     const p = selectedPersona ? PERSONAS[selectedPersona] : null;
@@ -330,9 +357,12 @@ export function LiveSessionScreen() {
         v.onloadeddata = () => startPoseTracking(v);
         setCamOn(true);
       }
+      mediaStreamRef.current = stream;
       setMediaStream(stream);
       restartLiveSpeechRecognition();
     } catch {
+      mediaStreamRef.current = null;
+      setMediaStream(null);
       setCamOn(false);
     }
   };
@@ -401,10 +431,20 @@ export function LiveSessionScreen() {
     }
   };
 
+  const leavePresentation = () => {
+    if (recording) stopPracticeRecording();
+    stopReplay();
+    stopCamera();
+    flushLiveTranscriptNow();
+    cancelFeedbackSpeech();
+    useSessionStore.getState().setEndedReason('abandoned');
+    navigateBack();
+  };
+
   const endSession = (reason: 'user' | 'time_limit' = 'user') => {
     if (recording) stopPracticeRecording();
     stopReplay();
-    stopPoseTracking();
+    stopCamera();
     flushLiveTranscriptNow();
     const s = Math.round((Date.now() - presentingStartRef.current) / 1000);
     useSessionStore.setState((st) => ({
@@ -479,11 +519,21 @@ export function LiveSessionScreen() {
 
       <div className="live-shell">
         <div className="live-topbar">
-          <div className="live-logo">
-            <AnimatedPointLogo
-              onHomeClick={() => useSessionStore.getState().setAppStarted(false)}
-              ariaLabel={t('live.logoHome')}
-            />
+          <div className="live-topbar-start">
+            <button
+              type="button"
+              className="live-back-btn"
+              onClick={leavePresentation}
+              aria-label={t('live.backAria')}
+            >
+              {t('nav.back')}
+            </button>
+            <div className="live-logo">
+              <AnimatedPointLogo
+                onHomeClick={leavePresentation}
+                ariaLabel={t('live.logoHome')}
+              />
+            </div>
           </div>
           <div className="rec-indicator">
             <div className="rec-dot" />
@@ -503,6 +553,7 @@ export function LiveSessionScreen() {
             )}
           </div>
           <div className="live-actions">
+            <LanguageSwitcher className="lang-switcher--topnav lang-switcher--live" />
             {camOn && (
               <button
                 type="button"

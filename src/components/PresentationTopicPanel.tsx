@@ -8,6 +8,7 @@ import {
   topicKey,
 } from '../constants/presentationTopics';
 import { useSessionStore } from '../store/sessionStore';
+import { useT } from '../hooks/useT';
 
 function useFocusTrap(active: boolean, rootRef: RefObject<HTMLElement | null>) {
   useEffect(() => {
@@ -22,6 +23,7 @@ function useFocusTrap(active: boolean, rootRef: RefObject<HTMLElement | null>) {
 }
 
 export function PresentationTopicPanel() {
+  const t = useT();
   const keys = useSessionStore((s) => s.session.presentation_topic_keys);
   const custom = useSessionStore((s) => s.session.presentation_topic_custom);
   const setPresentationTopics = useSessionStore((s) => s.setPresentationTopics);
@@ -111,17 +113,14 @@ export function PresentationTopicPanel() {
   return (
     <div className="topic-panel topic-panel--inline">
       <div className="topic-inline-stack">
-        <span className="input-label topic-inline-label">Presentation topic</span>
+        <span className="input-label topic-inline-label">{t('prepare.topic.label')}</span>
         <button type="button" className="topic-open-modal-btn" onClick={openModal}>
-          Manage topics
+          {t('prepare.topic.manage')}
         </button>
-        <p className="topic-inline-hint">
-          Open the picker to choose one or more themes. Your choices help AI interpret material, live speech, Q&amp;A,
-          and the final report.
-        </p>
-        <div className="topic-selected-strip" role="list" aria-label="Selected presentation topics">
+        <p className="topic-inline-hint">{t('prepare.topic.hint')}</p>
+        <div className="topic-selected-strip" role="list" aria-label={t('prepare.topic.label')}>
           {keys.length === 0 ? (
-            <span className="topic-inline-empty">No topics selected yet.</span>
+            <span className="topic-inline-empty">{t('prepare.topic.none')}</span>
           ) : (
             keys.map((k) => {
               const full = labelForTopicKey(k) ?? k;
@@ -143,7 +142,7 @@ export function PresentationTopicPanel() {
                   <button
                     type="button"
                     className="topic-selected-pill-remove"
-                    aria-label={`Remove ${full}`}
+                    aria-label={t('prepare.topic.removeAria', { label: full })}
                     onClick={() => removeCommittedKey(k)}
                   >
                     ×
@@ -160,7 +159,7 @@ export function PresentationTopicPanel() {
           <button
             type="button"
             className="topic-modal-backdrop"
-            aria-label="Close topic picker"
+            aria-label={t('prepare.topic.closePicker')}
             onClick={cancelModal}
           />
           <div
@@ -172,22 +171,22 @@ export function PresentationTopicPanel() {
           >
             <div className="topic-modal-header">
               <h2 id="topic-modal-title" className="topic-modal-title">
-                Presentation topic
+                {t('prepare.topic.modalTitle')}
               </h2>
-              <button type="button" className="topic-modal-icon-close" onClick={cancelModal} aria-label="Close">
+              <button type="button" className="topic-modal-icon-close" onClick={cancelModal} aria-label={t('prepare.topic.close')}>
                 ×
               </button>
             </div>
 
             <div className="topic-modal-search-wrap">
               <label className="topic-modal-search-label" htmlFor="topic-search-modal">
-                Search topics
+                {t('prepare.topic.searchLabel')}
               </label>
               <input
                 id="topic-search-modal"
                 type="search"
                 className="topic-modal-search-input"
-                placeholder="e.g. pitch, thesis, AI, ESG…"
+                placeholder={t('prepare.topic.searchPlaceholder')}
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 autoComplete="off"
@@ -224,13 +223,13 @@ export function PresentationTopicPanel() {
             {hasOtherDraft && (
               <div className="topic-modal-other">
                 <label className="topic-modal-other-label" htmlFor="topic-custom-modal">
-                  Describe your topic (required for best results)
+                  {t('prepare.topic.otherLabel')}
                 </label>
                 <textarea
                   id="topic-custom-modal"
                   className="topic-modal-textarea"
                   rows={3}
-                  placeholder="e.g. Local retail revitalization policy for small businesses…"
+                  placeholder={t('prepare.topic.otherPlaceholder')}
                   value={draftCustom}
                   onChange={(e) => setDraftCustomText(e.target.value)}
                 />
@@ -239,10 +238,10 @@ export function PresentationTopicPanel() {
 
             <div className="topic-modal-footer">
               <button type="button" className="topic-modal-btn topic-modal-btn--ghost" onClick={cancelModal}>
-                Cancel
+                {t('prepare.topic.cancel')}
               </button>
               <button type="button" className="topic-modal-btn topic-modal-btn--primary" onClick={commitAndClose}>
-                Done
+                {t('prepare.topic.done')}
               </button>
             </div>
           </div>

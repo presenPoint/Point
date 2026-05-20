@@ -7,6 +7,7 @@ import {
   type MaterialFileKind,
 } from '../lib/processMaterialFile';
 import { useSessionStore } from '../store/sessionStore';
+import { useT } from '../hooks/useT';
 
 const MAX_FILES = 20;
 const MAX_BYTES = 1024 * 1024 * 1024; // 1GB
@@ -44,15 +45,14 @@ function persistMaterialEntries(
 ): boolean {
   if (items.some((e) => e.loading)) {
     useSessionStore.setState({
-      error: 'Please wait until file text extraction is complete before saving.',
+      error: 'prepare.files.error.waitExtract',
     });
     return false;
   }
   const combined = combineMaterialText(items);
   if (combined.trim().length < 20) {
     useSessionStore.setState({
-      error:
-        'No text available to save. Please add files that were processed without errors and try again.',
+      error: 'prepare.files.error.noText',
     });
     return false;
   }
@@ -161,6 +161,7 @@ type Props = {
 
 export const FileSubmissionPanel = forwardRef<FileSubmissionPanelHandle, Props>(
   function FileSubmissionPanel({ globalBusy, onFilesStepBlockingChange }, ref) {
+  const t = useT();
   const setMaterialText = useSessionStore((s) => s.setMaterialText);
   const [entries, setEntries] = useState<LocalFileEntry[]>([]);
   const entriesRef = useRef(entries);
@@ -186,7 +187,7 @@ export const FileSubmissionPanel = forwardRef<FileSubmissionPanelHandle, Props>(
     const oversized = fileArray.filter((f) => f.size > MAX_BYTES);
     if (oversized.length) {
       useSessionStore.setState({
-        error: 'Each file must be under 1GB.',
+        error: 'prepare.files.error.tooLarge',
       });
       return;
     }
@@ -194,7 +195,7 @@ export const FileSubmissionPanel = forwardRef<FileSubmissionPanelHandle, Props>(
     const supported = filterSupportedFiles(fileArray);
     if (supported.length === 0) {
       useSessionStore.setState({
-        error: 'Only supported formats (TXT, MD, PDF, PPTX) can be added.',
+        error: 'prepare.files.error.format',
       });
       return;
     }
@@ -205,12 +206,12 @@ export const FileSubmissionPanel = forwardRef<FileSubmissionPanelHandle, Props>(
       setEntries((prev) => {
         const room = MAX_FILES - prev.length;
         if (room <= 0) {
-          useSessionStore.setState({ error: `You can attach up to ${MAX_FILES} files.` });
+          useSessionStore.setState({ error: 'prepare.files.error.maxFiles' });
           return prev;
         }
         const take = supported.slice(0, room);
         if (supported.length > room) {
-          useSessionStore.setState({ error: `Only the first ${MAX_FILES} files were added.` });
+          useSessionStore.setState({ error: 'prepare.files.error.partial' });
         } else {
           useSessionStore.setState({ error: null });
         }
@@ -293,10 +294,8 @@ export const FileSubmissionPanel = forwardRef<FileSubmissionPanelHandle, Props>(
   return (
     <div className="file-submit-panel">
       <div className="fs-header-row">
-        <h3 className="fs-title">File Submission</h3>
-        <p className="fs-limits">
-          Max file size: 1GB, Max attachments: {MAX_FILES}
-        </p>
+        <h3 className="fs-title">{t('prepare.files.title')}</h3>
+        <p className="fs-limits">{t('prepare.files.limits', { max: MAX_FILES })}</p>
       </div>
 
       <div className="fs-card">
@@ -305,7 +304,7 @@ export const FileSubmissionPanel = forwardRef<FileSubmissionPanelHandle, Props>(
             <button
               type="button"
               className="fs-tool-btn"
-              title="Add files"
+              title={t('prepare.files.addFiles')}
               disabled={disabled}
               onClick={() => fileInputRef.current?.click()}
             >
@@ -314,7 +313,7 @@ export const FileSubmissionPanel = forwardRef<FileSubmissionPanelHandle, Props>(
             <button
               type="button"
               className="fs-tool-btn"
-              title="Add from folder"
+              title={t('prepare.files.addFolder')}
               disabled={disabled}
               onClick={() => folderInputRef.current?.click()}
             >
@@ -323,7 +322,7 @@ export const FileSubmissionPanel = forwardRef<FileSubmissionPanelHandle, Props>(
             <button
               type="button"
               className="fs-tool-btn"
-              title="Upload"
+              title={t('prepare.files.upload')}
               disabled={disabled}
               onClick={() => fileInputRef.current?.click()}
             >
@@ -334,7 +333,7 @@ export const FileSubmissionPanel = forwardRef<FileSubmissionPanelHandle, Props>(
             <button
               type="button"
               className={`fs-view-btn ${viewMode === 'grid' ? 'active' : ''}`}
-              title="Grid view"
+              title={t('prepare.files.viewGrid')}
               onClick={() => setViewMode('grid')}
             >
               <IconGrid />
@@ -342,7 +341,7 @@ export const FileSubmissionPanel = forwardRef<FileSubmissionPanelHandle, Props>(
             <button
               type="button"
               className={`fs-view-btn ${viewMode === 'list' ? 'active' : ''}`}
-              title="List view"
+              title={t('prepare.files.viewList')}
               onClick={() => setViewMode('list')}
             >
               <IconList />
@@ -350,7 +349,7 @@ export const FileSubmissionPanel = forwardRef<FileSubmissionPanelHandle, Props>(
             <button
               type="button"
               className={`fs-view-btn ${viewMode === 'folder' ? 'active' : ''}`}
-              title="Folder view"
+              title={t('prepare.files.viewFolder')}
               onClick={() => setViewMode('folder')}
             >
               <IconFolderView />
@@ -392,7 +391,7 @@ export const FileSubmissionPanel = forwardRef<FileSubmissionPanelHandle, Props>(
         >
           {entries.length === 0 ? (
             <div className="fs-empty-hint">
-              {panelBusy ? 'Processing files…' : 'Drag files here or add them using the toolbar above.'}
+              {panelBusy ? t('prepare.files.processing') : t('prepare.files.empty')}
             </div>
           ) : viewMode === 'list' ? (
             <ul className="fs-list">
@@ -403,14 +402,14 @@ export const FileSubmissionPanel = forwardRef<FileSubmissionPanelHandle, Props>(
                     <span className="fs-list-name">{e.name}</span>
                     <span className="fs-list-sub">
                       {(e.size / 1024).toFixed(1)} KB
-                      {e.loading ? ' · Processing…' : ''}
+                      {e.loading ? ` · ${t('prepare.files.processingEntry')}` : ''}
                       {e.error ? ` · ${e.error}` : ''}
                     </span>
                   </div>
                   <button
                     type="button"
                     className="fs-remove"
-                    aria-label="Remove"
+                    aria-label={t('prepare.files.remove')}
                     disabled={disabled}
                     onClick={() => removeEntry(e.id)}
                   >
@@ -426,7 +425,7 @@ export const FileSubmissionPanel = forwardRef<FileSubmissionPanelHandle, Props>(
                   <button
                     type="button"
                     className="fs-remove fs-remove-float"
-                    aria-label="Remove"
+                    aria-label={t('prepare.files.remove')}
                     disabled={disabled}
                     onClick={() => removeEntry(e.id)}
                   >

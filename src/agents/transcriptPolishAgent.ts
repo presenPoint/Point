@@ -1,4 +1,7 @@
 import { chatJson, hasOpenAI } from '../lib/openai';
+import { aiOutputLanguageRule, sanitizeKoUserFacingDeep } from '../lib/aiOutputLocale';
+import type { AppLocale } from '../store/localeStore';
+import { resolveLocaleForCurrentApp } from '../store/localeStore';
 
 export type TranscriptPolishPair = {
   original: string;
@@ -12,8 +15,9 @@ export type TranscriptPolishPair = {
  */
 export async function suggestTranscriptPolish(
   transcriptPlain: string,
-  options: { personaSystemPrompt?: string; coachName: string },
+  options: { personaSystemPrompt?: string; coachName: string; locale?: AppLocale },
 ): Promise<TranscriptPolishPair[] | null> {
+  const locale = options.locale ?? resolveLocaleForCurrentApp();
   if (!hasOpenAI()) return null;
   const clipped = transcriptPlain.replace(/\s+/g, ' ').trim().slice(0, 7000);
   if (clipped.length < 60) return [];
@@ -29,7 +33,8 @@ Rules:
 - Pick 6–12 moments that would benefit most (rambling, weak landing, vague setup).
 - Each "original" must be a contiguous substring of the INPUT text (after whitespace normalization, close match is OK).
 - Improved lines must be easy to say aloud (not essay tone).
-- Match the language of the INPUT.`;
+${aiOutputLanguageRule(locale)}
+- When output language is Korean, write improved lines and notes in Korean (Hangul only) even if the INPUT mixes English words.`;
 
   const parsed = await chatJson<{ pairs: TranscriptPolishPair[] }>(
     'gpt-4o-mini',
@@ -37,7 +42,7 @@ Rules:
     `Coach label: ${options.coachName}\n\nINPUT TRANSCRIPT:\n${clipped}`,
   );
   if (!parsed?.pairs?.length) return null;
-  return parsed.pairs
+  const pairs = parsed.pairs
     .filter((p) => p && typeof p.original === 'string' && typeof p.improved === 'string')
     .map((p) => ({
       original: p.original.trim().slice(0, 420),
@@ -45,4 +50,5 @@ Rules:
       note: p.note ? String(p.note).trim().slice(0, 96) : undefined,
     }))
     .slice(0, 14);
+  return sanitizeKoUserFacingDeep(pairs, locale);
 }

@@ -3,8 +3,8 @@ import { loadSessionHistory, type SessionHistoryItem } from '../store/sessionSto
 import type { ActionableFeedback, TimeMarker } from '../types/session';
 import { ScoreRing } from './ScoreRing';
 import { transcriptWithTimestamps } from '../lib/transcriptScript';
+import { navigateBack } from '../lib/appNavigation';
 import { AnimatedPointLogo } from './AnimatedPointLogo';
-import { useSessionStore } from '../store/sessionStore';
 import { analyzeProgress, type ProgressAnalysis } from '../agents/progressAnalysisAgent';
 import { hasOpenAI } from '../lib/openai';
 
@@ -501,7 +501,6 @@ function PastPresentationCard({ s }: { s: SessionHistoryItem }) {
 
 /* ── Main Dashboard ── */
 export function DashboardScreen({ userId, userName, userAvatar, onBack }: Props) {
-  const setAppStarted = useSessionStore((s) => s.setAppStarted);
   const [history, setHistory] = useState<SessionHistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -519,7 +518,7 @@ export function DashboardScreen({ userId, userName, userAvatar, onBack }: Props)
       {/* Top bar */}
       <div className="db-topbar">
         <div className="db-topbar-left">
-          <AnimatedPointLogo onHomeClick={() => setAppStarted(false)} ariaLabel="Point — Home" />
+          <AnimatedPointLogo onHomeClick={() => navigateBack()} ariaLabel="Point — Home" />
           <button type="button" className="btn-sm db-back-btn" onClick={onBack}>← Home</button>
         </div>
         <h1 className="db-topbar-title">My Progress</h1>

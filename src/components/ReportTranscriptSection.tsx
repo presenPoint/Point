@@ -7,6 +7,8 @@ import { hasOpenAI } from '../lib/openai';
 import { suggestTranscriptPolish, type TranscriptPolishPair } from '../agents/transcriptPolishAgent';
 import { primeFeedbackAudio } from '../lib/feedbackTts';
 import { speakCoachQuestion, speakTranscriptSnippetNeutral, stopCoachQuestionSpeech } from '../lib/coachQuestionTts';
+import { useT } from '../hooks/useT';
+import { useEffectiveLocale } from '../hooks/useEffectiveLocale';
 
 type Props = {
   transcriptLog: TranscriptEntry[];
@@ -21,10 +23,11 @@ export function ReportTranscriptSection({
   sessionId,
   selectedPersona,
 }: Props) {
+  const t = useT();
+  const locale = useEffectiveLocale();
   const [polishPairs, setPolishPairs] = useState<TranscriptPolishPair[] | null>(null);
   const [polishBusy, setPolishBusy] = useState(false);
   const [polishError, setPolishError] = useState<string | null>(null);
-  /** `you:${i}` | `coach:${i}` while TTS is running */
   const [polishAudioKey, setPolishAudioKey] = useState<string | null>(null);
 
   useEffect(() => () => stopCoachQuestionSpeech(), []);
@@ -61,11 +64,12 @@ export function ReportTranscriptSection({
       const pairs = await suggestTranscriptPolish(plain, {
         coachName: persona?.name ?? 'Generic coach',
         personaSystemPrompt: persona?.systemPrompt,
+        locale,
       });
       if (pairs === null) {
-        setPolishError('Could not generate suggestions. Check your API key.');
+        setPolishError(t('report.transcript.polishErrorApi'));
       } else if (pairs.length === 0) {
-        setPolishError('Not enough transcript to analyze.');
+        setPolishError(t('report.transcript.polishErrorShort'));
       } else {
         setPolishPairs(pairs);
       }
@@ -79,31 +83,28 @@ export function ReportTranscriptSection({
   if (transcriptLog.length === 0) {
     return (
       <>
-        <div className="report-section-title">Speech transcript</div>
-        <div className="report-transcript-empty">
-          No speech transcript was captured this session. Use a supported browser with microphone access during the live
-          presentation.
-        </div>
+        <div className="report-section-title">{t('report.transcript.title')}</div>
+        <div className="report-transcript-empty">{t('report.transcript.empty')}</div>
       </>
     );
   }
 
+  const personaName = selectedPersona ? PERSONAS[selectedPersona].name : null;
+
   return (
     <>
-      <div className="report-section-title">Speech transcript</div>
-      <p className="report-transcript-lead">
-        Everything you said (as captured by live recognition). Download for notes or rehearsal.
-      </p>
+      <div className="report-section-title">{t('report.transcript.title')}</div>
+      <p className="report-transcript-lead">{t('report.transcript.lead')}</p>
 
       <div className="report-transcript-toolbar">
         <button type="button" className="btn-transcript" onClick={() => onDownload(false)}>
-          Download (.txt, plain)
+          {t('report.transcript.downloadPlain')}
         </button>
         <button type="button" className="btn-transcript" onClick={() => onDownload(true)}>
-          Download (.txt, with timestamps)
+          {t('report.transcript.downloadTimed')}
         </button>
         <button type="button" className="btn-transcript btn-transcript-secondary" onClick={() => void onCopy()}>
-          Copy to clipboard
+          {t('report.transcript.copy')}
         </button>
       </div>
 
@@ -112,19 +113,11 @@ export function ReportTranscriptSection({
       </pre>
 
       <div className="report-transcript-polish">
-        <h4 className="report-transcript-polish-title">Say it this way</h4>
+        <h4 className="report-transcript-polish-title">{t('report.transcript.polishTitle')}</h4>
         <p className="report-transcript-polish-desc">
-          AI picks a handful of lines from your script and suggests tighter, more speakable wording
-          {selectedPersona ? (
-            <>
-              {' '}
-              in the <strong>{PERSONAS[selectedPersona].name}</strong> style.
-            </>
-          ) : (
-            '.'
-          )}{' '}
-          After generating, use <strong>Hear your line</strong> (neutral read-back of the transcript) and{' '}
-          <strong>Hear coach</strong> (persona TTS) to compare. Uses your configured OpenAI API key when available.
+          {t('report.transcript.polishDesc')}
+          {personaName ? t('report.transcript.polishDescPersona', { name: personaName }) : '.'}
+          {t('report.transcript.polishDescAfter')}
         </p>
         <div className="report-transcript-polish-actions">
           <button
@@ -133,14 +126,11 @@ export function ReportTranscriptSection({
             disabled={!canPolish || polishBusy}
             onClick={() => void onPolish()}
           >
-            {polishBusy ? 'Generating…' : 'Generate line suggestions'}
+            {polishBusy ? t('report.transcript.polishGenerating') : t('report.transcript.polishGenerate')}
           </button>
         </div>
         {!hasOpenAI() && (
-          <p className="report-transcript-polish-warn">
-            Local dev: set <code>VITE_OPENAI_API_KEY</code> or use the server proxy (<code>VITE_OPENAI_SERVER_PROXY=1</code>{' '}
-            + <code>vercel dev</code>). In production on Vercel, only <code>OPENAI_API_KEY</code> is required.
-          </p>
+          <p className="report-transcript-polish-warn">{t('report.transcript.polishWarn')}</p>
         )}
         {polishError && <p className="report-transcript-polish-error">{polishError}</p>}
         {polishPairs && polishPairs.length > 0 && (
@@ -158,7 +148,9 @@ export function ReportTranscriptSection({
                       void speakTranscriptSnippetNeutral(row.original).finally(() => setPolishAudioKey(null));
                     }}
                   >
-                    {polishAudioKey === `you:${i}` ? 'Playing…' : '▶ Hear your line'}
+                    {polishAudioKey === `you:${i}`
+                      ? t('report.transcript.polishPlaying')
+                      : t('report.transcript.polishHearYou')}
                   </button>
                   <button
                     type="button"
@@ -167,15 +159,21 @@ export function ReportTranscriptSection({
                     onClick={() => {
                       primeFeedbackAudio();
                       setPolishAudioKey(`coach:${i}`);
-                      void speakCoachQuestion(row.improved, selectedPersona).finally(() => setPolishAudioKey(null));
+                      void speakCoachQuestion(row.improved, selectedPersona).finally(() =>
+                        setPolishAudioKey(null),
+                      );
                     }}
                   >
-                    {polishAudioKey === `coach:${i}` ? 'Playing…' : '▶ Hear coach'}
+                    {polishAudioKey === `coach:${i}`
+                      ? t('report.transcript.polishPlaying')
+                      : t('report.transcript.polishHearCoach')}
                   </button>
                 </div>
-                <div className="report-polish-label">You said</div>
+                <div className="report-polish-label">{t('report.transcript.polishYouSaid')}</div>
                 <p className="report-polish-original">{row.original}</p>
-                <div className="report-polish-label report-polish-label-alt">Try instead</div>
+                <div className="report-polish-label report-polish-label-alt">
+                  {t('report.transcript.polishTryInstead')}
+                </div>
                 <p className="report-polish-improved">{row.improved}</p>
                 {row.note && <p className="report-polish-note">{row.note}</p>}
               </div>

@@ -14,6 +14,8 @@ import { useEffect, useRef, useState } from 'react';
 import { extractTextFromDocx, extractTextFromPdf } from '../lib/extractDocumentText';
 import { useSessionStore } from '../store/sessionStore';
 import type { ScriptEmbeddingStatus } from '../types/session';
+import { useT } from '../hooks/useT';
+import type { MessageKey } from '../locales/messages';
 
 type InputMode = 'upload' | 'type';
 
@@ -41,26 +43,36 @@ async function extractScriptText(file: File): Promise<string> {
 
 // ── Embedding status badge ──────────────────────────────────────────────────
 function EmbedBadge({ status, chunkCount }: { status: ScriptEmbeddingStatus; chunkCount: number }) {
-  if (status === 'idle')       return null;
-  if (status === 'processing') return <span className="sup-embed-badge processing">⚙ Indexing…</span>;
-  if (status === 'error')      return <span className="sup-embed-badge error">⚠ Index failed</span>;
+  const t = useT();
+  if (status === 'idle') return null;
+  if (status === 'processing') {
+    return <span className="sup-embed-badge processing">⚙ {t('prepare.scriptPanel.embed.processing')}</span>;
+  }
+  if (status === 'error') {
+    return <span className="sup-embed-badge error">⚠ {t('prepare.scriptPanel.embed.error')}</span>;
+  }
   return (
-    <span className="sup-embed-badge ready" title={`${chunkCount} chunks indexed for RAG`}>
-      ✦ RAG ready · {chunkCount} chunks
+    <span className="sup-embed-badge ready">
+      ✦ {t('prepare.scriptPanel.embed.ready', { count: chunkCount })}
     </span>
   );
 }
 
 // ── Style analysis card ─────────────────────────────────────────────────────
 function StyleCard() {
+  const t = useT();
   const style = useSessionStore((s) => s.session.material.script_style);
   if (!style) return null;
   return (
     <div className="sup-style-card">
       <div className="sup-style-header">
-        <span className="sup-style-title">Script Style Analysis</span>
+        <span className="sup-style-title">{t('prepare.scriptPanel.styleTitle')}</span>
         <span className="sup-style-meta">
-          {style.tone} · {style.complexity} complexity · ~{style.estimatedMinutes} min
+          {t('prepare.scriptPanel.styleMeta', {
+            tone: style.tone,
+            complexity: style.complexity,
+            minutes: style.estimatedMinutes,
+          })}
         </span>
       </div>
       {style.keyPhrases.length > 0 && (
@@ -83,6 +95,7 @@ function StyleCard() {
 
 // ── Main component ──────────────────────────────────────────────────────────
 export function ScriptUploadPanel() {
+  const t = useT();
   const setScriptText  = useSessionStore((s) => s.setScriptText);
   const embedScript    = useSessionStore((s) => s.embedScript);
   const scriptText     = useSessionStore((s) => s.session.material.script_text);
@@ -93,7 +106,7 @@ export function ScriptUploadPanel() {
   const [fileName, setFileName] = useState<string | null>(null);
   const [loading, setLoading]   = useState(false);
   const [preview, setPreview]   = useState(false);
-  const [error, setError]       = useState<string | null>(null);
+  const [errorKey, setErrorKey] = useState<MessageKey | null>(null);
   const [draft, setDraft]       = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -110,26 +123,26 @@ export function ScriptUploadPanel() {
   const handleFile = async (file: File) => {
     // File size guard
     if (file.size > MAX_FILE_BYTES) {
-      setError(`File too large (max 2 MB). Your file is ${(file.size / 1024 / 1024).toFixed(1)} MB.`);
+      setErrorKey('prepare.scriptPanel.error.tooLarge');
       return;
     }
     const ext = file.name.slice(file.name.lastIndexOf('.')).toLowerCase();
     if (!ALLOWED_EXTS.includes(ext)) {
-      setError(`Only ${ALLOWED_EXTS.join(', ')} files are supported.`);
+      setErrorKey('prepare.scriptPanel.error.unsupported');
       return;
     }
-    setError(null);
+    setErrorKey(null);
     setLoading(true);
     try {
       const text = await extractScriptText(file);
       if (text.trim().length < 10) {
-        setError('The file appears to have no readable text. Please check the file and try again.');
+        setErrorKey('prepare.scriptPanel.error.emptyFile');
         return;
       }
       setScriptText(text);
       setFileName(file.name);
     } catch {
-      setError('Could not read the file. Please try again.');
+      setErrorKey('prepare.scriptPanel.error.readFail');
     } finally {
       setLoading(false);
     }
@@ -149,10 +162,10 @@ export function ScriptUploadPanel() {
   // ── type/paste confirm ────────────────────────────────────────────────────
   const confirmDraft = () => {
     if (draft.trim().length < 10) {
-      setError('Please enter at least a few sentences of script text.');
+      setErrorKey('prepare.scriptPanel.error.tooShort');
       return;
     }
-    setError(null);
+    setErrorKey(null);
     setScriptText(draft.trim());
     setFileName(null);
   };
@@ -162,25 +175,24 @@ export function ScriptUploadPanel() {
     setScriptText('');
     setFileName(null);
     setPreview(false);
-    setError(null);
+    setErrorKey(null);
     setDraft('');
   };
 
-  const switchMode = (m: InputMode) => { setMode(m); setError(null); };
+  const switchMode = (m: InputMode) => {
+    setMode(m);
+    setErrorKey(null);
+  };
 
   return (
     <div className="script-upload-panel">
       {/* Header */}
       <div className="sup-header">
-        <span className="sup-title">📄 Presentation Script</span>
-        <span className="sup-badge">Optional</span>
+        <span className="sup-title">📄 {t('prepare.scriptPanel.title')}</span>
+        <span className="sup-badge">{t('prepare.scriptPanel.optional')}</span>
         {hasScript && <EmbedBadge status={embedStatus} chunkCount={chunkCount} />}
       </div>
-      <p className="sup-desc">
-        Add your script or speaker notes — AI will use it for smarter on-topic detection,
-        script-aligned Q&A, and coverage tracking. Opening it as an overlay too often will
-        deduct points after the first 2 views.
-      </p>
+      <p className="sup-desc">{t('prepare.scriptPanel.desc')}</p>
 
       {/* Mode tabs — only shown when no script loaded */}
       {!hasScript && (
@@ -191,7 +203,7 @@ export function ScriptUploadPanel() {
             className={`sup-mode-tab${mode === 'upload' ? ' sup-tab-active' : ''}`}
             onClick={() => switchMode('upload')}
           >
-            📁 Upload File
+            📁 {t('prepare.scriptPanel.tabUpload')}
           </button>
           <button
             type="button" role="tab"
@@ -199,7 +211,7 @@ export function ScriptUploadPanel() {
             className={`sup-mode-tab${mode === 'type' ? ' sup-tab-active' : ''}`}
             onClick={() => switchMode('type')}
           >
-            ✍️ Type / Paste
+            ✍️ {t('prepare.scriptPanel.tabType')}
           </button>
         </div>
       )}
@@ -210,34 +222,37 @@ export function ScriptUploadPanel() {
           <div className="sup-file-row">
             <span className="sup-file-icon" aria-hidden="true">📝</span>
             <div className="sup-file-info">
-              <span className="sup-file-name">{fileName ?? 'Script entered'}</span>
-              <span className="sup-file-chars">{scriptText.length.toLocaleString()} characters</span>
+              <span className="sup-file-name">{fileName ?? t('prepare.scriptPanel.entered')}</span>
+              <span className="sup-file-chars">
+                {t('prepare.scriptPanel.chars', { count: scriptText.length.toLocaleString() })}
+              </span>
             </div>
             <div className="sup-file-actions">
               <button type="button" className="sup-btn-preview"
                 onClick={() => setPreview((p) => !p)} aria-expanded={preview}>
-                {preview ? 'Hide' : 'Preview'}
+                {preview ? t('prepare.scriptPanel.hide') : t('prepare.scriptPanel.preview')}
               </button>
-              <button type="button" className="sup-btn-remove"
-                onClick={remove} aria-label="Remove script">
-                ✕ Remove
+              <button
+                type="button"
+                className="sup-btn-remove"
+                onClick={remove}
+                aria-label={t('prepare.scriptPanel.removeAria')}
+              >
+                ✕ {t('prepare.scriptPanel.remove')}
               </button>
             </div>
           </div>
 
           {preview && (
-            <pre className="sup-preview-text" aria-label="Script preview">
+            <pre className="sup-preview-text" aria-label={t('prepare.scriptPanel.preview')}>
               {scriptText.slice(0, 600)}
-              {scriptText.length > 600 && '\n\n… (truncated)'}
+              {scriptText.length > 600 && `\n\n${t('prepare.scriptPanel.truncated')}`}
             </pre>
           )}
 
           <StyleCard />
 
-          <p className="sup-penalty-notice">
-            ⚠ Opening the script overlay during your presentation will deduct points
-            after the first 2 views.
-          </p>
+          <p className="sup-penalty-notice">⚠ {t('prepare.scriptPanel.penalty')}</p>
         </div>
 
       ) : mode === 'upload' ? (
@@ -249,16 +264,16 @@ export function ScriptUploadPanel() {
             onClick={() => !loading && inputRef.current?.click()}
             role="button" tabIndex={0}
             onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') inputRef.current?.click(); }}
-            aria-label="Upload script file"
+            aria-label={t('prepare.scriptPanel.uploadAria')}
           >
             {loading ? (
               <span className="sup-spinner" aria-hidden="true" />
             ) : (
               <>
                 <span className="sup-drop-icon" aria-hidden="true">📁</span>
-                <span className="sup-drop-hint">Click or drag a file here</span>
-                <span className="sup-drop-formats">.txt · .md · .pdf · .docx</span>
-                <span className="sup-drop-limit">Max 2 MB</span>
+                <span className="sup-drop-hint">{t('prepare.scriptPanel.dropHint')}</span>
+                <span className="sup-drop-formats">{t('prepare.scriptPanel.formats')}</span>
+                <span className="sup-drop-limit">{t('prepare.scriptPanel.maxSize')}</span>
               </>
             )}
           </div>
@@ -270,28 +285,28 @@ export function ScriptUploadPanel() {
         <div className="sup-type-area">
           <textarea
             className="sup-textarea"
-            placeholder="Paste or type your script here…"
+            placeholder={t('prepare.scriptPanel.typePlaceholder')}
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             rows={8}
-            aria-label="Script text input"
+            aria-label={t('prepare.scriptPanel.typeAria')}
           />
           <div className="sup-type-footer">
             <span className="sup-type-count">
-              {draft.length.toLocaleString()} characters
+              {t('prepare.scriptPanel.chars', { count: draft.length.toLocaleString() })}
             </span>
             <button
               type="button" className="sup-btn-confirm"
               onClick={confirmDraft}
               disabled={draft.trim().length < 10}
             >
-              Save Script ✓
+              {t('prepare.scriptPanel.save')}
             </button>
           </div>
         </div>
       )}
 
-      {error && <p className="sup-error" role="alert">{error}</p>}
+      {errorKey && <p className="sup-error" role="alert">{t(errorKey)}</p>}
     </div>
   );
 }

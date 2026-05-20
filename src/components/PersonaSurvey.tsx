@@ -4,8 +4,9 @@ import { PERSONAS } from '../constants/personas';
 import { PERSONA_FEEDBACK_TONE_KEYS, PERSONA_UI_KEYS } from '../constants/personaUiKeys';
 import { useT } from '../hooks/useT';
 import { getPersonaPaceRange } from '../lib/speechRate';
-import { useLocaleStore } from '../store/localeStore';
+import { useEffectiveLocale } from '../hooks/useEffectiveLocale';
 import type { MessageKey } from '../locales/messages';
+import { navigateBack } from '../lib/appNavigation';
 import { LanguageSwitcher } from './LanguageSwitcher';
 
 interface SurveyOptionDef {
@@ -83,7 +84,7 @@ function calcPersona(answers: Record<string, number>): PersonaType {
 
 export function PersonaSurvey() {
   const t = useT();
-  const locale = useLocaleStore((s) => s.locale);
+  const locale = useEffectiveLocale();
   const setPersona = useSessionStore((s) => s.setPersona);
   const setAppStarted = useSessionStore((s) => s.setAppStarted);
   const [step, setStep] = useState(0);
@@ -111,6 +112,18 @@ export function PersonaSurvey() {
     setAppStarted(true);
   };
 
+  const handleSurveyBack = () => {
+    if (result) {
+      setResult(null);
+      return;
+    }
+    if (step > 0) {
+      setStep((s) => s - 1);
+      return;
+    }
+    navigateBack();
+  };
+
   if (result) {
     const p = PERSONAS[result];
     const ui = PERSONA_UI_KEYS[result];
@@ -121,6 +134,9 @@ export function PersonaSurvey() {
       <main className="survey-screen">
         <div className="survey-card survey-result-card">
           <div className="survey-lang-row">
+            <button type="button" className="survey-back-btn" onClick={handleSurveyBack}>
+              {t('nav.back')}
+            </button>
             <LanguageSwitcher className="lang-switcher--topnav" />
           </div>
           <div className="survey-result-badge">{displayName}</div>
@@ -171,6 +187,9 @@ export function PersonaSurvey() {
     <main className="survey-screen">
       <div className="survey-card">
         <div className="survey-lang-row">
+          <button type="button" className="survey-back-btn" onClick={handleSurveyBack}>
+            {t('nav.back')}
+          </button>
           <LanguageSwitcher className="lang-switcher--topnav" />
         </div>
         <div className="survey-progress">

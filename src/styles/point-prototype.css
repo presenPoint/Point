@@ -943,6 +943,28 @@
   font-size: 1.05rem;
   letter-spacing: 0.02em;
 }
+.nv-footer-contact,
+.login-footer-contact,
+.pricing-contact {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  transition: color 0.15s, opacity 0.15s;
+}
+.nv-footer-contact:hover,
+.login-footer-contact:hover,
+.pricing-contact:hover {
+  color: var(--amber, #c9a227);
+  opacity: 1;
+}
+.login-footer-contact {
+  display: inline-block;
+  margin-top: 6px;
+}
+.pricing-contact {
+  display: inline-block;
+  margin-top: 8px;
+}
 
 /* ── Mobile ── */
 @media (max-width: 600px) {
@@ -3921,6 +3943,33 @@ h1.login-logo {
 .live-topbar {
   background:var(--surface); border-bottom:1px solid var(--border);
   display:flex; align-items:center; justify-content:space-between; padding:0 20px;
+  gap: 10px;
+}
+
+.live-topbar-start {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.live-back-btn {
+  font-family: 'Manrope', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1.5px solid var(--border2);
+  background: var(--surface2);
+  color: var(--text);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+}
+.live-back-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: rgba(126, 156, 248, 0.12);
 }
 
 .live-logo {
@@ -5959,6 +6008,113 @@ h1.login-logo {
 }
 .btn-sign-out:hover { border-color:var(--red); color:var(--red); background:var(--red-dim); }
 
+.btn-account-delete-inline,
+.account-delete-link,
+.home-topnav-delete,
+.nv-nav-delete {
+  padding: 5px 10px;
+  border: none;
+  background: transparent;
+  color: var(--muted2);
+  font-size: 12px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  transition: color 0.15s;
+}
+.btn-account-delete-inline:hover,
+.account-delete-link:hover,
+.home-topnav-delete:hover,
+.nv-nav-delete:hover {
+  color: var(--red, #e05a5a);
+}
+
+.account-delete-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 12000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(18, 16, 14, 0.55);
+  backdrop-filter: blur(4px);
+}
+.account-delete-card {
+  width: min(440px, 100%);
+  padding: 28px 26px;
+  border-radius: 14px;
+  background: var(--surface, #fff);
+  border: 1px solid var(--border2);
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.18);
+}
+.account-delete-title {
+  margin: 0 0 10px;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--ink, #2a2620);
+}
+.account-delete-lead {
+  margin: 0 0 14px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--muted2);
+}
+.account-delete-list {
+  margin: 0 0 18px;
+  padding-left: 1.2em;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--muted2);
+}
+.account-delete-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 16px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--ink, #2a2620);
+  cursor: pointer;
+}
+.account-delete-check input {
+  margin-top: 3px;
+  flex-shrink: 0;
+}
+.account-delete-error {
+  margin: 0 0 14px;
+  font-size: 13px;
+  color: var(--red, #e05a5a);
+  line-height: 1.45;
+}
+.account-delete-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.btn-account-delete {
+  padding: 8px 16px;
+  border-radius: 8px;
+  border: 1px solid var(--red, #e05a5a);
+  background: var(--red, #e05a5a);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+.btn-account-delete:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.btn-account-delete:not(:disabled):hover {
+  opacity: 0.9;
+}
+
 /* ── SELECTION ── */
 ::selection {
   background: rgba(90, 111, 168, 0.22);
@@ -7437,8 +7593,27 @@ textarea {
 
 .survey-lang-row {
   display: flex;
-  justify-content: flex-end;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
   margin-bottom: 10px;
+}
+
+.survey-back-btn {
+  font-family: 'Manrope', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1.5px solid rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.92);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+.survey-back-btn:hover {
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.35);
 }
 
 /* 진행 도트 */
@@ -9966,33 +10141,63 @@ textarea {
   gap: 2px;
 }
 
-/* Language (EN / KO) */
+/* Language (EN / KO) — compact segmented control, nav-aligned */
+.lang-switcher-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
 .lang-switcher {
   display: inline-flex;
-  align-items: stretch;
-  border-radius: 9px;
-  overflow: hidden;
-  border: 1px solid var(--border2, rgba(255, 255, 255, 0.12));
+  align-items: center;
+  padding: 2px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.06);
+  border: 0.5px solid rgba(0, 0, 0, 0.1);
   flex-shrink: 0;
 }
 .lang-switcher-btn {
-  font-family: 'Manrope', sans-serif;
+  font-family: inherit;
   font-size: 12px;
   font-weight: 600;
-  padding: 5px 10px;
+  padding: 5px 11px;
   border: none;
+  border-radius: 6px;
   background: transparent;
-  color: rgba(42, 38, 32, 0.78);
+  color: rgba(20, 18, 16, 0.5);
   cursor: pointer;
   line-height: 1.2;
+  letter-spacing: 0.02em;
+  transition: background 0.15s, color 0.15s, box-shadow 0.15s;
 }
-.lang-switcher-btn:hover {
-  color: #141210;
-  background: rgba(255, 255, 255, 0.06);
+.lang-switcher-btn:hover:not(.lang-switcher-btn--active) {
+  color: rgba(20, 18, 16, 0.78);
 }
 .lang-switcher-btn--active {
-  background: rgba(126, 156, 248, 0.32);
+  background: #fff;
   color: #141210;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+.lang-switcher-btn:focus-visible {
+  outline: 2px solid #6b8cff;
+  outline-offset: 2px;
+  z-index: 1;
+}
+.lang-switcher-apply-all {
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--muted2);
+  background: transparent;
+  border: none;
+  padding: 4px 0;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 0.15s;
+}
+.lang-switcher-apply-all:hover {
+  color: var(--accent, #5a6fa8);
 }
 .lang-switcher--topnav {
   margin-right: 6px;
@@ -10001,52 +10206,51 @@ textarea {
   align-self: center;
   margin-bottom: 12px;
 }
-.login-card .lang-switcher {
-  border-color: rgba(255, 255, 255, 0.16);
-}
-.login-card .lang-switcher-btn:not(.lang-switcher-btn--active) {
-  color: rgba(240, 242, 250, 0.92);
-}
-.login-card .lang-switcher-btn:hover {
-  color: #fff;
-  background: rgba(255, 255, 255, 0.08);
-}
-.login-card .lang-switcher-btn--active {
-  color: #fff;
-  background: rgba(126, 156, 248, 0.38);
-}
-.home-notebook-sheet .lang-switcher {
-  border-color: rgba(55, 45, 35, 0.22);
-}
-.home-notebook-sheet .lang-switcher-btn:not(.lang-switcher-btn--active) {
-  color: #1a1714;
-  font-weight: 700;
-}
-.home-notebook-sheet .lang-switcher-btn:hover {
-  color: #0f0d0b;
-  background: rgba(55, 45, 35, 0.1);
-}
-.home-notebook-sheet .lang-switcher-btn--active {
-  color: #141210;
-  background: rgba(126, 156, 248, 0.4);
-}
-/* 랜딩 내비는 라이트(크림) 배경 — 비활성 탭은 진한 글자로 대비 확보 */
+/* Dark nav (landing) */
 .lang-switcher--nv {
-  border-color: rgba(55, 45, 35, 0.22);
-  margin-right: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.12);
 }
-.lang-switcher--nv .lang-switcher-btn:not(.lang-switcher-btn--active) {
-  color: #1a1714;
-  font-weight: 700;
+.lang-switcher--nv .lang-switcher-btn {
+  color: rgba(255, 255, 255, 0.48);
 }
-.lang-switcher--nv .lang-switcher-btn:hover {
-  color: #0f0d0b;
-  background: rgba(55, 45, 35, 0.1);
+.lang-switcher--nv .lang-switcher-btn:hover:not(.lang-switcher-btn--active) {
+  color: rgba(255, 255, 255, 0.72);
 }
 .lang-switcher--nv .lang-switcher-btn--active {
-  background: rgba(90, 111, 168, 0.42);
+  background: rgba(255, 255, 255, 0.18);
   color: #fff;
-  font-weight: 700;
+  box-shadow: none;
+}
+.nv-nav-links .lang-switcher-row {
+  margin-right: 4px;
+}
+/* Login card on dark backdrop */
+.login-card .lang-switcher {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.14);
+}
+.login-card .lang-switcher-btn {
+  color: rgba(255, 255, 255, 0.5);
+}
+.login-card .lang-switcher-btn--active {
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
+  box-shadow: none;
+}
+/* Home notebook top bar */
+.home-notebook-sheet .lang-switcher {
+  background: rgba(55, 45, 35, 0.07);
+  border-color: rgba(55, 45, 35, 0.12);
+}
+.home-notebook-sheet .lang-switcher-btn--active {
+  background: #fff;
+  color: #141210;
+}
+.home-topnav-links .lang-switcher-row,
+.upload-wizard-area .topbar-right .lang-switcher-row,
+.coach-select-topbar-right .lang-switcher-row {
+  margin-right: 4px;
 }
 
 .home-topnav-link {

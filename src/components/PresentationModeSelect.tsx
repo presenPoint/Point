@@ -1,15 +1,15 @@
 import type { ReactNode } from 'react';
 import { useSessionStore } from '../store/sessionStore';
+import { navigateBack } from '../lib/appNavigation';
 import { useT } from '../hooks/useT';
 import { LanguageSwitcher } from './LanguageSwitcher';
 
 interface Props {
   userBar?: ReactNode;
-  onBack?: () => void;
   onSelectWithMaterials: () => void;
 }
 
-export function PresentationModeSelect({ userBar, onBack, onSelectWithMaterials }: Props) {
+export function PresentationModeSelect({ userBar, onSelectWithMaterials }: Props) {
   const t = useT();
   const startPresenting = useSessionStore((s) => s.startPresenting);
 
@@ -21,11 +21,14 @@ export function PresentationModeSelect({ userBar, onBack, onSelectWithMaterials 
     <main id="screen-mode-select" className="point-screen screen-home" role="main">
       <div className="home-notebook-sheet">
         <div className="coach-select-topbar coach-select-topbar--in-sheet">
-          {onBack && (
-            <button type="button" className="coach-select-back" onClick={onBack} aria-label={t('mode.backAria')}>
-              {t('mode.back')}
-            </button>
-          )}
+          <button
+            type="button"
+            className="coach-select-back"
+            onClick={() => navigateBack()}
+            aria-label={t('mode.backAria')}
+          >
+            {t('mode.back')}
+          </button>
           <div className="coach-select-topbar-right">
             <LanguageSwitcher className="lang-switcher--topnav" />
             {userBar}

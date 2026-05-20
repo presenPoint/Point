@@ -6,6 +6,7 @@ import { PersonaInfoModal } from './PersonaInfoModal';
 import { PointWordmark } from './PointWordmark';
 import { LanguageSwitcher } from './LanguageSwitcher';
 import { useT } from '../hooks/useT';
+import { AccountDeleteButton } from './AccountDeleteButton';
 
 function coachInitials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -46,13 +47,14 @@ interface HomeScreenProps {
   userId?: string;
   onBack?: () => void;
   onSignOut?: () => void;
+  onAccountDeleted?: () => void;
   onShowDashboard?: () => void;
   onShowPricing?: () => void;
   startPersonaStyleQuiz: () => void;
   startWithDefaultCoaching: () => void;
 }
 
-export function HomeScreen({ userName, userAvatar, userId, onBack, onSignOut, onShowDashboard, onShowPricing, startPersonaStyleQuiz, startWithDefaultCoaching }: HomeScreenProps) {
+export function HomeScreen({ userName, userAvatar, userId, onBack, onSignOut, onAccountDeleted, onShowDashboard, onShowPricing, startPersonaStyleQuiz, startWithDefaultCoaching }: HomeScreenProps) {
   const t = useT();
   const setAppStarted = useSessionStore((s) => s.setAppStarted);
   const setPersona   = useSessionStore((s) => s.setPersona);
@@ -119,6 +121,9 @@ export function HomeScreen({ userName, userAvatar, userId, onBack, onSignOut, on
                 <button type="button" className="home-topnav-signout" onClick={onSignOut}>
                   {t('nav.signOut')}
                 </button>
+              )}
+              {onAccountDeleted && (
+                <AccountDeleteButton className="home-topnav-delete" onDeleted={onAccountDeleted} />
               )}
             </div>
           </div>

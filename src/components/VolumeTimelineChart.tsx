@@ -1,4 +1,5 @@
 import type { VolumeSample } from '../types/session';
+import { useT } from '../hooks/useT';
 
 export interface VolumeCoachingMarker {
   /** Seconds from the start of the plotted session */
@@ -35,6 +36,7 @@ export function VolumeTimelineChart({
   totalDurationSec,
   coachingMarkers = [],
 }: Props) {
+  const t = useT();
   if (samples.length < 2) return null;
 
   // Use the first sample's timestamp as origin so the chart aligns with
@@ -175,13 +177,13 @@ export function VolumeTimelineChart({
 
       <div className="vol-chart-legend">
         <span className="vol-legend-line" />
-        <span className="vol-legend-label">Volume level</span>
+        <span className="vol-legend-label">{t('report.vol.legendVolume')}</span>
         <span className="vol-peak-dot" />
-        <span className="vol-legend-label">Emphasis peak (top 30% of your volume)</span>
+        <span className="vol-legend-label">{t('report.vol.legendPeak')}</span>
         {coachingMarkers.length > 0 && (
           <>
             <span className="vol-coach-marker" aria-hidden="true" />
-            <span className="vol-legend-label">Coaching moment</span>
+            <span className="vol-legend-label">{t('report.vol.legendCoaching')}</span>
           </>
         )}
       </div>

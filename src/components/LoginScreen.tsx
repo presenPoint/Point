@@ -3,6 +3,7 @@ import { hasSupabase } from '../lib/supabase';
 import { PointWordmark } from './PointWordmark';
 import { LanguageSwitcher } from './LanguageSwitcher';
 import { useT } from '../hooks/useT';
+import { SUPPORT_EMAIL, SUPPORT_MAILTO } from '../constants/contact';
 
 export function LoginScreen({ onLogoHome }: { onLogoHome?: () => void }) {
   const { signInWithGoogle, loading } = useAuth();
@@ -74,7 +75,13 @@ export function LoginScreen({ onLogoHome }: { onLogoHome?: () => void }) {
           </button>
         )}
 
-        <p className="login-footer">{t('login.footer')}</p>
+        <p className="login-footer">
+          {t('login.footer')}
+          <br />
+          <a className="login-footer-contact" href={SUPPORT_MAILTO}>
+            {t('common.contactPrefix')} {SUPPORT_EMAIL}
+          </a>
+        </p>
       </div>
     </main>
   );

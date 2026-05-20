@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSpeechToText } from '../hooks/useSpeechToText';
 import { useSessionStore } from '../store/sessionStore';
-import { useLocaleStore } from '../store/localeStore';
+import { useEffectiveLocale } from '../hooks/useEffectiveLocale';
 import type { ActionableFeedback, QaDifficultyLevel } from '../types/session';
 import { speakCoachQuestion, stopCoachQuestionSpeech } from '../lib/coachQuestionTts';
 import { primeFeedbackAudio } from '../lib/feedbackTts';
@@ -13,8 +13,10 @@ import { VolumeTimelineChart } from './VolumeTimelineChart';
 import { WordEmphasisSection } from './WordEmphasisSection';
 import { transcriptStats } from '../lib/transcriptScript';
 
+import { navigateBack } from '../lib/appNavigation';
 import { AnimatedPointLogo } from './AnimatedPointLogo';
 import { useT } from '../hooks/useT';
+import { LanguageSwitcher } from './LanguageSwitcher';
 
 function QaTopBar({
   sessionDone,
@@ -27,12 +29,10 @@ function QaTopBar({
 }) {
   const t = useT();
   const resetSession = useSessionStore((s) => s.resetSession);
-  const setAppStarted = useSessionStore((s) => s.setAppStarted);
-
   return (
     <div className="topbar">
       <div className="topbar-logo">
-        <AnimatedPointLogo onHomeClick={() => setAppStarted(false)} ariaLabel={t('nav.pointHome')} />
+        <AnimatedPointLogo onHomeClick={() => navigateBack()} ariaLabel={t('nav.pointHome')} />
       </div>
       <div className="topbar-steps">
         <div className="step-dot done">✓</div>
@@ -46,6 +46,7 @@ function QaTopBar({
         </div>
       </div>
       <div className="topbar-right">
+        <LanguageSwitcher className="lang-switcher--topnav" />
         {sessionDone && onExportPdf && (
           <button
             type="button"
@@ -61,7 +62,6 @@ function QaTopBar({
           className="btn-primary"
           onClick={() => {
             resetSession();
-            setAppStarted(false);
           }}
         >
           {t('qa.topbar.newPresentation')}
@@ -91,7 +91,7 @@ function parseMarkerTimeToSec(time: string): number | null {
 
 export function QaReportScreen() {
   const t = useT();
-  const locale = useLocaleStore((s) => s.locale);
+  const locale = useEffectiveLocale();
   const session = useSessionStore((s) => s.session);
   const qaDifficulty = useSessionStore((s) => s.qaDifficulty);
   const setQaDifficulty = useSessionStore((s) => s.setQaDifficulty);
@@ -112,7 +112,7 @@ export function QaReportScreen() {
   const reporting = session.status === 'REPORT';
   /** Step 2: Q&A 채점 중이거나 최종 보고서 생성 중 */
   const showGenerating =
-    session.status === 'REPORT' || (session.status === 'POST_QA' && busy === 'Grading Q&A…');
+    session.status === 'REPORT' || (session.status === 'POST_QA' && busy === 'qa.busy.gradingQa');
   const showQaPass =
     !done && session.status === 'POST_QA' && !session.qa_skipped && !showGenerating;
 
@@ -249,7 +249,7 @@ export function QaReportScreen() {
       : t('qa.wizard.audienceQa');
 
   const generatingTitle =
-    busy === 'Grading Q&A…' ? t('qa.generating.grading') : t('qa.generating.report');
+    busy === 'qa.busy.gradingQa' ? t('qa.generating.grading') : t('qa.generating.report');
 
   const reportScoresAndBody = (
     <>
@@ -476,7 +476,7 @@ export function QaReportScreen() {
               <div className="qa-generating-card">
                 <div className="quiz-grading-spinner" aria-hidden />
                 <p className="qa-generating-title">{generatingTitle}</p>
-                <p className="qa-generating-sub">{busy || t('qa.generating.wait')}</p>
+                <p className="qa-generating-sub">{busy ? t(busy) : t('qa.generating.wait')}</p>
               </div>
             </div>
           ) : done ? (

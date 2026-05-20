@@ -6,6 +6,7 @@ import type { Plan } from '../types/billing';
 import { PointWordmark } from './PointWordmark';
 import { LanguageSwitcher } from './LanguageSwitcher';
 import { useT } from '../hooks/useT';
+import { SUPPORT_EMAIL, SUPPORT_MAILTO } from '../constants/contact';
 import type { MessageKey } from '../locales/messages';
 
 interface Props {
@@ -170,7 +171,13 @@ export function PricingScreen({ userBar, onBack }: Props) {
               })}
             </div>
 
-            <p className="pricing-note">{t('pricing.note')}</p>
+            <p className="pricing-note">
+              {t('pricing.note')}
+              <br />
+              <a className="pricing-contact" href={SUPPORT_MAILTO}>
+                {t('common.contactPrefix')} {SUPPORT_EMAIL}
+              </a>
+            </p>
           </div>
         </section>
       </div>

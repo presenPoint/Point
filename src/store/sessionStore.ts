@@ -21,7 +21,7 @@ import {
 } from '../lib/scriptEmbedding';
 import type { SessionContext, SessionStatus, QaDifficultyLevel, PersonaStyleCoaching, TranscriptEntry, ActionableFeedback } from '../types/session';
 import { buildPresentationTopicBlock } from '../lib/presentationTopicContext';
-import { useLocaleStore } from './localeStore';
+import { resolveLocaleForCurrentApp } from './localeStore';
 import { getDefaultPaceRange, getPersonaPaceRange } from '../lib/speechRate';
 
 function emptyMaterial(): SessionContext['material'] {
@@ -103,7 +103,8 @@ type State = {
   session: SessionContext;
   preQuizAnswers: Record<number, string>;
   qaCurrentQuestion: string;
-  busy: string | null;
+  busy: import('../locales/messages').MessageKey | null;
+  /** i18n key (prepare.* / qa.*) or raw error string */
   error: string | null;
   appStarted: boolean;
   /** When true with `selectedPersona === null`, skip the style survey and use default coaching/scoring. */
@@ -358,12 +359,11 @@ export const useSessionStore = create<State>((set, get) => ({
     const raw = get().session.material.raw_text.trim();
     if (raw.length < 20) {
       set({
-        error:
-          'Please add materials in the file submission area, save them, and then analyze. (The saved text must be at least 20 characters.)',
+        error: 'prepare.error.materialTooShort',
       });
       return;
     }
-    set({ busy: 'Analyzing materials...', error: null });
+    set({ busy: 'prepare.busy.analyzing', error: null });
     try {
       const scriptText = get().session.material.script_text.trim() || undefined;
       const topicBlock = buildPresentationTopicBlock(get().session);
@@ -393,11 +393,11 @@ export const useSessionStore = create<State>((set, get) => ({
     const { session, preQuizAnswers } = get();
     for (const q of session.material.quiz) {
       if (!preQuizAnswers[q.id]?.trim()) {
-        set({ error: 'Please answer all quiz questions.' });
+        set({ error: 'prepare.error.answerAllQuiz' });
         return;
       }
     }
-    set({ busy: 'Grading...', error: null });
+    set({ busy: 'prepare.busy.grading', error: null });
     try {
       const graded = await gradePreQuiz(session, preQuizAnswers);
       set((s) => ({
@@ -437,7 +437,7 @@ export const useSessionStore = create<State>((set, get) => ({
     if (qaStartLock || get().qaCurrentQuestion) return;
     if (get().session.qa_skipped) return;
     qaStartLock = true;
-    set({ busy: 'Preparing Q&A…', error: null });
+    set({ busy: 'qa.busy.preparing', error: null });
     try {
       const q = await qaNextQuestion(get().session, [], { pressure: get().qaDifficulty });
       if (get().session.qa_skipped) return;
@@ -483,7 +483,7 @@ export const useSessionStore = create<State>((set, get) => ({
 
     const planned = session.qa.planned_rounds ?? 5;
     if (nextExchanges.length >= planned) {
-      set({ busy: 'Grading Q&A…' });
+      set({ busy: 'qa.busy.gradingQa' });
       const grade = await gradeQaExchanges(nextExchanges);
       const g = grade ?? {
         final_score: 0,
@@ -508,7 +508,7 @@ export const useSessionStore = create<State>((set, get) => ({
       return;
     }
 
-    set({ busy: 'Generating next question…' });
+    set({ busy: 'qa.busy.nextQuestion' });
     const q = await qaNextQuestion(get().session, nextExchanges, { pressure: get().qaDifficulty });
     set({
       qaCurrentQuestion: q.text,
@@ -521,12 +521,12 @@ export const useSessionStore = create<State>((set, get) => ({
     flushLiveTranscriptNow();
     set((s) => ({
       session: { ...s.session, status: 'REPORT' },
-      busy: 'Generating report…',
+      busy: 'qa.busy.generatingReport',
       error: null,
     }));
     const ctx = get().session;
     const persona = get().selectedPersona ? PERSONAS[get().selectedPersona!] : null;
-    const locale = useLocaleStore.getState().locale;
+    const locale = resolveLocaleForCurrentApp();
     const paceRange = persona
       ? getPersonaPaceRange(persona.config, locale)
       : getDefaultPaceRange(locale);
@@ -588,11 +588,11 @@ export const useSessionStore = create<State>((set, get) => ({
     let narrative: Awaited<ReturnType<typeof generateReportNarrative>>;
     let reportError: string | null = null;
     try {
-      narrative = await generateReportNarrative(ctx, scoresWithContext, persona, scriptCoverage);
+      narrative = await generateReportNarrative(ctx, scoresWithContext, persona, scriptCoverage, locale);
     } catch (e) {
       console.error('generateReportNarrative failed', e);
       reportError = e instanceof Error ? e.message : String(e);
-      narrative = buildFallbackNarrative(ctx, scoresWithContext, persona);
+      narrative = buildFallbackNarrative(ctx, scoresWithContext, persona, locale);
     }
 
     if (persona && narrative.persona_style_coaching) {

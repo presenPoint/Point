@@ -6,7 +6,8 @@ import type { QaDifficultyLevel, QaExchange, SessionContext } from '../../types/
 import { buildPresentationTopicBlock } from '../../lib/presentationTopicContext';
 import { transcriptPlain, transcriptWithTimestamps } from '../../lib/transcriptScript';
 import type { AppLocale } from '../../store/localeStore';
-import { useLocaleStore } from '../../store/localeStore';
+import { resolveLocaleForCurrentApp } from '../../store/localeStore';
+import { aiOutputLanguageRule, sanitizeKoUserFacingDeep } from '../../lib/aiOutputLocale';
 
 const QA_TRANSCRIPT_MAX_CHARS = 4_500;
 
@@ -47,13 +48,15 @@ function buildTranscriptSection(ctx: SessionContext, locale: AppLocale): string 
 }
 
 function resolveLocale(locale?: AppLocale): AppLocale {
-  return locale ?? useLocaleStore.getState().locale;
+  return locale ?? resolveLocaleForCurrentApp();
 }
 
 function languageRule(locale: AppLocale): string {
-  return locale === 'ko'
-    ? '- 모든 질문은 자연스러운 한국어(존댓말, 청중·패널 톤)로 작성'
-    : '- Respond in English';
+  const base =
+    locale === 'ko'
+      ? '- 모든 질문은 자연스러운 한국어(존댓말, 청중·패널 톤)로 작성'
+      : '- Respond in English';
+  return `${base}\n${aiOutputLanguageRule(locale)}`;
 }
 
 type QaGrade = {
@@ -224,7 +227,10 @@ export async function qaNextQuestion(
     return { text: 'Failed to generate a question. Please check your API key or server OpenAI proxy.', isComplete: false };
   }
   const { message, isComplete } = parseGptResponse(text);
-  return { text: message, isComplete };
+  return {
+    text: sanitizeKoUserFacingDeep(message, locale),
+    isComplete,
+  };
 }
 
 export type GradeQaOpts = { locale?: AppLocale };
@@ -234,13 +240,8 @@ export async function gradeQaExchanges(
   opts?: GradeQaOpts,
 ): Promise<QaGrade | null> {
   const locale = resolveLocale(opts?.locale);
-  const commentLang =
-    locale === 'ko'
-      ? '모든 comment와 overall_comment는 자연스러운 한국어(존댓말)로 작성'
-      : 'Write all comment and overall_comment fields in English';
-
   const sys = `Evaluate the entire Q&A content below and respond with JSON only.
-${commentLang}
+${aiOutputLanguageRule(locale)}
 
 Response format:
 {
@@ -270,9 +271,10 @@ Response format:
     };
   }
 
-  return chatJson<QaGrade>(
+  const grade = await chatJson<QaGrade>(
     'gpt-4o-mini',
     sys,
-    JSON.stringify(exchanges, null, 2)
+    JSON.stringify(exchanges, null, 2),
   );
+  return grade ? sanitizeKoUserFacingDeep(grade, locale) : null;
 }

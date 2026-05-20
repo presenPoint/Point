@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { LanguageSwitcher } from './LanguageSwitcher';
 import { useT } from '../hooks/useT';
+import { AccountDeleteButton } from './AccountDeleteButton';
+import { SUPPORT_EMAIL, SUPPORT_MAILTO } from '../constants/contact';
 
 const HERO_TITLE = 'Point';
 
@@ -147,11 +149,12 @@ interface Props {
   userId?: string;
   isAuthLoading?: boolean;
   onSignOut?: () => void;
+  onAccountDeleted?: () => void;
   onShowDashboard?: () => void;
   onShowPricing?: () => void;
 }
 
-export function LandingScreen({ onStart, userName, userAvatar, userId, isAuthLoading, onSignOut, onShowDashboard, onShowPricing }: Props) {
+export function LandingScreen({ onStart, userName, userAvatar, userId, isAuthLoading, onSignOut, onAccountDeleted, onShowDashboard, onShowPricing }: Props) {
   const t = useT();
   const pageRef = useRef<HTMLDivElement>(null);
 
@@ -222,6 +225,9 @@ export function LandingScreen({ onStart, userName, userAvatar, userId, isAuthLoa
                   <button type="button" className="nv-nav-signout" onClick={onSignOut}>
                     {t('nav.signOut')}
                   </button>
+                  {onAccountDeleted && (
+                    <AccountDeleteButton className="nv-nav-delete" onDeleted={onAccountDeleted} />
+                  )}
                 </>
               ) : (
                 <button type="button" className="nv-nav-cta" onClick={onStart}>
@@ -402,7 +408,14 @@ export function LandingScreen({ onStart, userName, userAvatar, userId, isAuthLoa
         </div>
 
         <footer className="nv-footer nv-footer--paper">
-          {t('landing.footer')}
+          <span>{t('landing.footer')}</span>
+          <span className="nv-footer-sep" aria-hidden="true">
+            {' '}
+            ·{' '}
+          </span>
+          <a className="nv-footer-contact" href={SUPPORT_MAILTO}>
+            {t('common.contactPrefix')} {SUPPORT_EMAIL}
+          </a>
         </footer>
       </div>
     </div>

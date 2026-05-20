@@ -28,7 +28,7 @@ import {
 } from '../lib/liveTranscriptFlush';
 import { hadActiveSpeechVolume, type TranscriptCaptureHint } from '../lib/transcriptScript';
 import { useSessionStore } from '../store/sessionStore';
-import { useLocaleStore } from '../store/localeStore';
+import { resolveLocaleForCurrentApp } from '../store/localeStore';
 import { buildPresentationTopicSummaryLine } from '../lib/presentationTopicContext';
 import { buildWordVolumeProfile } from '../lib/liveCaptionEmphasis';
 import type { FillerEntry, TranscriptEntry } from '../types/session';
@@ -44,7 +44,7 @@ export function useLivePresenting(captionResultRef?: CaptionResultRef) {
     feedbackQueue.clearQueue();
     useSessionStore.getState().setLivePresentation({ wpm: 0, fillerCount: 0 });
 
-    const appLocale = useLocaleStore.getState().locale;
+    const appLocale = resolveLocaleForCurrentApp();
     const personaType = useSessionStore.getState().selectedPersona;
     const persona = personaType ? PERSONAS[personaType] : null;
     const speechConfig: SpeechRuleConfig = persona

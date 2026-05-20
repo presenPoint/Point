@@ -3,7 +3,7 @@ import type { Persona } from '../constants/personas';
 import { PERSONA_FEEDBACK_TONE_KEYS, PERSONA_UI_KEYS } from '../constants/personaUiKeys';
 import { useT } from '../hooks/useT';
 import { getPersonaPaceRange } from '../lib/speechRate';
-import { useLocaleStore } from '../store/localeStore';
+import { useEffectiveLocale } from '../hooks/useEffectiveLocale';
 import type { MessageKey } from '../locales/messages';
 
 type Props = {
@@ -20,7 +20,7 @@ function gazeMessageKey(s: Persona['config']['gazeSensitivity']): MessageKey {
 
 export function PersonaInfoModal({ persona: p, onClose, onStart }: Props) {
   const t = useT();
-  const locale = useLocaleStore((s) => s.locale);
+  const locale = useEffectiveLocale();
   const pace = getPersonaPaceRange(p.config, locale);
   const paceUnit = pace.unit === 'spm' ? t('persona.modal.spmUnit') : t('persona.modal.wpmUnit');
   const titleId = useId();

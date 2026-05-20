@@ -1,85 +1,101 @@
 import { useEffect, useRef } from 'react';
+import { useAppNavStore } from '../store/appNavStore';
 import { useSessionStore } from '../store/sessionStore';
-import type { PersonaType } from '../store/sessionStore';
-import type { SessionStatus } from '../types/session';
-
-export type AppRouteId = 'home' | 'survey' | 'prepare' | 'live' | 'report';
-
-type HistState = {
-  route: AppRouteId;
-  persona: PersonaType | null;
-  status: SessionStatus;
-  /** True when coaching uses built-in defaults (no persona) but the survey is skipped. */
-  defaultCoaching?: boolean;
-};
-
-export function routeFromStore(
-  appStarted: boolean,
-  persona: PersonaType | null,
-  status: SessionStatus,
-  skipPersonaSurvey: boolean,
-): AppRouteId {
-  if (!appStarted) return 'home';
-  if (!persona && !skipPersonaSurvey) return 'survey';
-  if (status === 'IDLE' || status === 'PRE_QUIZ') return 'prepare';
-  if (status === 'PRESENTING') return 'live';
-  return 'report';
-}
+import {
+  computeAppRoute,
+  type AppHistState,
+  type AppRouteId,
+} from '../lib/appNavigation';
 
 function pathWithHash(route: AppRouteId): string {
-  const hash = route === 'home' ? '#/' : `#/${route}`;
+  const hash = route === 'landing' ? '#/' : `#/${route}`;
   return `${window.location.pathname}${window.location.search}${hash}`;
 }
 
 function parseHashRoute(): AppRouteId | null {
   const h = window.location.hash.replace(/^#\/?/, '').replace(/\/$/, '');
-  if (!h || h === 'home') return 'home';
-  if (h === 'survey' || h === 'prepare' || h === 'live' || h === 'report') return h as AppRouteId;
-  return null;
+  if (!h || h === 'landing' || h === 'home') return h === 'home' ? 'coach' : 'landing';
+  const routes: AppRouteId[] = [
+    'coach',
+    'dashboard',
+    'pricing',
+    'survey',
+    'mode',
+    'prepare',
+    'live',
+    'report',
+  ];
+  return routes.includes(h as AppRouteId) ? (h as AppRouteId) : null;
 }
 
-function normalizeHistState(st: HistState): HistState {
-  if (
-    (st.route === 'prepare' || st.route === 'live' || st.route === 'report') &&
-    !st.persona &&
-    !st.defaultCoaching
-  ) {
-    return { route: 'survey', persona: null, status: 'IDLE' };
+function applyHistoryState(st: AppHistState | null) {
+  if (!st || st.route === 'landing') {
+    useAppNavStore.getState().resetAppNav();
+    useSessionStore.setState({
+      appStarted: false,
+      selectedPersona: null,
+      skipPersonaSurvey: false,
+    });
+    return;
   }
-  return st;
-}
 
-function applyHistoryState(st: HistState | null) {
-  if (!st || st.route === 'home') {
-    useSessionStore.setState({ appStarted: false, selectedPersona: null, skipPersonaSurvey: false });
-    return;
-  }
-  const n = normalizeHistState(st);
-  if (n.route === 'home') {
-    useSessionStore.setState({ appStarted: false, selectedPersona: null, skipPersonaSurvey: false });
-    return;
-  }
-  const skipPersonaSurvey =
-    n.route === 'survey' ? false : Boolean(n.defaultCoaching) || n.persona != null;
+  useAppNavStore.setState({
+    landingDone: st.landingDone,
+    showDashboard: st.showDashboard,
+    showPricing: st.showPricing,
+    presentationMode: st.presentationMode ?? null,
+  });
+
   useSessionStore.setState((prev) => ({
-    appStarted: true,
-    selectedPersona: n.persona ?? null,
-    skipPersonaSurvey,
+    appStarted: st.appStarted,
+    selectedPersona: st.persona,
+    skipPersonaSurvey: st.skipPersonaSurvey,
     session: {
       ...prev.session,
-      status: n.status,
+      status: st.status,
     },
   }));
 }
 
+function snapshotFromStores(): AppHistState {
+  const nav = useAppNavStore.getState();
+  const sess = useSessionStore.getState();
+  const route = computeAppRoute({
+    landingDone: nav.landingDone,
+    showDashboard: nav.showDashboard,
+    showPricing: nav.showPricing,
+    appStarted: sess.appStarted,
+    selectedPersona: sess.selectedPersona,
+    skipPersonaSurvey: sess.skipPersonaSurvey,
+    presentationMode: nav.presentationMode,
+    status: sess.session.status,
+  });
+  return {
+    route,
+    landingDone: nav.landingDone,
+    showDashboard: nav.showDashboard,
+    showPricing: nav.showPricing,
+    presentationMode: nav.presentationMode,
+    appStarted: sess.appStarted,
+    persona: sess.selectedPersona,
+    skipPersonaSurvey: sess.skipPersonaSurvey,
+    status: sess.session.status,
+  };
+}
+
 /**
- * Keeps browser history in sync with in-app flow so the Back button steps
- * through Point (home → survey → prepare → …) instead of leaving the site.
+ * 브라우저 히스토리와 앱 화면을 동기화합니다.
+ * 뒤로 가기 시 직전 단계(코치 → 설문 → 준비 → 발표 …)로 복원됩니다.
  */
-export function useAppHistorySync(enabled: boolean) {
+export function useAppHistorySync(enabled = true) {
   const fromPopRef = useRef(false);
   const lastRouteRef = useRef<AppRouteId | null>(null);
   const hydratedRef = useRef(false);
+
+  const landingDone = useAppNavStore((s) => s.landingDone);
+  const showDashboard = useAppNavStore((s) => s.showDashboard);
+  const showPricing = useAppNavStore((s) => s.showPricing);
+  const presentationMode = useAppNavStore((s) => s.presentationMode);
 
   const appStarted = useSessionStore((s) => s.appStarted);
   const selectedPersona = useSessionStore((s) => s.selectedPersona);
@@ -91,25 +107,30 @@ export function useAppHistorySync(enabled: boolean) {
 
     const onPop = () => {
       fromPopRef.current = true;
-      const st = history.state as HistState | null;
+      const st = history.state as AppHistState | null;
       if (st && typeof st.route === 'string') {
         applyHistoryState(st);
         lastRouteRef.current = st.route;
         return;
       }
       const hashRoute = parseHashRoute();
-      if (hashRoute === 'survey') {
-        applyHistoryState({ route: 'survey', persona: null, status: 'IDLE' });
-        lastRouteRef.current = 'survey';
-        return;
-      }
-      if (hashRoute && hashRoute !== 'home') {
-        applyHistoryState(null);
-        lastRouteRef.current = 'home';
+      if (hashRoute) {
+        applyHistoryState({
+          route: hashRoute,
+          landingDone: hashRoute !== 'landing',
+          showDashboard: hashRoute === 'dashboard',
+          showPricing: hashRoute === 'pricing',
+          presentationMode: hashRoute === 'prepare' ? 'with-materials' : null,
+          appStarted: hashRoute !== 'landing' && hashRoute !== 'coach' && hashRoute !== 'dashboard',
+          persona: null,
+          skipPersonaSurvey: false,
+          status: hashRoute === 'live' ? 'PRESENTING' : hashRoute === 'report' ? 'POST_QA' : 'IDLE',
+        });
+        lastRouteRef.current = hashRoute;
         return;
       }
       applyHistoryState(null);
-      lastRouteRef.current = 'home';
+      lastRouteRef.current = 'landing';
     };
 
     window.addEventListener('popstate', onPop);
@@ -121,25 +142,33 @@ export function useAppHistorySync(enabled: boolean) {
 
     if (!hydratedRef.current) {
       hydratedRef.current = true;
-      const hashRoute = parseHashRoute();
-      const st = history.state as HistState | null;
-      if (st?.route && st.route !== 'home') {
+      const st = history.state as AppHistState | null;
+      if (st?.route) {
         applyHistoryState(st);
         lastRouteRef.current = st.route;
         return;
       }
-      if (hashRoute && hashRoute !== 'home' && hashRoute !== 'survey') {
-        applyHistoryState(null);
-        const homeState: HistState = { route: 'home', persona: null, status: 'IDLE' };
-        history.replaceState(homeState, '', pathWithHash('home'));
-        lastRouteRef.current = 'home';
+      const hashRoute = parseHashRoute();
+      if (hashRoute && hashRoute !== 'landing') {
+        applyHistoryState({
+          route: hashRoute,
+          landingDone: true,
+          showDashboard: hashRoute === 'dashboard',
+          showPricing: hashRoute === 'pricing',
+          presentationMode: hashRoute === 'prepare' ? 'with-materials' : null,
+          appStarted: hashRoute !== 'coach' && hashRoute !== 'dashboard',
+          persona: null,
+          skipPersonaSurvey: false,
+          status:
+            hashRoute === 'live' ? 'PRESENTING' : hashRoute === 'report' ? 'POST_QA' : 'IDLE',
+        });
+        lastRouteRef.current = hashRoute;
         return;
       }
-      if (hashRoute === 'survey') {
-        applyHistoryState({ route: 'survey', persona: null, status: 'IDLE' });
-        lastRouteRef.current = 'survey';
-        return;
-      }
+      const initial = snapshotFromStores();
+      history.replaceState(initial, '', pathWithHash(initial.route));
+      lastRouteRef.current = initial.route;
+      return;
     }
 
     if (fromPopRef.current) {
@@ -147,17 +176,12 @@ export function useAppHistorySync(enabled: boolean) {
       return;
     }
 
-    const route = routeFromStore(appStarted, selectedPersona, status, skipPersonaSurvey);
-    const state: HistState = {
-      route,
-      persona: selectedPersona,
-      status,
-      defaultCoaching: skipPersonaSurvey && selectedPersona === null,
-    };
+    const state = snapshotFromStores();
+    const route = state.route;
 
     if (lastRouteRef.current === route) {
       const want = pathWithHash(route);
-      if (window.location.hash !== (route === 'home' ? '#/' : `#/${route}`)) {
+      if (window.location.hash !== (route === 'landing' ? '#/' : `#/${route}`)) {
         history.replaceState(state, '', want);
       }
       return;
@@ -172,6 +196,22 @@ export function useAppHistorySync(enabled: boolean) {
       return;
     }
 
+    /* 발표 종료 → 리포트: 뒤로 가면 발표 화면이 아니라 준비/이전 단계로 */
+    if (route === 'report' && prev === 'live') {
+      history.replaceState(state, '', url);
+      return;
+    }
+
     history.pushState(state, '', url);
-  }, [enabled, appStarted, selectedPersona, skipPersonaSurvey, status]);
+  }, [
+    enabled,
+    landingDone,
+    showDashboard,
+    showPricing,
+    presentationMode,
+    appStarted,
+    selectedPersona,
+    skipPersonaSurvey,
+    status,
+  ]);
 }

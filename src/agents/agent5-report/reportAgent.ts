@@ -13,7 +13,8 @@ import { analyzeContext, type ContextAnalysisResult } from './contextAnalysis';
 import { buildPresentationTopicBlock } from '../../lib/presentationTopicContext';
 import { transcriptPlain } from '../../lib/transcriptScript';
 import { getPersonaPaceRange, type PaceRange } from '../../lib/speechRate';
-import { useLocaleStore } from '../../store/localeStore';
+import { resolveLocaleForCurrentApp, type AppLocale } from '../../store/localeStore';
+import { aiOutputLanguageRule, sanitizeKoUserFacingDeep } from '../../lib/aiOutputLocale';
 import { suggestTranscriptPolish } from '../transcriptPolishAgent';
 
 function tsToLabel(ts: number, sessionStart: number): string {
@@ -271,7 +272,7 @@ function fallbackPersonaStyleCoaching(persona: Persona, ctx: SessionContext, sco
       : Math.round(
           ctx.speech_coaching.wpm_log.reduce((a, b) => a + b.wpm, 0) / ctx.speech_coaching.wpm_log.length,
         );
-  const locale = useLocaleStore.getState().locale;
+  const locale = resolveLocaleForCurrentApp();
   const pr = getPersonaPaceRange(persona.config, locale);
   const unit = pr.unit === 'spm' ? (locale === 'ko' ? '음절/분' : 'SPM') : 'WPM';
   const paceNote =
@@ -310,6 +311,7 @@ export async function enrichPhraseRewritesIfMissing(
     const pairs = await suggestTranscriptPolish(plain, {
       coachName: persona.name,
       personaSystemPrompt: persona.systemPrompt,
+      locale: resolveLocaleForCurrentApp(),
     });
     if (!pairs?.length) return coaching;
     return {
@@ -446,6 +448,8 @@ export async function generateReportNarrative(
   scores: ReportScores & { contextAnalysis: ContextAnalysisResult },
   persona?: Persona | null,
   scriptCoverage?: number | null,
+  /** 리포트 생성 시점 언어(미지정 시 현재 앱 설정) */
+  outputLocale?: AppLocale,
 ): Promise<ReportNarrative> {
   const personaPrompt = persona?.systemPrompt;
   const avgWpm =
@@ -457,7 +461,7 @@ export async function generateReportNarrative(
         );
 
   const sessionStart = new Date(ctx.started_at).getTime();
-  const locale = useLocaleStore.getState().locale;
+  const locale = outputLocale ?? resolveLocaleForCurrentApp();
   const paceRange = persona ? getPersonaPaceRange(persona.config, locale) : undefined;
   const offExcerpts = ctx.speech_coaching.off_topic_log
     .map((e) => `[${tsToLabel(e.timestamp, sessionStart)}] "${typeof e.excerpt === 'string' ? e.excerpt : ''}"`)
@@ -563,10 +567,12 @@ Your job is to give ACTIONABLE coaching — not vague scores or abstract suggest
 
 Analyze this session data and produce JSON output.
 ${personaBlock}
+${aiOutputLanguageRule(locale)}
+
 RULES:
 - "strengths": 2-3 short sentences. Reference specific data AND timestamps (e.g., "At 1m20s you used a gesture perfectly aligned with 'API integration'").
 - "improvements": Exactly 3 actionable coaching items. Each must follow this structure:
-  - "label": Short title (e.g., "Posture Stability")
+  - "label": Short title in the output language (e.g. Korean: "자세 안정", English: "Posture Stability")
   - "situation": What the data shows — MUST reference specific timestamps like "At 2m30s..." or "Between 1m00s–3m15s...". Quote the timeline data provided. (e.g., "At 2m30s your posture became unstable right when you were explaining the revenue model. This lasted until around 3m15s.")
   - "stop_doing": One concrete habit to STOP, referencing the moment (e.g., "At 2m30s you started shifting weight — stop doing this when transitioning between data points.")
   - "start_doing": One concrete behavior to START (e.g., "Plant both feet shoulder-width apart. At moments like 2m30s, take a 1-second pause before the transition instead of shuffling.")
@@ -597,84 +603,142 @@ Response format:
 ${personaStyleBlock}`;
 
   if (!hasOpenAI()) {
-    return buildFallbackNarrative(ctx, scores, persona);
+    return buildFallbackNarrative(ctx, scores, persona, locale);
   }
 
   const parsed = await chatJson<ReportNarrative>('gpt-4o', sys, 'The data is in the system message above.');
   if (!parsed?.strengths?.length || !parsed?.improvements?.length) {
-    return buildFallbackNarrative(ctx, scores, persona);
+    return buildFallbackNarrative(ctx, scores, persona, locale);
   }
 
   if (persona) {
     const coaching = normalizePersonaStyleCoaching(parsed.persona_style_coaching, persona, ctx, scores);
-    return {
+    const withRewrites = {
       ...parsed,
       persona_style_coaching: await enrichPhraseRewritesIfMissing(coaching, persona, ctx),
     };
+    return sanitizeKoUserFacingDeep(withRewrites, locale);
   }
 
-  return { strengths: parsed.strengths, improvements: parsed.improvements };
+  return sanitizeKoUserFacingDeep(
+    { strengths: parsed.strengths, improvements: parsed.improvements },
+    locale,
+  );
 }
 
 export function buildFallbackNarrative(
   ctx: SessionContext,
   scores: ReportScores & { contextAnalysis: ContextAnalysisResult },
   persona?: Persona | null,
+  outputLocale?: AppLocale,
 ): ReportNarrative {
+  const locale = outputLocale ?? resolveLocaleForCurrentApp();
+  const ko = locale === 'ko';
   const sessionStart = new Date(ctx.started_at).getTime();
   const gazePercent = Math.round(ctx.nonverbal_coaching.gaze_rate * 100);
   const ca = scores.contextAnalysis;
+  const durationMin = Math.round(ctx.speech_coaching.total_duration_sec / 60);
 
   const strengths: string[] = [];
-  if (gazePercent >= 70)
-    strengths.push(`Maintained ${gazePercent}% eye contact — this signals strong confidence and keeps your audience locked in.`);
-  if (ca.keywordGestureHits > 0) {
-    const hitInsight = ca.insights.find(i => i.type === 'keyword_gesture');
-    const timeRef = hitInsight && hitInsight.timestamp > 0 ? ` (e.g., at ${tsToLabel(hitInsight.timestamp, sessionStart)})` : '';
-    strengths.push(`Used gestures to emphasize key points ${ca.keywordGestureHits} time(s)${timeRef} — this helps your audience retain critical information.`);
+  if (gazePercent >= 70) {
+    strengths.push(
+      ko
+        ? `시선 맞춤이 ${gazePercent}%로 유지됐어요. 자신감이 느껴지고 청중의 주의를 붙잡기 좋아요.`
+        : `Maintained ${gazePercent}% eye contact — this signals strong confidence and keeps your audience locked in.`,
+    );
   }
-  if (ctx.speech_coaching.filler_count === 0)
-    strengths.push('Zero filler words detected — your delivery sounds polished and rehearsed, which builds credibility.');
-  if (strengths.length === 0)
-    strengths.push(`Completed a ${Math.round(ctx.speech_coaching.total_duration_sec / 60)}-minute presentation with a ${scores.compositeScore}/100 composite score.`);
+  if (ca.keywordGestureHits > 0) {
+    const hitInsight = ca.insights.find((i) => i.type === 'keyword_gesture');
+    const timeRef =
+      hitInsight && hitInsight.timestamp > 0
+        ? ko
+          ? ` (${tsToLabel(hitInsight.timestamp, sessionStart)} 등)`
+          : ` (e.g., at ${tsToLabel(hitInsight.timestamp, sessionStart)})`
+        : '';
+    strengths.push(
+      ko
+        ? `핵심 포인트에 제스처를 ${ca.keywordGestureHits}번 맞췄어요${timeRef} — 청중이 중요한 정보를 더 잘 기억해요.`
+        : `Used gestures to emphasize key points ${ca.keywordGestureHits} time(s)${timeRef} — this helps your audience retain critical information.`,
+    );
+  }
+  if (ctx.speech_coaching.filler_count === 0) {
+    strengths.push(
+      ko
+        ? '필러가 거의 없었어요 — 말이 다듬어져 들려 신뢰감이 올라갑니다.'
+        : 'Zero filler words detected — your delivery sounds polished and rehearsed, which builds credibility.',
+    );
+  }
+  if (strengths.length === 0) {
+    strengths.push(
+      ko
+        ? `약 ${durationMin}분 발표를 마쳤고 종합 점수는 ${scores.compositeScore}/100이에요.`
+        : `Completed a ${durationMin}-minute presentation with a ${scores.compositeScore}/100 composite score.`,
+    );
+  }
 
   const improvements: ActionableFeedback[] = [];
 
   if (scores.nonverbalScore < 80) {
-    const postureIssue = ctx.nonverbal_coaching.posture_log.find(p => !p.is_ok);
+    const postureIssue = ctx.nonverbal_coaching.posture_log.find((p) => !p.is_ok);
     const pTime = postureIssue ? tsToLabel(postureIssue.timestamp, sessionStart) : undefined;
     improvements.push({
-      label: 'Posture Stability',
-      situation: `Your posture score was ${scores.nonverbalScore}/100.${pTime ? ` Instability was first detected at ${pTime}.` : ' The system detected instability during your session.'}`,
-      stop_doing: `Stop swaying or shifting weight between feet while speaking${pTime ? ` — this was especially visible around ${pTime}` : ''}.`,
-      start_doing: 'Plant both feet shoulder-width apart. Before each key point, take a 1-second pause with a stable stance.',
-      expected_impact: 'A grounded posture projects authority. Investors read physical stability as conviction in your message.',
-      time_markers: pTime ? [{ time: pTime, event: 'posture instability detected' }] : [],
+      label: ko ? '자세 안정' : 'Posture Stability',
+      situation: ko
+        ? `자세 점수는 ${scores.nonverbalScore}/100이에요.${pTime ? ` ${pTime}쯤 불안정이 처음 보였어요.` : ' 세션 중 불안정 구간이 감지됐어요.'}`
+        : `Your posture score was ${scores.nonverbalScore}/100.${pTime ? ` Instability was first detected at ${pTime}.` : ' The system detected instability during your session.'}`,
+      stop_doing: ko
+        ? `말할 때 체중을 좌우로 옮기거나 흔들지 마세요${pTime ? ` — 특히 ${pTime} 전후에 두드러졌어요` : ''}.`
+        : `Stop swaying or shifting weight between feet while speaking${pTime ? ` — this was especially visible around ${pTime}` : ''}.`,
+      start_doing: ko
+        ? '발을 어깨 너비로 고정하고, 핵심 포인트마다 1초 멈춤으로 자세를 잡아 보세요.'
+        : 'Plant both feet shoulder-width apart. Before each key point, take a 1-second pause with a stable stance.',
+      expected_impact: ko
+        ? '안정된 자세는 권위와 확신으로 읽혀요. 청중·투자자는 몸의 안정을 메시지 신뢰로 받아들입니다.'
+        : 'A grounded posture projects authority. Investors read physical stability as conviction in your message.',
+      time_markers: pTime
+        ? [{ time: pTime, event: ko ? '자세 불안정 감지' : 'posture instability detected' }]
+        : [],
     });
   }
 
   if (ca.keywordGestureMisses > 0) {
-    const missInsight = ca.insights.find(i => i.type === 'keyword_still');
+    const missInsight = ca.insights.find((i) => i.type === 'keyword_still');
     const mTime = missInsight && missInsight.timestamp > 0 ? tsToLabel(missInsight.timestamp, sessionStart) : undefined;
     improvements.push({
-      label: 'Gesture-Speech Alignment',
-      situation: `You mentioned key concepts ${ca.keywordGestureMisses} time(s) without any accompanying gesture.${mTime ? ` For example, at ${mTime}: ${missInsight!.description}.` : ''}`,
-      stop_doing: `Stop keeping your hands at your sides or clasped when delivering important points${mTime ? ` — at ${mTime} this was clearly visible` : ''}.`,
-      start_doing: 'When you say a keyword, use an open-palm gesture or count on fingers to give it visual weight.',
-      expected_impact: 'Audiences remember 30% more when verbal and visual cues align — this is how top speakers make ideas stick.',
+      label: ko ? '제스처·말 맞춤' : 'Gesture-Speech Alignment',
+      situation: ko
+        ? `핵심 개념을 ${ca.keywordGestureMisses}번 말했는데 제스처가 따라오지 않았어요.${mTime ? ` 예: ${mTime} — ${missInsight!.description}` : ''}`
+        : `You mentioned key concepts ${ca.keywordGestureMisses} time(s) without any accompanying gesture.${mTime ? ` For example, at ${mTime}: ${missInsight!.description}.` : ''}`,
+      stop_doing: ko
+        ? `중요한 말할 때 손을 옆에 두거나 모으지 마세요${mTime ? ` — ${mTime}에 특히 그랬어요` : ''}.`
+        : `Stop keeping your hands at your sides or clasped when delivering important points${mTime ? ` — at ${mTime} this was clearly visible` : ''}.`,
+      start_doing: ko
+        ? '키워드마다 손바닥을 펴거나 손가락으로 짚어 시각적 무게를 주세요.'
+        : 'When you say a keyword, use an open-palm gesture or count on fingers to give it visual weight.',
+      expected_impact: ko
+        ? '말과 몸이 맞을 때 기억률이 올라가요 — 상위 발표자들이 쓰는 방식이에요.'
+        : 'Audiences remember 30% more when verbal and visual cues align — this is how top speakers make ideas stick.',
       time_markers: mTime ? [{ time: mTime, event: missInsight!.description }] : [],
     });
   }
 
   if (ca.rhythmScore < 60) {
-    const freezeInsight = ca.insights.find(i => i.type === 'long_freeze');
+    const freezeInsight = ca.insights.find((i) => i.type === 'long_freeze');
     const fTime = freezeInsight && freezeInsight.timestamp > 0 ? tsToLabel(freezeInsight.timestamp, sessionStart) : undefined;
     improvements.push({
-      label: 'Movement Rhythm',
-      situation: `Your gesture rhythm score is ${ca.rhythmScore}/100 — gestures were clustered unevenly.${fTime ? ` A long freeze was detected starting at ${fTime}.` : ''}`,
-      stop_doing: `Don't freeze for long stretches then suddenly gesture rapidly${fTime ? ` — the freeze at ${fTime} lasted over 30 seconds` : ''}.`,
-      start_doing: 'Practice "punctuation gestures" — one deliberate hand movement per key sentence, evenly spaced.',
-      expected_impact: 'Rhythmic body language creates a sense of composed control — the hallmark of a seasoned presenter.',
+      label: ko ? '움직임 리듬' : 'Movement Rhythm',
+      situation: ko
+        ? `제스처 리듬 점수는 ${ca.rhythmScore}/100 — 움직임이 고르지 않았어요.${fTime ? ` ${fTime}부터 긴 정지가 보였어요.` : ''}`
+        : `Your gesture rhythm score is ${ca.rhythmScore}/100 — gestures were clustered unevenly.${fTime ? ` A long freeze was detected starting at ${fTime}.` : ''}`,
+      stop_doing: ko
+        ? `오래 멈춘 뒤 갑자기 빠르게 손을 쓰지 마세요${fTime ? ` — ${fTime} 정지가 30초 넘었어요` : ''}.`
+        : `Don't freeze for long stretches then suddenly gesture rapidly${fTime ? ` — the freeze at ${fTime} lasted over 30 seconds` : ''}.`,
+      start_doing: ko
+        ? '문장마다 의도적인 제스처 하나씩, 고르게 배치해 연습해 보세요.'
+        : 'Practice "punctuation gestures" — one deliberate hand movement per key sentence, evenly spaced.',
+      expected_impact: ko
+        ? '리듬 있는 몸짓은 침착함과 통제감을 줘요 — 숙련 발표자의 특징입니다.'
+        : 'Rhythmic body language creates a sense of composed control — the hallmark of a seasoned presenter.',
       time_markers: fTime ? [{ time: fTime, event: freezeInsight!.description }] : [],
     });
   }
@@ -682,26 +746,41 @@ export function buildFallbackNarrative(
   if (improvements.length === 0) {
     if (ctx.qa_skipped) {
       improvements.push({
-        label: 'Audience Q&A rehearsal',
-        situation:
-          'You skipped the live Q&A drill this time — the report reflects speech and presence only.',
-        stop_doing: 'Stop relying only on scripted delivery without pressure-testing hard questions.',
-        start_doing:
-          'Next session, run the post-talk Q&A (3–5 questions) so we can score how you handle objections and off-script probes.',
-        expected_impact: 'Investors often decide in Q&A; rehearsing there closes the gap between polished slides and trusted expertise.',
+        label: ko ? 'Q&A 연습' : 'Audience Q&A rehearsal',
+        situation: ko
+          ? '이번엔 라이브 Q&A를 건너뛰어서 리포트는 말하기·무대 존재감만 반영돼요.'
+          : 'You skipped the live Q&A drill this time — the report reflects speech and presence only.',
+        stop_doing: ko
+          ? '대본만 완벽한 연습에만 의존하지 마세요.'
+          : 'Stop relying only on scripted delivery without pressure-testing hard questions.',
+        start_doing: ko
+          ? '다음 세션엔 발표 후 Q&A(3~5문항)를 돌려 날카로운 질문에도 답해 보세요.'
+          : 'Next session, run the post-talk Q&A (3–5 questions) so we can score how you handle objections and off-script probes.',
+        expected_impact: ko
+          ? '투자·청중은 Q&A에서 결정하는 경우가 많아요 — 슬라이드와 실전 신뢰의 간극을 줄입니다.'
+          : 'Investors often decide in Q&A; rehearsing there closes the gap between polished slides and trusted expertise.',
         time_markers: [],
       });
     } else {
       improvements.push({
-        label: 'Q&A Depth',
-        situation: `Your Q&A score was ${scores.qaScore}/100. Weakest answer was on question ${ctx.qa.worst_answer_turn}.`,
-        stop_doing: 'Stop giving short, surface-level answers that lack supporting evidence.',
-        start_doing: 'Use the STAR method (Situation, Task, Action, Result) for each Q&A answer to add structure.',
-        expected_impact: 'Structured answers signal deep domain knowledge — investors want to see you can think on your feet.',
+        label: ko ? 'Q&A 깊이' : 'Q&A Depth',
+        situation: ko
+          ? `Q&A 점수는 ${scores.qaScore}/100이에요. 가장 약한 답은 ${ctx.qa.worst_answer_turn}번 질문이었어요.`
+          : `Your Q&A score was ${scores.qaScore}/100. Weakest answer was on question ${ctx.qa.worst_answer_turn}.`,
+        stop_doing: ko
+          ? '짧고 표면적인 답만 하지 마세요.'
+          : 'Stop giving short, surface-level answers that lack supporting evidence.',
+        start_doing: ko
+          ? '답마다 상황·과제·행동·결과(STAR) 구조로 말해 보세요.'
+          : 'Use the STAR method (Situation, Task, Action, Result) for each Q&A answer to add structure.',
+        expected_impact: ko
+          ? '구조화된 답은 깊은 이해를 보여줘요 — 즉흥 질문에도 당당함이 필요합니다.'
+          : 'Structured answers signal deep domain knowledge — investors want to see you can think on your feet.',
+        time_markers: [],
       });
     }
   }
 
   const persona_style_coaching = persona ? fallbackPersonaStyleCoaching(persona, ctx, scores) : undefined;
-  return { strengths, improvements, persona_style_coaching };
+  return sanitizeKoUserFacingDeep({ strengths, improvements, persona_style_coaching }, locale);
 }

@@ -1,17 +1,29 @@
 import { useLocaleStore, type AppLocale } from '../store/localeStore';
 import { useT } from '../hooks/useT';
 
-export function LanguageSwitcher({ className = '' }: { className?: string }) {
-  const locale = useLocaleStore((s) => s.locale);
-  const setLocale = useLocaleStore((s) => s.setLocale);
+type Props = {
+  className?: string;
+};
+
+export function LanguageSwitcher({ className = '' }: Props) {
   const t = useT();
+  const locale = useLocaleStore((s) => s.locale);
+  const setLocaleEverywhere = useLocaleStore((s) => s.setLocaleEverywhere);
 
   const pick = (next: AppLocale) => {
-    if (next !== locale) setLocale(next);
+    if (next === locale) return;
+    setLocaleEverywhere(next);
   };
 
+  const switcherClass = ['lang-switcher', className].filter(Boolean).join(' ');
+
   return (
-    <div className={`lang-switcher ${className}`.trim()} role="group" aria-label={t('lang.aria')}>
+    <div
+      className={switcherClass}
+      role="group"
+      aria-label={t('lang.aria')}
+      title={t('lang.globalHint')}
+    >
       <button
         type="button"
         className={`lang-switcher-btn${locale === 'en' ? ' lang-switcher-btn--active' : ''}`}
