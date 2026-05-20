@@ -7,7 +7,7 @@ export { analyzeMaterial, gradePreQuiz } from './agent1-material-quiz/materialQu
 export {
   bufferWithInterim,
   calcInstantWpmFromHistory,
-  calcWpm,
+  calcSpeechRateFromHistory,
   evaluateWpmWarningsForRate,
   onInterimSpeechTick,
   onTranscriptChunk,
@@ -15,7 +15,6 @@ export {
   speechConfigFromPersona,
   getDefaultSpeechConfig,
 } from './agent2-live-speech';
-export type { WpmHistorySample } from './agent2-live-speech';
 export type { SpeechRuleConfig } from './agent2-live-speech';
 export { qaNextQuestion, gradeQaExchanges, parseGptResponse } from './agent4-post-qa/qaAgent';
 export {

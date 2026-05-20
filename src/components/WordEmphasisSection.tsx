@@ -1,26 +1,25 @@
 import type { WordEmphasisEntry } from '../types/session';
+import { emphasisTiersForPhrase, relativeIntensityPercent } from '../lib/liveCaptionEmphasis';
+import { useT } from '../hooks/useT';
 
 interface Props {
   log: WordEmphasisEntry[];
 }
 
-function emphasisLevel(rms: number, maxRms: number): 'high' | 'mid' | 'low' {
-  if (maxRms === 0) return 'low';
-  const rel = rms / maxRms;
-  if (rel >= 0.65) return 'high';
-  if (rel >= 0.35) return 'mid';
-  return 'low';
-}
-
 function PhraseLine({ entry }: { entry: WordEmphasisEntry }) {
   const maxRms = Math.max(...entry.words.map((w) => w.rms), 0.001);
+  const tiers = emphasisTiersForPhrase(entry.words);
   return (
     <div className="wem-phrase">
       {entry.words.map((w, i) => {
-        const level = emphasisLevel(w.rms, maxRms);
-        const pct = maxRms > 0 ? Math.round((w.rms / maxRms) * 100) : 0;
+        const level = tiers[i];
+        const pct = relativeIntensityPercent(w.rms, maxRms);
         return (
-          <span key={i} className={`wem-word wem-word--${level}`} title={`Intensity ${pct}% (vs loudest word in phrase)`}>
+          <span
+            key={i}
+            className={`wem-word wem-word--${level}`}
+            title={`${pct}% vs loudest in phrase · ${level}`}
+          >
             {w.word}
           </span>
         );
@@ -30,18 +29,19 @@ function PhraseLine({ entry }: { entry: WordEmphasisEntry }) {
 }
 
 export function WordEmphasisSection({ log }: Props) {
+  const t = useT();
   if (log.length === 0) return null;
 
   return (
     <div className="wem-wrap">
       <div className="wem-legend">
         <span className="wem-swatch wem-swatch--high" />
-        High
+        {t('report.wordEmphasis.high')}
         <span className="wem-swatch wem-swatch--mid" />
-        Mid
+        {t('report.wordEmphasis.mid')}
         <span className="wem-swatch wem-swatch--low" />
-        Low
-        <span className="wem-tip">Hover a word for intensity (%)</span>
+        {t('report.wordEmphasis.low')}
+        <span className="wem-tip">{t('report.wordEmphasis.tip')}</span>
       </div>
       <div className="wem-lines">
         {log.map((entry, i) => (

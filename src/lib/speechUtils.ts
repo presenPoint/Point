@@ -14,16 +14,29 @@ export function recentTranscriptPlain(
   return parts.join(' ').replace(/\s+/g, ' ').trim().slice(0, maxChars);
 }
 
-/** Approximate word count for WPM calculation */
-export function countSyllables(text: string): number {
-  const words = text.trim().split(/\s+/).filter(Boolean);
-  return words.length;
-}
+export {
+  countSpeechUnits,
+  countSyllables,
+  calcSpeechRateFromHistory,
+  calcSpeechRateFromBuffer,
+  calcInstantWpmFromHistory,
+  getDefaultPaceRange,
+  getPersonaPaceRange,
+  isPaceInRange,
+  SPEECH_ACTIVITY_GAP_MS,
+  PACE_WINDOW_MS,
+  DEFAULT_WPM_RANGE,
+  DEFAULT_SPM_RANGE,
+  type PaceRange,
+  type PaceUnit,
+  type PaceHistorySample,
+} from './speechRate';
 
 export const WINDOW_MS = 5000;
-/** Default target range in words-per-minute (function counts whitespace tokens, not syllables) */
-export const TARGET_WPM_MIN = 100;
-export const TARGET_WPM_MAX = 180;
+/** @deprecated — use DEFAULT_WPM_RANGE from ./speechRate */
+export const TARGET_WPM_MIN = 130;
+/** @deprecated — use DEFAULT_WPM_RANGE from ./speechRate */
+export const TARGET_WPM_MAX = 170;
 
 /** English filler word patterns */
 export const FILLER_PATTERN = /\b(uh+|um+|er+|ah+|like|you know|basically|actually|so+|well|I mean)\b/gi;
@@ -44,3 +57,14 @@ export const SILENCE_THRESHOLD_MS = 3000;
 
 export const SEMANTIC_INTERVAL_MS = 30_000;
 export const MIN_TRANSCRIPT_LENGTH = 50;
+
+/** final 버퍼 + 현재 interim 한 줄(중복 없이 속도·스냅샷용) */
+export function bufferWithInterim(
+  base: TranscriptEntry[],
+  interimText: string,
+  interimAnchorMs: number | null,
+): TranscriptEntry[] {
+  const it = interimText.trim();
+  if (!it || interimAnchorMs == null) return base;
+  return [...base, { text: it, timestamp: interimAnchorMs }];
+}

@@ -3,6 +3,8 @@ import { useSessionStore, type PersonaType } from '../store/sessionStore';
 import { PERSONAS } from '../constants/personas';
 import { PERSONA_FEEDBACK_TONE_KEYS, PERSONA_UI_KEYS } from '../constants/personaUiKeys';
 import { useT } from '../hooks/useT';
+import { getPersonaPaceRange } from '../lib/speechRate';
+import { useLocaleStore } from '../store/localeStore';
 import type { MessageKey } from '../locales/messages';
 import { LanguageSwitcher } from './LanguageSwitcher';
 
@@ -81,6 +83,7 @@ function calcPersona(answers: Record<string, number>): PersonaType {
 
 export function PersonaSurvey() {
   const t = useT();
+  const locale = useLocaleStore((s) => s.locale);
   const setPersona = useSessionStore((s) => s.setPersona);
   const setAppStarted = useSessionStore((s) => s.setAppStarted);
   const [step, setStep] = useState(0);
@@ -130,7 +133,12 @@ export function PersonaSurvey() {
               </svg>
               <span className="src-label">{t('survey.result.targetPace')}</span>
               <span className="src-value">
-                {p.config.wpmRange[0]}–{p.config.wpmRange[1]} {t('persona.modal.wpmUnit')}
+                {(() => {
+                  const pace = getPersonaPaceRange(p.config, locale);
+                  const unit =
+                    pace.unit === 'spm' ? t('persona.modal.spmUnit') : t('persona.modal.wpmUnit');
+                  return `${pace.min}–${pace.max} ${unit}`;
+                })()}
               </span>
             </div>
             <div className="src-item">

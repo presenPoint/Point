@@ -304,41 +304,8 @@ export function QaReportScreen() {
                       {t('report.session.detailLead')}
                     </p>
                   </div>
-                  <div
-                    className={
-                      session.speech_coaching.volume_samples.length >= 2 ||
-                      session.speech_coaching.word_emphasis_log.length > 0
-                        ? 'report-session-signals__grid'
-                        : 'report-session-signals__grid report-session-signals__grid--transcript-only'
-                    }
-                  >
-                    {(session.speech_coaching.volume_samples.length >= 2 ||
-                      session.speech_coaching.word_emphasis_log.length > 0) && (
-                      <div className="report-session-signals__col report-session-signals__col--charts">
-                        {session.speech_coaching.volume_samples.length >= 2 && (
-                          <div className="report-signal-block">
-                            <div className="report-subhead">{t('report.session.voiceTimeline')}</div>
-                            <p className="report-micro-lead">
-                              {t('report.session.voiceTimelineLead')}
-                            </p>
-                            <VolumeTimelineChart
-                              samples={session.speech_coaching.volume_samples}
-                              sessionStartedAt={session.started_at}
-                              totalDurationSec={session.speech_coaching.total_duration_sec}
-                              coachingMarkers={volumeCoachingMarkers}
-                            />
-                          </div>
-                        )}
-                        {session.speech_coaching.word_emphasis_log.length > 0 && (
-                          <div className="report-signal-block">
-                            <div className="report-subhead">{t('report.session.wordEmphasis')}</div>
-                            <p className="report-micro-lead">{t('report.session.wordEmphasisLead')}</p>
-                            <WordEmphasisSection log={session.speech_coaching.word_emphasis_log} />
-                          </div>
-                        )}
-                      </div>
-                    )}
-                    <div className="report-session-signals__col report-session-signals__col--transcript">
+                  <div className="report-session-signals__stack">
+                    <div className="report-session-signals__block report-session-signals__block--primary">
                       <ReportTranscriptSection
                         transcriptLog={session.speech_coaching.transcript_log}
                         sessionStartedAt={session.started_at}
@@ -346,6 +313,25 @@ export function QaReportScreen() {
                         selectedPersona={selectedPersona}
                       />
                     </div>
+                    {session.speech_coaching.volume_samples.length >= 2 && (
+                      <div className="report-session-signals__block">
+                        <div className="report-subhead">{t('report.session.voiceTimeline')}</div>
+                        <p className="report-micro-lead">{t('report.session.voiceTimelineLead')}</p>
+                        <VolumeTimelineChart
+                          samples={session.speech_coaching.volume_samples}
+                          sessionStartedAt={session.started_at}
+                          totalDurationSec={session.speech_coaching.total_duration_sec}
+                          coachingMarkers={volumeCoachingMarkers}
+                        />
+                      </div>
+                    )}
+                    {session.speech_coaching.word_emphasis_log.length > 0 && (
+                      <div className="report-session-signals__block">
+                        <div className="report-subhead">{t('report.session.wordEmphasis')}</div>
+                        <p className="report-micro-lead">{t('report.session.wordEmphasisLead')}</p>
+                        <WordEmphasisSection log={session.speech_coaching.word_emphasis_log} />
+                      </div>
+                    )}
                   </div>
                 </section>
 

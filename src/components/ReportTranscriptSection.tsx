@@ -126,14 +126,16 @@ export function ReportTranscriptSection({
           After generating, use <strong>Hear your line</strong> (neutral read-back of the transcript) and{' '}
           <strong>Hear coach</strong> (persona TTS) to compare. Uses your configured OpenAI API key when available.
         </p>
-        <button
-          type="button"
-          className="btn-transcript btn-transcript-primary"
-          disabled={!canPolish || polishBusy}
-          onClick={() => void onPolish()}
-        >
-          {polishBusy ? 'Generating…' : 'Generate line suggestions'}
-        </button>
+        <div className="report-transcript-polish-actions">
+          <button
+            type="button"
+            className="btn-transcript btn-transcript-primary"
+            disabled={!canPolish || polishBusy}
+            onClick={() => void onPolish()}
+          >
+            {polishBusy ? 'Generating…' : 'Generate line suggestions'}
+          </button>
+        </div>
         {!hasOpenAI() && (
           <p className="report-transcript-polish-warn">
             Local dev: set <code>VITE_OPENAI_API_KEY</code> or use the server proxy (<code>VITE_OPENAI_SERVER_PROXY=1</code>{' '}

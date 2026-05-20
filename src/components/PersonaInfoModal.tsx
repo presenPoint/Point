@@ -2,6 +2,8 @@ import { useEffect, useId, useRef } from 'react';
 import type { Persona } from '../constants/personas';
 import { PERSONA_FEEDBACK_TONE_KEYS, PERSONA_UI_KEYS } from '../constants/personaUiKeys';
 import { useT } from '../hooks/useT';
+import { getPersonaPaceRange } from '../lib/speechRate';
+import { useLocaleStore } from '../store/localeStore';
 import type { MessageKey } from '../locales/messages';
 
 type Props = {
@@ -18,6 +20,9 @@ function gazeMessageKey(s: Persona['config']['gazeSensitivity']): MessageKey {
 
 export function PersonaInfoModal({ persona: p, onClose, onStart }: Props) {
   const t = useT();
+  const locale = useLocaleStore((s) => s.locale);
+  const pace = getPersonaPaceRange(p.config, locale);
+  const paceUnit = pace.unit === 'spm' ? t('persona.modal.spmUnit') : t('persona.modal.wpmUnit');
   const titleId = useId();
   const panelRef = useRef<HTMLDivElement>(null);
   const ui = PERSONA_UI_KEYS[p.id];
@@ -87,7 +92,7 @@ export function PersonaInfoModal({ persona: p, onClose, onStart }: Props) {
             <div>
               <dt>{t('persona.modal.speakingPace')}</dt>
               <dd>
-                {p.config.wpmRange[0]}–{p.config.wpmRange[1]} {t('persona.modal.wpmUnit')}
+                {pace.min}–{pace.max} {paceUnit}
               </dd>
             </div>
             <div>

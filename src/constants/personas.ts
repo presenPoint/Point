@@ -22,7 +22,10 @@ export const DEFAULT_LIVE_VOICE_SPREAD: LiveVoiceSpreadThresholds = {
 };
 
 export interface PersonaConfig {
+  /** 영어 발표: 분당 단어 수 (Words Per Minute) */
   wpmRange: [number, number];
+  /** 한국어 발표: 분당 음절 수 (Hangul syllables per minute) */
+  spmRange: [number, number];
   gazeSensitivity: GazeSensitivity;
   gestureIntensity: number;
   feedbackTone: string;
@@ -56,6 +59,7 @@ export const PERSONAS: Record<PersonaType, Persona> = {
       'Minimalist storyteller. Fewer words, longer pauses, deliberate gestures. Every movement has a purpose — silence is a weapon.',
     config: {
       wpmRange: [120, 160],
+      spmRange: [240, 300],
       gazeSensitivity: 'high',
       gestureIntensity: 0.4,
       feedbackTone: 'sharp',
@@ -84,6 +88,7 @@ export const PERSONAS: Record<PersonaType, Persona> = {
       'Rhythmic cadence with calibrated pace changes. Builds momentum through vocal dynamics — slows down for gravity, speeds up for energy.',
     config: {
       wpmRange: [140, 190],
+      spmRange: [280, 340],
       gazeSensitivity: 'mid',
       gestureIntensity: 0.6,
       feedbackTone: 'encouraging',
@@ -112,6 +117,7 @@ export const PERSONAS: Record<PersonaType, Persona> = {
       'Vulnerability as strength. Conversational warmth, authentic gestures, emotional arc. Connects through shared human experience.',
     config: {
       wpmRange: [150, 200],
+      spmRange: [300, 380],
       gazeSensitivity: 'low',
       gestureIntensity: 0.7,
       feedbackTone: 'warm',

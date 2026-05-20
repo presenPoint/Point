@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { emphasisTierForWord, relativeIntensityPercent } from '../lib/liveCaptionEmphasis';
+import { emphasisTiersForPhrase, relativeIntensityPercent } from '../lib/liveCaptionEmphasis';
 import type { ReplaySubtitleCue } from '../lib/replaySubtitles';
 
 interface Props {
@@ -27,6 +27,8 @@ export function PracticeReplayPlayer({ src, cues }: Props) {
   }, [src]);
 
   const maxRms = active ? Math.max(...active.words.map((w) => w.rms), 0) : 0;
+  const tiers =
+    active && active.hasVolume && maxRms > 0 ? emphasisTiersForPhrase(active.words) : [];
 
   return (
     <div className="practice-replay-wrap">
@@ -43,7 +45,7 @@ export function PracticeReplayPlayer({ src, cues }: Props) {
                   </span>
                 );
               }
-              const tier = emphasisTierForWord(w.rms, maxRms);
+              const tier = tiers[i] ?? 'mid';
               const pct = relativeIntensityPercent(w.rms, maxRms);
               return (
                 <span key={i} className={`prs-word prs-word--${tier}`} title={`Intensity ${pct}%`}>

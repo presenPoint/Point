@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import {
   bufferWithInterim,
-  calcInstantWpmFromHistory,
+  calcSpeechRateFromHistory,
   evaluateWpmWarningsForRate,
   feedbackQueue,
   getDefaultSpeechConfig,
@@ -14,7 +14,14 @@ import type { SpeechRuleConfig } from '../agents';
 type CaptionResultRef = { current: ((e: SpeechRecognitionEvent) => void) | null };
 import { PoseTracker, nonverbalConfigFromPersona, getDefaultNonverbalConfig } from '../agents/agent3-live-nonverbal/poseTracker';
 import { PERSONAS } from '../constants/personas';
-import { countSyllables, recentTranscriptPlain, SEMANTIC_INTERVAL_MS, SILENCE_THRESHOLD_MS } from '../lib/speechUtils';
+import {
+  countSpeechUnits,
+  recentTranscriptPlain,
+  SEMANTIC_INTERVAL_MS,
+  SILENCE_THRESHOLD_MS,
+  SPEECH_ACTIVITY_GAP_MS,
+} from '../lib/speechUtils';
+import type { PaceHistorySample } from '../lib/speechRate';
 import {
   registerLiveSpeechRecognitionRestart,
   registerLiveTranscriptFlush,
@@ -37,11 +44,12 @@ export function useLivePresenting(captionResultRef?: CaptionResultRef) {
     feedbackQueue.clearQueue();
     useSessionStore.getState().setLivePresentation({ wpm: 0, fillerCount: 0 });
 
+    const appLocale = useLocaleStore.getState().locale;
     const personaType = useSessionStore.getState().selectedPersona;
     const persona = personaType ? PERSONAS[personaType] : null;
     const speechConfig: SpeechRuleConfig = persona
-      ? speechConfigFromPersona(persona.config)
-      : getDefaultSpeechConfig();
+      ? speechConfigFromPersona(persona.config, appLocale)
+      : getDefaultSpeechConfig(appLocale);
     const personaPrompt = persona?.systemPrompt;
 
     const bufferRef: TranscriptEntry[] = [];
@@ -52,9 +60,11 @@ export function useLivePresenting(captionResultRef?: CaptionResultRef) {
     const prevInterimRef = { current: '' };
     /** 현재 interim 발화의 WPM 앵커 시각 */
     const interimStartRef = { current: null as number | null };
-    /** 확정(final) 구간만 누적한 음절 수 — interim은 별도 더함 */
-    const cumulativeSyllablesRef = { current: 0 };
-    const wpmHistRef: { t: number; s: number }[] = [];
+    /** 확정+임시 발화 단위 누적(음절 또는 단어) */
+    const cumulativeUnitsRef = { current: 0 };
+    const speakingMsAccumRef = { current: 0 };
+    const lastSpeechActivityRef = { current: 0 };
+    const paceHistRef: PaceHistorySample[] = [];
     const lastPeriodicInterimRef = { current: '' };
     const sessionTranscriptDraftRef = { current: '' };
     let upsertTranscriptTimer: ReturnType<typeof setTimeout> | null = null;
@@ -135,7 +145,8 @@ export function useLivePresenting(captionResultRef?: CaptionResultRef) {
 
       const ts = Date.now();
       onTranscriptChunk(line, bufferRef, fillerRef, speechConfig, speechSnapFromBuffer);
-      cumulativeSyllablesRef.current += countSyllables(line);
+      cumulativeUnitsRef.current += countSpeechUnits(line, speechConfig.locale);
+      lastSpeechActivityRef.current = Date.now();
 
       const fillers = fillerRef.length;
       useSessionStore.setState((st) => ({
@@ -186,12 +197,35 @@ export function useLivePresenting(captionResultRef?: CaptionResultRef) {
 
     const unregisterFlush = registerLiveTranscriptFlush(flushPendingTranscript);
 
-    const recordWpmSample = (): number => {
-      const s = cumulativeSyllablesRef.current + countSyllables(prevInterimRef.current);
-      const t = Date.now();
-      wpmHistRef.push({ t, s });
-      while (wpmHistRef.length > 1 && t - wpmHistRef[0].t > 3500) wpmHistRef.shift();
-      return calcInstantWpmFromHistory(wpmHistRef);
+    const markSpeechActivity = () => {
+      lastSpeechActivityRef.current = Date.now();
+    };
+
+    const recordPaceSample = (): number => {
+      const now = Date.now();
+      const live = useSessionStore.getState().livePresentation;
+      if (
+        prevInterimRef.current.trim() ||
+        live.volumeRms >= 0.06 ||
+        now - lastSpeechActivityRef.current < SPEECH_ACTIVITY_GAP_MS
+      ) {
+        if (now - lastSpeechActivityRef.current < SPEECH_ACTIVITY_GAP_MS) {
+          speakingMsAccumRef.current += 120;
+        }
+        markSpeechActivity();
+      }
+
+      const units =
+        cumulativeUnitsRef.current +
+        countSpeechUnits(prevInterimRef.current, speechConfig.locale);
+
+      paceHistRef.push({ t: now, units, speakingMs: speakingMsAccumRef.current });
+      while (paceHistRef.length > 1 && now - paceHistRef[0].t > 6000) paceHistRef.shift();
+
+      return calcSpeechRateFromHistory(paceHistRef, speechConfig.locale, {
+        minSpanMs: 500,
+        maxLookbackMs: 5000,
+      });
     };
 
     const transcriptForSemantic = (): string => {
@@ -203,7 +237,7 @@ export function useLivePresenting(captionResultRef?: CaptionResultRef) {
     };
 
     const uiTick = window.setInterval(() => {
-      const instantWpm = recordWpmSample();
+      const instantWpm = recordPaceSample();
       const snap = () =>
         recentTranscriptPlain(
           bufferWithInterim(bufferRef, prevInterimRef.current, interimStartRef.current),
@@ -248,7 +282,7 @@ export function useLivePresenting(captionResultRef?: CaptionResultRef) {
     }, SEMANTIC_INTERVAL_MS);
 
     const wpmLogId = window.setInterval(() => {
-      const wpm = recordWpmSample();
+      const wpm = recordPaceSample();
       const ts = Date.now();
       useSessionStore.setState((st) => ({
         session: {
@@ -322,7 +356,6 @@ export function useLivePresenting(captionResultRef?: CaptionResultRef) {
     });
 
     const wireRecognition = (rec: SpeechRecognition) => {
-      const appLocale = useLocaleStore.getState().locale;
       const rawLang =
         appLocale === 'ko'
           ? 'ko-KR'
@@ -355,6 +388,8 @@ export function useLivePresenting(captionResultRef?: CaptionResultRef) {
         latestInterim = latestInterim.trim();
         const finalT = finalText.trim();
         if (!t && !latestInterim && !(hasFinal && finalT)) return;
+
+        markSpeechActivity();
 
         if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
         silenceTimerRef.current = setTimeout(() => {
@@ -417,7 +452,7 @@ export function useLivePresenting(captionResultRef?: CaptionResultRef) {
           },
         }));
 
-        const instantWpm = recordWpmSample();
+        const instantWpm = recordPaceSample();
         const snapPost = () =>
           recentTranscriptPlain(
             bufferWithInterim(bufferRef, prevInterimRef.current, interimStartRef.current),

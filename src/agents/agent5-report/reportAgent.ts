@@ -12,6 +12,8 @@ import type { Persona } from '../../constants/personas';
 import { analyzeContext, type ContextAnalysisResult } from './contextAnalysis';
 import { buildPresentationTopicBlock } from '../../lib/presentationTopicContext';
 import { transcriptPlain } from '../../lib/transcriptScript';
+import { getPersonaPaceRange, type PaceRange } from '../../lib/speechRate';
+import { useLocaleStore } from '../../store/localeStore';
 import { suggestTranscriptPolish } from '../transcriptPolishAgent';
 
 function tsToLabel(ts: number, sessionStart: number): string {
@@ -21,11 +23,15 @@ function tsToLabel(ts: number, sessionStart: number): string {
   return `${m}m${String(s).padStart(2, '0')}s`;
 }
 
-function calcWpmScore(wpmLog: { wpm: number }[], wpmRange?: [number, number]): number {
-  if (wpmLog.length === 0) return 70;
-  const [min, max] = wpmRange ?? [250, 350];
-  const inRange = wpmLog.filter((e) => e.wpm >= min && e.wpm <= max).length;
-  return Math.round((inRange / wpmLog.length) * 100);
+function calcPaceScore(paceLog: { wpm: number }[], paceRange?: PaceRange): number {
+  if (paceLog.length === 0) return 70;
+  const [min, max] = paceRange
+    ? [paceRange.min, paceRange.max]
+    : paceRange === undefined
+      ? [130, 170]
+      : [250, 350];
+  const inRange = paceLog.filter((e) => e.wpm >= min && e.wpm <= max).length;
+  return Math.round((inRange / paceLog.length) * 100);
 }
 
 interface GazeBreakInfo {
@@ -173,10 +179,13 @@ function calcGestureScore(
   return Math.round(base * 0.6 + rhythmScore * 0.4);
 }
 
-export function calcCompositeScore(ctx: SessionContext, wpmRange?: [number, number]): ReportScores & { contextAnalysis: ContextAnalysisResult } {
+export function calcCompositeScore(
+  ctx: SessionContext,
+  paceRange?: PaceRange,
+): ReportScores & { contextAnalysis: ContextAnalysisResult } {
   const contextAnalysis = analyzeContext(ctx);
 
-  const wpmScore = calcWpmScore(ctx.speech_coaching.wpm_log, wpmRange);
+  const wpmScore = calcPaceScore(ctx.speech_coaching.wpm_log, paceRange);
   const fillerScore = Math.max(0, 100 - ctx.speech_coaching.filler_count * 5);
   const offTopicScore = Math.max(0, 100 - ctx.speech_coaching.off_topic_log.length * 15);
   const ambiguousScore = Math.max(0, 100 - ctx.speech_coaching.ambiguous_count * 3);
@@ -262,13 +271,21 @@ function fallbackPersonaStyleCoaching(persona: Persona, ctx: SessionContext, sco
       : Math.round(
           ctx.speech_coaching.wpm_log.reduce((a, b) => a + b.wpm, 0) / ctx.speech_coaching.wpm_log.length,
         );
-  const [wMin, wMax] = persona.config.wpmRange;
+  const locale = useLocaleStore.getState().locale;
+  const pr = getPersonaPaceRange(persona.config, locale);
+  const unit = pr.unit === 'spm' ? (locale === 'ko' ? '음절/분' : 'SPM') : 'WPM';
   const paceNote =
     avgWpm === 0
-      ? 'Pace data was thin this run—next time aim for the coach’s WPM band in calmer segments.'
-      : avgWpm >= wMin && avgWpm <= wMax
-        ? `Average pace (~${avgWpm} WPM) sat inside this coach’s ${wMin}–${wMax} WPM band—good alignment for this style.`
-        : `Average pace (~${avgWpm} WPM) drifted outside this coach’s ${wMin}–${wMax} WPM band—rehearse opening and transitions in that window.`;
+      ? locale === 'ko'
+        ? '속도 데이터가 부족했어요—다음엔 코치 목표 구간에 맞춰 말하는 구간을 늘려 보세요.'
+        : 'Pace data was thin this run—next time aim for the coach’s pace band in calmer segments.'
+      : avgWpm >= pr.min && avgWpm <= pr.max
+        ? locale === 'ko'
+          ? `평균 말 속도(약 ${avgWpm} ${unit})가 이 코치 목표 ${pr.min}–${pr.max} ${unit} 안에 있었어요.`
+          : `Average pace (~${avgWpm} ${unit}) sat inside this coach’s ${pr.min}–${pr.max} ${unit} band—good alignment.`
+        : locale === 'ko'
+          ? `평균 말 속도(약 ${avgWpm} ${unit})가 목표 ${pr.min}–${pr.max} ${unit} 밖이었어요—도입·전환에서 속도를 맞춰 보세요.`
+          : `Average pace (~${avgWpm} ${unit}) drifted outside ${pr.min}–${pr.max} ${unit}—rehearse opening and transitions in that window.`;
 
   return {
     style_alignment: `${persona.name} (${persona.presentationInfo.archetype}) — ${paceNote} Composite score ${scores.compositeScore}/100.`,
@@ -348,12 +365,18 @@ function normalizePersonaStyleCoaching(
   };
 }
 
-function buildTimeline(ctx: SessionContext, sessionStart: number): string {
+function buildTimeline(ctx: SessionContext, sessionStart: number, paceRange?: PaceRange): string {
   const events: { ts: number; desc: string }[] = [];
+  const fast = paceRange ? Math.round(paceRange.max * 1.12) : 350;
+  const slow = paceRange ? Math.round(paceRange.min * 0.88) : 100;
+  const unit = paceRange?.unit === 'spm' ? 'SPM' : 'WPM';
 
   for (const entry of ctx.speech_coaching.wpm_log) {
-    if (entry.wpm > 350 || entry.wpm < 100 && entry.wpm > 0) {
-      events.push({ ts: entry.timestamp, desc: `Speech pace: ${entry.wpm} WPM (${entry.wpm > 350 ? 'too fast' : 'too slow'})` });
+    if (entry.wpm > fast || (entry.wpm < slow && entry.wpm > 0)) {
+      events.push({
+        ts: entry.timestamp,
+        desc: `Speech pace: ${entry.wpm} ${unit} (${entry.wpm > fast ? 'too fast' : 'too slow'})`,
+      });
     }
   }
 
@@ -434,11 +457,13 @@ export async function generateReportNarrative(
         );
 
   const sessionStart = new Date(ctx.started_at).getTime();
+  const locale = useLocaleStore.getState().locale;
+  const paceRange = persona ? getPersonaPaceRange(persona.config, locale) : undefined;
   const offExcerpts = ctx.speech_coaching.off_topic_log
     .map((e) => `[${tsToLabel(e.timestamp, sessionStart)}] "${typeof e.excerpt === 'string' ? e.excerpt : ''}"`)
     .join(' / ');
   const contextBlock = formatInsightsForGPT(scores.contextAnalysis, sessionStart);
-  const timelineBlock = buildTimeline(ctx, sessionStart);
+  const timelineBlock = buildTimeline(ctx, sessionStart, paceRange);
   const durationMin = Math.round(ctx.speech_coaching.total_duration_sec / 60);
 
   const coachMeta = persona
@@ -481,7 +506,9 @@ export async function generateReportNarrative(
     '',
     topicMeta,
     `Duration: ${ctx.speech_coaching.total_duration_sec}s (~${durationMin} min)`,
-    `Average speech rate: ${avgWpm} words/min`,
+    paceRange
+      ? `Average speech rate: ${avgWpm} ${paceRange.unit === 'spm' ? 'syllables/min (Korean presentation pace)' : 'words/min'} (coach target ${paceRange.min}–${paceRange.max})`
+      : `Average speech rate: ${avgWpm} words/min`,
     `Filler words: ${ctx.speech_coaching.filler_count}`,
     `Off-topic moments: ${ctx.speech_coaching.off_topic_log.length} (${offExcerpts || 'none'})`,
     `Eye contact rate: ${Math.round(ctx.nonverbal_coaching.gaze_rate * 100)}%`,

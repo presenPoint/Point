@@ -21,6 +21,8 @@ import {
 } from '../lib/scriptEmbedding';
 import type { SessionContext, SessionStatus, QaDifficultyLevel, PersonaStyleCoaching, TranscriptEntry, ActionableFeedback } from '../types/session';
 import { buildPresentationTopicBlock } from '../lib/presentationTopicContext';
+import { useLocaleStore } from './localeStore';
+import { getDefaultPaceRange, getPersonaPaceRange } from '../lib/speechRate';
 
 function emptyMaterial(): SessionContext['material'] {
   return {
@@ -524,11 +526,14 @@ export const useSessionStore = create<State>((set, get) => ({
     }));
     const ctx = get().session;
     const persona = get().selectedPersona ? PERSONAS[get().selectedPersona!] : null;
-    const wpmRange = persona ? persona.config.wpmRange : undefined;
+    const locale = useLocaleStore.getState().locale;
+    const paceRange = persona
+      ? getPersonaPaceRange(persona.config, locale)
+      : getDefaultPaceRange(locale);
 
     let scoresWithContext: ReturnType<typeof calcCompositeScore>;
     try {
-      scoresWithContext = calcCompositeScore(ctx, wpmRange);
+      scoresWithContext = calcCompositeScore(ctx, paceRange);
     } catch (e) {
       console.error('calcCompositeScore failed', e);
       const msg = e instanceof Error ? e.message : String(e);

@@ -8,6 +8,9 @@ import { buildReplaySubtitles } from '../lib/replaySubtitles';
 import { flushLiveTranscriptNow, restartLiveSpeechRecognition } from '../lib/liveTranscriptFlush';
 import type { ReplaySubtitleCue } from '../lib/replaySubtitles';
 import { saveTranscriptToBlob } from '../lib/transcriptStorage';
+import { PERSONAS } from '../constants/personas';
+import { getDefaultPaceRange, getPersonaPaceRange, isPaceInRange } from '../lib/speechRate';
+import { useLocaleStore } from '../store/localeStore';
 import { useSessionStore } from '../store/sessionStore';
 import { useToastStore } from '../store/toastStore';
 import type { FeedbackItem, FeedbackLevel } from '../types/session';
@@ -276,6 +279,14 @@ export function LiveSessionScreen() {
     [],
   );
 
+  const locale = useLocaleStore((s) => s.locale);
+  const selectedPersona = useSessionStore((s) => s.selectedPersona);
+  const paceRange = useMemo(() => {
+    const p = selectedPersona ? PERSONAS[selectedPersona] : null;
+    return p ? getPersonaPaceRange(p.config, locale) : getDefaultPaceRange(locale);
+  }, [selectedPersona, locale]);
+  const paceUnitLabel = paceRange.unit === 'spm' ? t('live.paceUnitSpm') : t('live.paceUnitWpm');
+
   const interimText = live.interimText ?? '';
   const recognitionError = live.recognitionError ?? '';
   const wpm = live.wpm;
@@ -287,7 +298,7 @@ export function LiveSessionScreen() {
       ? 70
       : Math.round((postureLogs.filter((p) => p.is_ok).length / postureLogs.length) * 100);
 
-  const wpmOk = wpm >= 100 && wpm <= 180;
+  const wpmOk = isPaceInRange(wpm, paceRange);
   const wpmCard = wpm === 0 ? 'metric-card' : wpmOk ? 'metric-card good' : 'metric-card warn';
   const fillerCard =
     fillers >= 12 ? 'metric-card alert' : fillers >= 6 ? 'metric-card warn' : 'metric-card good';
@@ -304,7 +315,8 @@ export function LiveSessionScreen() {
   }, [lastDynamism, t]);
   const dynamismOk = lastDynamism === 'natural';
 
-  const wpmProg = Math.min(100, wpm === 0 ? 8 : (wpm / 240) * 100);
+  const paceMid = (paceRange.min + paceRange.max) / 2;
+  const wpmProg = Math.min(100, wpm === 0 ? 8 : (wpm / paceMid) * 100);
   const fillerProg = Math.min(100, fillers * 8);
   const gazeProg = gazePct;
   const postureProg = posturePct;
@@ -418,12 +430,17 @@ export function LiveSessionScreen() {
 
   const tickerItems = useMemo(
     () => [
-      t('live.tickerSpeech', { wpm: wpm || '—' }),
+      t('live.tickerSpeech', {
+        wpm: wpm || '—',
+        unit: paceUnitLabel,
+        min: paceRange.min,
+        max: paceRange.max,
+      }),
       t('live.tickerEye', { pct: gazePct }),
       t('live.tickerFillers', { n: fillers }),
       t('live.tickerPosture', { pts: posturePct }),
     ],
-    [wpm, gazePct, fillers, posturePct, t],
+    [wpm, gazePct, fillers, posturePct, paceRange, paceUnitLabel, t],
   );
 
   return (
@@ -591,7 +608,7 @@ export function LiveSessionScreen() {
                 <div className="cm-label">{t('live.metricSpeechRate')}</div>
                 <div className={`cm-value ${wpmOk || wpm === 0 ? 'good' : 'warn'}`}>
                   {wpm || '—'}{' '}
-                  <span className="cm-unit">wpm</span>
+                  <span className="cm-unit">{paceUnitLabel}</span>
                 </div>
               </div>
               <div className="cam-metric">
@@ -681,7 +698,13 @@ export function LiveSessionScreen() {
               <div className={wpmCard}>
                 <div className="mc-label">{t('live.metricSpeechRateCard')}</div>
                 <div className="mc-val">{wpm || '—'}</div>
-                <div className="mc-sub">{t('live.metricSpeechSub')}</div>
+                <div className="mc-sub">
+                  {t('live.metricSpeechSub', {
+                    unit: paceUnitLabel,
+                    min: paceRange.min,
+                    max: paceRange.max,
+                  })}
+                </div>
                 <div className="prog-bar">
                   <div
                     className="prog-fill"
