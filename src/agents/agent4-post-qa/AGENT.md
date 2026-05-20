@@ -12,7 +12,8 @@ GPT가 **방금 발표를 들은 청중** 역할을 수행합니다.
 
 다음을 매 턴 system/user에 반영합니다.
 
-- **발표 자료**: `material.summary`
+- **실제 발표 전사 (1순위)**: `speech_coaching.transcript_log` (+ `transcript_live_draft` if any), 앞·뒤 발췌 최대 ~4500자
+- **발표 자료 요약 (보조)**: `material.summary`
 - **약점**: `material.weak_areas` (Agent 1)
 - **문맥 이탈**: `speech_coaching.off_topic_log` (Agent 2)
 
@@ -42,7 +43,8 @@ GPT가 **방금 발표를 들은 청중** 역할을 수행합니다.
 
 ```
 너는 방금 발표를 들은 청중이다.
-발표 자료: [material summary]
+실제 발표 전사: [transcript excerpt — primary]
+발표 자료 요약: [material summary — supplemental]
 약점: [pre_quiz.weak_areas]
 문맥 이탈: [speech_coaching.off_topic_log]
 … (턴 전략 및 [QA_COMPLETE] 규칙)
