@@ -5946,6 +5946,20 @@ h1.login-logo {
 .login-tagline {
   font-size:14px; color:var(--muted2); text-align:center; margin-bottom:8px;
 }
+.login-auth-wait {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  padding: 8px 0 4px;
+}
+.login-auth-wait-text {
+  margin: 0;
+  font-size: 14px;
+  color: var(--muted2);
+  text-align: center;
+}
 .login-footer {
   font-size:13px; color:var(--muted2); text-align:center; margin-top:8px;
 }
@@ -10224,6 +10238,22 @@ textarea {
 }
 .nv-nav-links .lang-switcher-row {
   margin-right: 4px;
+}
+/* Landing: light notebook nav — dark-nav lang tokens are invisible here */
+.nv-page .nv-nav .lang-switcher--nv {
+  background: rgba(55, 45, 35, 0.07);
+  border-color: rgba(55, 45, 35, 0.14);
+}
+.nv-page .nv-nav .lang-switcher--nv .lang-switcher-btn {
+  color: rgba(42, 38, 32, 0.52);
+}
+.nv-page .nv-nav .lang-switcher--nv .lang-switcher-btn:hover:not(.lang-switcher-btn--active) {
+  color: rgba(42, 38, 32, 0.78);
+}
+.nv-page .nv-nav .lang-switcher--nv .lang-switcher-btn--active {
+  background: #fff;
+  color: #141210;
+  box-shadow: 0 1px 3px rgba(55, 45, 35, 0.12);
 }
 /* Login card on dark backdrop */
 .login-card .lang-switcher {

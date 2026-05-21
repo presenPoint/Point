@@ -5,8 +5,15 @@ import { LanguageSwitcher } from './LanguageSwitcher';
 import { useT } from '../hooks/useT';
 import { SUPPORT_EMAIL, SUPPORT_MAILTO } from '../constants/contact';
 
-export function LoginScreen({ onLogoHome }: { onLogoHome?: () => void }) {
-  const { signInWithGoogle, loading } = useAuth();
+type LoginScreenProps = {
+  onLogoHome?: () => void;
+  /** Supabase 세션 확인 중 — Google 버튼 대신 스피너 */
+  authInitializing?: boolean;
+};
+
+export function LoginScreen({ onLogoHome, authInitializing = false }: LoginScreenProps) {
+  const { signInWithGoogle, loading: oauthBusy } = useAuth();
+  const busy = authInitializing || oauthBusy;
   const inApp = isInAppBrowser();
   const t = useT();
 
@@ -35,7 +42,12 @@ export function LoginScreen({ onLogoHome }: { onLogoHome?: () => void }) {
         </h1>
         <p className="login-tagline">{t('login.tagline')}</p>
 
-        {inApp ? (
+        {busy && !inApp ? (
+          <div className="login-auth-wait" role="status" aria-live="polite">
+            <div className="quiz-grading-spinner" aria-hidden />
+            <p className="login-auth-wait-text">{t('login.loading')}</p>
+          </div>
+        ) : inApp ? (
           <div className="inapp-browser-notice">
             <p className="inapp-browser-title">{t('login.inappTitle')}</p>
             <p className="inapp-browser-body">
@@ -52,7 +64,7 @@ export function LoginScreen({ onLogoHome }: { onLogoHome?: () => void }) {
             </button>
           </div>
         ) : (
-          <button type="button" className="btn-google" onClick={signInWithGoogle} disabled={loading}>
+          <button type="button" className="btn-google" onClick={signInWithGoogle} disabled={busy}>
             <svg className="google-icon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
               <path
                 d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"
@@ -71,7 +83,7 @@ export function LoginScreen({ onLogoHome }: { onLogoHome?: () => void }) {
                 fill="#EA4335"
               />
             </svg>
-            {loading ? t('login.loading') : t('login.signInGoogle')}
+            {oauthBusy ? t('login.loading') : t('login.signInGoogle')}
           </button>
         )}
 

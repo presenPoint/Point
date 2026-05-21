@@ -47,7 +47,7 @@ BEGIN
   ON CONFLICT (user_id) DO NOTHING;
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
 DROP TRIGGER IF EXISTS trg_users_default_subscription ON users;
 CREATE TRIGGER trg_users_default_subscription
@@ -69,15 +69,17 @@ ALTER TABLE sessions
 CREATE INDEX IF NOT EXISTS idx_sessions_user_month
   ON sessions(user_id, started_at);
 
--- ── 5. (선택) 월 세션 수 헬퍼 뷰 ────────────────────────────────────────────
-CREATE OR REPLACE VIEW user_monthly_session_count AS
+-- ── 5. (선택) 월 세션 수 헬퍼 뷰 — 004에서 security_invoker로 재정의 ─────────
+CREATE OR REPLACE VIEW user_monthly_session_count
+WITH (security_invoker = true)
+AS
 SELECT
   user_id,
-  date_trunc('month', started_at) AS month_start,
-  COUNT(*) AS session_count
+  date_trunc('month', started_at AT TIME ZONE 'UTC') AS month_start,
+  COUNT(*)::bigint AS session_count
 FROM sessions
 WHERE started_at IS NOT NULL
-GROUP BY user_id, date_trunc('month', started_at);
+GROUP BY user_id, date_trunc('month', started_at AT TIME ZONE 'UTC');
 
 -- ── 6. 좀비 세션 자동 종료용 함수 (pg_cron 또는 Edge Function이 호출) ──────
 -- max_duration + 5분(grace) 지났는데 ended_at이 비어있으면 abandoned 마감
@@ -99,4 +101,4 @@ BEGIN
   SELECT COUNT(*) INTO affected FROM closed;
   RETURN affected;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;

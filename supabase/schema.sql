@@ -82,6 +82,9 @@ ALTER TABLE speech_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE nonverbal_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE qa_exchanges ENABLE ROW LEVEL SECURITY;
 ALTER TABLE reports ENABLE ROW LEVEL SECURITY;
+ALTER TABLE users ENABLE ROW LEVEL SECURITY;
+
+-- RLS policies: see supabase/migrations/004_rls_and_view_security.sql
 
 -- Migration: extended session report columns
 -- Run once against your Supabase project if upgrading from the initial schema.

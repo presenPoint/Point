@@ -32,8 +32,6 @@ import { PresentationModeSelect } from './components/PresentationModeSelect';
 
 import { PricingScreen } from './components/PricingScreen';
 
-import { PointWordmark } from './components/PointWordmark';
-
 import { CursorDot } from './components/CursorDot';
 
 import { GlobalToast } from './components/GlobalToast';
@@ -133,6 +131,20 @@ export default function App() {
 
 
 
+  /* 로그인·OAuth 복귀 후에도 랜딩(시작하기)으로 되돌아가지 않게 */
+
+  useEffect(() => {
+
+    if (user && !landingDone) {
+
+      setLandingDone(true);
+
+    }
+
+  }, [user, landingDone, setLandingDone]);
+
+
+
   /* 발표 플로우 종료 시 자료 모드만 초기화 (랜딩으로 점프하지 않음) */
 
   useEffect(() => {
@@ -184,9 +196,9 @@ export default function App() {
 
 
 
-  /* ── 1단계: 랜딩 ── */
+  /* ── 1단계: 랜딩 (비로그인·첫 방문만) ── */
 
-  if (!landingDone && !appStarted) {
+  if (!landingDone && !appStarted && !user) {
 
     return (
 
@@ -198,19 +210,7 @@ export default function App() {
 
           onStart={() => setLandingDone(true)}
 
-          userName={user ? (user.user_metadata?.full_name as string | undefined ?? user.email) : undefined}
-
-          userAvatar={user ? (user.user_metadata?.avatar_url as string | undefined) : undefined}
-
-          userId={user?.id}
-
           isAuthLoading={loading}
-
-          onSignOut={user ? signOut : undefined}
-
-          onAccountDeleted={user ? handleAccountDeleted : undefined}
-
-          onShowDashboard={user ? () => { setLandingDone(true); setShowDashboard(true); } : undefined}
 
           onShowPricing={() => setShowPricing(true)}
 
@@ -224,49 +224,7 @@ export default function App() {
 
 
 
-  /* ── 2단계: 인증 로딩 ── */
-
-  if (loading) {
-
-    return (
-
-      <>
-
-        <CursorDot />
-
-        <main className="login-screen">
-
-          <div className="login-card">
-
-            <h1 className="login-logo">
-
-              <PointWordmark
-
-                className="login-logo-mark"
-
-                ariaLabel="Point — Home"
-
-                onHomeClick={() => navigateBack()}
-
-              />
-
-            </h1>
-
-            <p className="login-tagline">Loading…</p>
-
-          </div>
-
-        </main>
-
-      </>
-
-    );
-
-  }
-
-
-
-  /* ── 3단계: 미로그인 → 로그인 화면 ── */
+  /* ── 2단계: 미로그인 → 로그인(세션 확인 중에도 언어·로고 유지) ── */
 
   if (!user) {
 
@@ -276,7 +234,7 @@ export default function App() {
 
         <CursorDot />
 
-        <LoginScreen onLogoHome={() => navigateBack()} />
+        <LoginScreen onLogoHome={() => navigateBack()} authInitializing={loading} />
 
       </>
 
