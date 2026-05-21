@@ -10,7 +10,7 @@ import { useAuth } from './hooks/useAuth';
 
 import { useAppHistorySync } from './hooks/useAppHistorySync';
 
-import { navigateBack } from './lib/appNavigation';
+import { navigateBack, navigateToMarketingHome } from './lib/appNavigation';
 
 import { LoginScreen } from './components/LoginScreen';
 
@@ -77,6 +77,10 @@ export default function App() {
 
   const landingDone       = useAppNavStore((s) => s.landingDone);
 
+  const showMarketingHome = useAppNavStore((s) => s.showMarketingHome);
+
+  const enterCoachHome    = useAppNavStore((s) => s.enterCoachHome);
+
   const showDashboard     = useAppNavStore((s) => s.showDashboard);
 
   const showPricing       = useAppNavStore((s) => s.showPricing);
@@ -127,7 +131,9 @@ export default function App() {
 
       void refreshBilling();
 
-      setLandingDone(true);
+      if (!showMarketingHome) {
+        setLandingDone(true);
+      }
 
     } else {
 
@@ -135,7 +141,7 @@ export default function App() {
 
     }
 
-  }, [user, setUserId, refreshBilling, resetBilling, setLandingDone]);
+  }, [user, setUserId, refreshBilling, resetBilling, setLandingDone, showMarketingHome]);
 
 
 
@@ -193,7 +199,9 @@ export default function App() {
 
   /* ── 1단계: 랜딩 (비로그인·첫 방문만) ── */
 
-  if (authReady && !landingDone && !appStarted && !user) {
+  const showLanding = authReady && !appStarted && (showMarketingHome || (!landingDone && !user));
+
+  if (showLanding) {
 
     return (
 
@@ -203,9 +211,21 @@ export default function App() {
 
         <LandingScreen
 
-          onStart={() => setLandingDone(true)}
+          onStart={() => enterCoachHome()}
 
           isAuthLoading={loading}
+
+          userName={user ? (user.user_metadata?.full_name as string | undefined ?? user.email) : undefined}
+
+          userAvatar={user ? (user.user_metadata?.avatar_url as string | undefined) : undefined}
+
+          userId={user?.id}
+
+          onSignOut={user ? signOut : undefined}
+
+          onAccountDeleted={user ? handleAccountDeleted : undefined}
+
+          onShowDashboard={user ? () => { enterCoachHome(); setShowDashboard(true); } : undefined}
 
           onShowPricing={() => setShowPricing(true)}
 
@@ -348,6 +368,8 @@ export default function App() {
         onShowDashboard={() => setShowDashboard(true)}
 
         onShowPricing={() => setShowPricing(true)}
+
+        onShowMainHome={() => navigateToMarketingHome()}
 
         startPersonaStyleQuiz={startPersonaStyleQuiz}
 

@@ -28,6 +28,8 @@ const en = {
   'nav.pointBack': 'Point — Back',
   'nav.pointHome': 'Point — Home',
   'nav.getStarted': 'Get started',
+  'nav.mainHome': 'Main home',
+  'nav.coachSelect': 'Coach select',
   'nav.mainNavigation': 'Main navigation',
 
   'common.contact': 'Contact',
@@ -678,6 +680,8 @@ const ko: { [K in keyof typeof en]: string } = {
   'nav.pointBack': 'Point — 뒤로',
   'nav.pointHome': 'Point — 홈',
   'nav.getStarted': '시작하기',
+  'nav.mainHome': '메인 홈',
+  'nav.coachSelect': '코치 선택',
   'nav.mainNavigation': '주요 내비게이션',
 
   'common.contact': '문의',

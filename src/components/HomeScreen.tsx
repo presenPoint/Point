@@ -50,11 +50,12 @@ interface HomeScreenProps {
   onAccountDeleted?: () => void;
   onShowDashboard?: () => void;
   onShowPricing?: () => void;
+  onShowMainHome?: () => void;
   startPersonaStyleQuiz: () => void;
   startWithDefaultCoaching: () => void;
 }
 
-export function HomeScreen({ userName, userAvatar, userId, onBack, onSignOut, onAccountDeleted, onShowDashboard, onShowPricing, startPersonaStyleQuiz, startWithDefaultCoaching }: HomeScreenProps) {
+export function HomeScreen({ userName, userAvatar, userId, onBack, onSignOut, onAccountDeleted, onShowDashboard, onShowPricing, onShowMainHome, startPersonaStyleQuiz, startWithDefaultCoaching }: HomeScreenProps) {
   const t = useT();
   const setAppStarted = useSessionStore((s) => s.setAppStarted);
   const setPersona   = useSessionStore((s) => s.setPersona);
@@ -99,6 +100,11 @@ export function HomeScreen({ userName, userAvatar, userId, onBack, onSignOut, on
           </div>
           <div className="home-topnav-links">
             <LanguageSwitcher className="lang-switcher--topnav" />
+            {onShowMainHome && (
+              <button type="button" className="home-topnav-link" onClick={onShowMainHome}>
+                {t('nav.mainHome')}
+              </button>
+            )}
             <button type="button" className="home-topnav-link" onClick={onShowPricing}>
               {t('nav.pricing')}
             </button>

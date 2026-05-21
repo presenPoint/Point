@@ -63,6 +63,13 @@ function snapshotForNavigateBack() {
 }
 
 /** 앱 단계 기준 뒤로 — history.back()만 쓰면 같은 화면에 머무는 경우가 있어 스토어를 직접 되돌림 */
+/** 로그인 상태에서 서비스 소개(메인) 랜딩으로 */
+export function navigateToMarketingHome(): void {
+  if (typeof window === 'undefined') return;
+  useAppNavStore.getState().openMarketingHome();
+  useSessionStore.setState({ appStarted: false, selectedPersona: null, skipPersonaSurvey: false });
+}
+
 export function navigateBack(): void {
   if (typeof window === 'undefined') return;
 
@@ -101,7 +108,7 @@ export function navigateBack(): void {
       nav.setShowDashboard(false);
       return;
     case 'coach':
-      nav.setLandingDone(false);
+      nav.enterCoachHome();
       return;
     case 'landing':
       nav.setLandingDone(false);

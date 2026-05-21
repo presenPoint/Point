@@ -32,6 +32,7 @@ function applyHistoryState(st: AppHistState | null) {
   if (!st || st.route === 'landing') {
     useAppNavStore.setState({
       landingDone: st?.landingDone ?? false,
+      showMarketingHome: false,
       showDashboard: false,
       showPricing: false,
       presentationMode: null,

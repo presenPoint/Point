@@ -199,6 +199,11 @@ export function LandingScreen({ onStart, userName, userAvatar, userId, isAuthLoa
         </button>
         <div className="nv-nav-links">
           <LanguageSwitcher className="lang-switcher--nv" />
+          {userId && onSignOut && (
+            <button type="button" className="nv-nav-link" onClick={onStart}>
+              {t('nav.coachSelect')}
+            </button>
+          )}
           {onShowPricing && (
             <button type="button" className="nv-nav-link" onClick={onShowPricing}>
               {t('nav.pricing')}
