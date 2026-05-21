@@ -30,7 +30,12 @@ function parseHashRoute(): AppRouteId | null {
 
 function applyHistoryState(st: AppHistState | null) {
   if (!st || st.route === 'landing') {
-    useAppNavStore.getState().resetAppNav();
+    useAppNavStore.setState({
+      landingDone: st?.landingDone ?? false,
+      showDashboard: false,
+      showPricing: false,
+      presentationMode: null,
+    });
     useSessionStore.setState({
       appStarted: false,
       selectedPersona: null,
@@ -87,10 +92,12 @@ function snapshotFromStores(): AppHistState {
  * 브라우저 히스토리와 앱 화면을 동기화합니다.
  * 뒤로 가기 시 직전 단계(코치 → 설문 → 준비 → 발표 …)로 복원됩니다.
  */
+/** React StrictMode 이중 마운트 시 landing으로 두 번 초기화되는 것 방지 */
+let historyHydratedOnce = false;
+
 export function useAppHistorySync(enabled = true) {
   const fromPopRef = useRef(false);
   const lastRouteRef = useRef<AppRouteId | null>(null);
-  const hydratedRef = useRef(false);
 
   const landingDone = useAppNavStore((s) => s.landingDone);
   const showDashboard = useAppNavStore((s) => s.showDashboard);
@@ -140,8 +147,8 @@ export function useAppHistorySync(enabled = true) {
   useEffect(() => {
     if (!enabled) return;
 
-    if (!hydratedRef.current) {
-      hydratedRef.current = true;
+    if (!historyHydratedOnce) {
+      historyHydratedOnce = true;
       const st = history.state as AppHistState | null;
       if (st?.route) {
         applyHistoryState(st);

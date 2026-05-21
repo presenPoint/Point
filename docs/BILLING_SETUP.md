@@ -8,6 +8,7 @@ Supabase SQL Editor에서 **순서대로** 실행합니다.
 
 1. `supabase/migrations/003_subscriptions.sql`
 2. `supabase/migrations/004_rls_and_view_security.sql` — **필수** (RLS + `user_monthly_session_count` security_invoker)
+3. `supabase/migrations/005_users_self_upsert.sql` — **필수** (로그인 후 `users` 행 생성·Free 구독 트리거)
 
 003에서 생성되는 것:
 

@@ -40,6 +40,8 @@ import { AccountDeleteButton } from './components/AccountDeleteButton';
 
 import { useT } from './hooks/useT';
 import { useSyncHtmlLang } from './hooks/useSyncHtmlLang';
+import { ensureUserProfile } from './lib/ensureUserProfile';
+import { hasSupabase } from './lib/supabase';
 
 
 
@@ -113,13 +115,19 @@ export default function App() {
 
 
 
+  const authReady = !loading || !hasSupabase();
+
   useEffect(() => {
 
     if (user) {
 
       setUserId(user.id);
 
+      void ensureUserProfile(user.id, user.email);
+
       void refreshBilling();
+
+      setLandingDone(true);
 
     } else {
 
@@ -127,21 +135,7 @@ export default function App() {
 
     }
 
-  }, [user, setUserId, refreshBilling, resetBilling]);
-
-
-
-  /* 로그인·OAuth 복귀 후에도 랜딩(시작하기)으로 되돌아가지 않게 */
-
-  useEffect(() => {
-
-    if (user && !landingDone) {
-
-      setLandingDone(true);
-
-    }
-
-  }, [user, landingDone, setLandingDone]);
+  }, [user, setUserId, refreshBilling, resetBilling, setLandingDone]);
 
 
 
@@ -169,7 +163,8 @@ export default function App() {
 
 
 
-  useAppHistorySync(true);
+  /* 인증 확정 전에는 history가 landing으로 상태를 덮어쓰지 않게 */
+  useAppHistorySync(authReady);
   useSyncHtmlLang();
 
 
@@ -198,7 +193,7 @@ export default function App() {
 
   /* ── 1단계: 랜딩 (비로그인·첫 방문만) ── */
 
-  if (!landingDone && !appStarted && !user) {
+  if (authReady && !landingDone && !appStarted && !user) {
 
     return (
 
@@ -226,6 +221,24 @@ export default function App() {
 
   /* ── 2단계: 미로그인 → 로그인(세션 확인 중에도 언어·로고 유지) ── */
 
+  if (!authReady) {
+
+    return (
+
+      <>
+
+        <CursorDot />
+
+        <LoginScreen authInitializing />
+
+      </>
+
+    );
+
+  }
+
+
+
   if (!user) {
 
     return (
@@ -234,7 +247,13 @@ export default function App() {
 
         <CursorDot />
 
-        <LoginScreen onLogoHome={() => navigateBack()} authInitializing={loading} />
+        <LoginScreen
+          onLogoHome={() => {
+            setLandingDone(false);
+            navigateBack();
+          }}
+          authInitializing={false}
+        />
 
       </>
 

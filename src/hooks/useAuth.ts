@@ -8,7 +8,24 @@ export function isInAppBrowser(): boolean {
   return /FBAN|FBAV|Instagram|Line\/|KAKAO|NaverApp|Snapchat|WeChat|MicroMessenger|Twitter|TikTok/i.test(ua);
 }
 
-const AUTH_INIT_TIMEOUT_MS = 10_000;
+const AUTH_INIT_TIMEOUT_MS = 15_000;
+
+/** OAuth ?code= 쿼리 정리 (세션 교환 후 주소창 깔끔하게) */
+function stripAuthQueryFromUrl() {
+  if (typeof window === 'undefined') return;
+  const url = new URL(window.location.href);
+  const authKeys = ['code', 'state', 'error', 'error_description', 'error_code'];
+  let changed = false;
+  for (const key of authKeys) {
+    if (url.searchParams.has(key)) {
+      url.searchParams.delete(key);
+      changed = true;
+    }
+  }
+  if (changed) {
+    window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`);
+  }
+}
 
 export function useAuth() {
   const [user, setUser] = useState<User | null>(null);
@@ -30,19 +47,21 @@ export function useAuth() {
 
     const timeoutId = window.setTimeout(finish, AUTH_INIT_TIMEOUT_MS);
 
-    void supabase.auth
-      .getSession()
-      .then(({ data: { session } }) => {
-        setUser(session?.user ?? null);
-        finish();
-      })
-      .catch(() => finish());
-
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = supabase.auth.onAuthStateChange((event, session) => {
       setUser(session?.user ?? null);
-      finish();
+      if (
+        event === 'INITIAL_SESSION' ||
+        event === 'SIGNED_IN' ||
+        event === 'SIGNED_OUT' ||
+        event === 'TOKEN_REFRESHED'
+      ) {
+        if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
+          stripAuthQueryFromUrl();
+        }
+        finish();
+      }
     });
 
     return () => {
