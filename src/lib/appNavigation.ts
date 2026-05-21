@@ -47,15 +47,74 @@ export function computeAppRoute(input: {
   return 'prepare';
 }
 
-/** 브라우저·앱 뒤로 가기 — 직전 화면으로 (랜딩으로 점프하지 않음) */
+function snapshotForNavigateBack() {
+  const nav = useAppNavStore.getState();
+  const sess = useSessionStore.getState();
+  return { nav, sess, route: computeAppRoute({
+    landingDone: nav.landingDone,
+    showDashboard: nav.showDashboard,
+    showPricing: nav.showPricing,
+    appStarted: sess.appStarted,
+    selectedPersona: sess.selectedPersona,
+    skipPersonaSurvey: sess.skipPersonaSurvey,
+    presentationMode: nav.presentationMode,
+    status: sess.session.status,
+  }) };
+}
+
+/** 앱 단계 기준 뒤로 — history.back()만 쓰면 같은 화면에 머무는 경우가 있어 스토어를 직접 되돌림 */
 export function navigateBack(): void {
   if (typeof window === 'undefined') return;
+
+  const { nav, sess, route } = snapshotForNavigateBack();
+
+  switch (route) {
+    case 'pricing':
+      nav.setShowPricing(false);
+      return;
+    case 'prepare':
+      nav.setPresentationMode(null);
+      return;
+    case 'mode':
+      nav.setPresentationMode(null);
+      useSessionStore.setState({ appStarted: false });
+      return;
+    case 'survey':
+      useSessionStore.setState({
+        selectedPersona: null,
+        skipPersonaSurvey: false,
+      });
+      return;
+    case 'live':
+      useSessionStore.getState().transition('IDLE');
+      return;
+    case 'report':
+      if (sess.session.status === 'DONE' || sess.session.status === 'REPORT' || sess.session.status === 'POST_QA') {
+        useSessionStore.setState((prev) => ({
+          session: { ...prev.session, status: 'IDLE' },
+          appStarted: true,
+        }));
+        nav.setPresentationMode('with-materials');
+      }
+      return;
+    case 'dashboard':
+      nav.setShowDashboard(false);
+      return;
+    case 'coach':
+      nav.setLandingDone(false);
+      return;
+    case 'landing':
+      nav.setLandingDone(false);
+      return;
+    default:
+      break;
+  }
+
   if (window.history.length > 1) {
     window.history.back();
     return;
   }
-  /* 히스토리가 없을 때만 코치 화면으로 폴백 */
-  const nav = useAppNavStore.getState();
+
   nav.setShowPricing(false);
   nav.setShowDashboard(false);
   nav.setPresentationMode(null);

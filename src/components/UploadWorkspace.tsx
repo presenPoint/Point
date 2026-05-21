@@ -297,7 +297,12 @@ export function UploadWorkspace() {
 
   const goPrev = () => {
     stopCoachQuestionSpeech();
-    if (stepIndex > 0) setStepIndex((i) => i - 1);
+    if (stepIndex > 0) {
+      setStepIndex((i) => i - 1);
+      return;
+    }
+    /* 1단계(주제·자료)에서는 마법사 안이 아니라 발표 설정(모드 선택)으로 */
+    navigateBack();
   };
 
   const renderStepBody = () => {
@@ -566,7 +571,7 @@ export function UploadWorkspace() {
           <div className="upload-wizard-shell">{renderStepBody()}</div>
 
           <div className="upload-wizard-nav">
-            <button type="button" className="btn-sm" onClick={goPrev} disabled={stepIndex <= 0 || isPreQuizGrading}>
+            <button type="button" className="btn-sm" onClick={goPrev} disabled={isPreQuizGrading}>
               {t('prepare.navBack')}
             </button>
             <div className="upload-wizard-nav-spacer" />
