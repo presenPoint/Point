@@ -147,20 +147,26 @@ function IconFolderView() {
   );
 }
 
+const MIN_MATERIAL_CHARS = 20;
+
 export type FileSubmissionPanelHandle = {
   /** 세션에 발표 자료 텍스트 반영. 성공 여부 반환 */
   save: () => boolean;
   hasEntries: () => boolean;
+  /** 추출 완료된 텍스트가 최소 분량 이상인지 */
+  hasReadyMaterial: () => boolean;
 };
 
 type Props = {
   globalBusy: boolean;
   /** 업로드 처리 중이면 위저드 Next 비활성화 */
   onFilesStepBlockingChange?: (blocked: boolean) => void;
+  /** 추출된 자료가 다음 단계 조건을 만족하는지 */
+  onMaterialReadyChange?: (ready: boolean) => void;
 };
 
 export const FileSubmissionPanel = forwardRef<FileSubmissionPanelHandle, Props>(
-  function FileSubmissionPanel({ globalBusy, onFilesStepBlockingChange }, ref) {
+  function FileSubmissionPanel({ globalBusy, onFilesStepBlockingChange, onMaterialReadyChange }, ref) {
   const t = useT();
   const setMaterialText = useSessionStore((s) => s.setMaterialText);
   const [entries, setEntries] = useState<LocalFileEntry[]>([]);
@@ -177,11 +183,23 @@ export const FileSubmissionPanel = forwardRef<FileSubmissionPanelHandle, Props>(
   useImperativeHandle(ref, () => ({
     save: () => persistMaterialEntries(entriesRef.current, setMaterialText),
     hasEntries: () => entriesRef.current.length > 0,
+    hasReadyMaterial: () => {
+      const items = entriesRef.current;
+      if (items.some((e) => e.loading)) return false;
+      return combineMaterialText(items).trim().length >= MIN_MATERIAL_CHARS;
+    },
   }));
 
   useEffect(() => {
     onFilesStepBlockingChange?.(globalBusy || panelBusy || hasLoadingEntry);
   }, [globalBusy, panelBusy, hasLoadingEntry, onFilesStepBlockingChange]);
+
+  useEffect(() => {
+    const ready =
+      !entries.some((e) => e.loading) &&
+      combineMaterialText(entries).trim().length >= MIN_MATERIAL_CHARS;
+    onMaterialReadyChange?.(ready);
+  }, [entries, onMaterialReadyChange]);
 
   const ingestFiles = useCallback(async (fileArray: File[]) => {
     const oversized = fileArray.filter((f) => f.size > MAX_BYTES);

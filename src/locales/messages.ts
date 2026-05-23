@@ -483,6 +483,8 @@ const en = {
   'prepare.material.contextLead': 'Tell Point what this deck is about. This shapes coaching tone and quiz focus.',
   'prepare.material.filesTitle': 'Materials',
   'prepare.material.filesLead': 'TXT, MD, PDF, or PPTX — drag in or use the toolbar.',
+  'prepare.material.needFiles': 'Add at least one file with readable text before continuing.',
+  'prepare.material.needFilesHint': 'Upload materials to unlock Next — at least one file with extractable text is required.',
 
   'prepare.script.title': 'Step {step} — Optional script',
   'prepare.script.lead':
@@ -1131,6 +1133,8 @@ const ko: { [K in keyof typeof en]: string } = {
   'prepare.material.contextLead': '이 덱이 어떤 발표인지 알려 주세요. 코칭 톤과 퀴즈 초점에 반영됩니다.',
   'prepare.material.filesTitle': '자료',
   'prepare.material.filesLead': 'TXT, MD, PDF, PPTX — 끌어다 놓거나 위 도구 모음을 사용하세요.',
+  'prepare.material.needFiles': '다음 단계로 가려면 읽을 수 있는 자료를 먼저 올려 주세요.',
+  'prepare.material.needFilesHint': '자료를 올려야 「다음」이 활성화됩니다. 텍스트가 추출되는 파일이 최소 1개 필요해요.',
 
   'prepare.script.title': '{step}단계 — 스크립트(선택)',
   'prepare.script.lead':

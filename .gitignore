@@ -8,4 +8,5 @@ dist/
 Thumbs.db
 .vite/
 .vercel
+supabase/.temp/
 .env*.local

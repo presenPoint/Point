@@ -160,6 +160,9 @@ export function UploadWorkspace() {
   const lastQuizRef = useRef<HTMLDivElement>(null);
   /** 자료 추출 중 등 — Topic & materials 단계에서 Next 비활성 */
   const [filesStepBlocked, setFilesStepBlocked] = useState(false);
+  const [panelMaterialReady, setPanelMaterialReady] = useState(false);
+  /** 1단계에서 자료 저장·다음을 한 번 통과했는지 (이전 세션 raw_text만으로 스킵 방지) */
+  const [materialSavedInWizard, setMaterialSavedInWizard] = useState(false);
   /** 같은 분석 결과로 analyze 단계 → 퀴즈 자동 이동을 한 번만 */
   const preQuizAutoJumpKey = useRef<string | null>(null);
 
@@ -168,6 +171,8 @@ export function UploadWorkspace() {
   useEffect(() => {
     setStepIndex(0);
     setVisibleQuizCount(1);
+    setMaterialSavedInWizard(false);
+    setPanelMaterialReady(false);
     preQuizAutoJumpKey.current = null;
   }, [session.session_id]);
 
@@ -263,11 +268,17 @@ export function UploadWorkspace() {
     session.material.quiz.length > 0 &&
     session.material.quiz.every((q) => Boolean(preQuizAnswers[q.id]?.trim()));
 
+  const hasSavedMaterial = session.material.raw_text.trim().length >= 20;
+
+  const canProceedFromMaterialStep = (): boolean =>
+    panelMaterialReady || (materialSavedInWizard && hasSavedMaterial);
+
   const canGoNext = (): boolean => {
     switch (currentId) {
       case 'material_prep':
+        return canProceedFromMaterialStep() && !filesStepBlocked;
       case 'script':
-        return true;
+        return hasSavedMaterial;
       case 'analyze':
         return analysisReady(session);
       case 'quiz':
@@ -281,8 +292,22 @@ export function UploadWorkspace() {
     stopCoachQuestionSpeech();
     if (currentId === 'material_prep') {
       const h = filesPanelRef.current;
-      if (h?.hasEntries() && !h.save()) return;
-      if (h?.hasEntries()) useToastStore.getState().showToast(t('prepare.toast.saved'));
+      if (!canProceedFromMaterialStep()) {
+        useToastStore.getState().showToast(t('prepare.material.needFiles'));
+        return;
+      }
+      if (panelMaterialReady && h) {
+        if (!h.save()) return;
+        setMaterialSavedInWizard(true);
+        useToastStore.getState().showToast(t('prepare.toast.saved'));
+      } else if (!hasSavedMaterial) {
+        useToastStore.getState().showToast(t('prepare.material.needFiles'));
+        return;
+      }
+    }
+    if (currentId === 'script' && !hasSavedMaterial) {
+      useToastStore.getState().showToast(t('prepare.material.needFiles'));
+      return;
     }
 
     if (currentId === 'analyze' && analysisReady(session) && session.material.quiz.length === 0) {
@@ -324,7 +349,13 @@ export function UploadWorkspace() {
                 ref={filesPanelRef}
                 globalBusy={!!busy}
                 onFilesStepBlockingChange={setFilesStepBlocked}
+                onMaterialReadyChange={setPanelMaterialReady}
               />
+              {!canProceedFromMaterialStep() && !filesStepBlocked && (
+                <p className="upload-wizard-hint" role="status">
+                  {t('prepare.material.needFilesHint')}
+                </p>
+              )}
             </div>
           </div>
         );
@@ -349,11 +380,16 @@ export function UploadWorkspace() {
             <button
               type="button"
               className="btn-primary btn-analyze"
-              disabled={!!busy}
+              disabled={!!busy || !hasSavedMaterial}
               onClick={() => void runMaterialAnalysis()}
             >
               {busy === 'prepare.busy.analyzing' ? t(busy) : t('prepare.analyze.cta')}
             </button>
+            {!hasSavedMaterial && (
+              <p className="upload-wizard-hint" role="status">
+                {t('prepare.material.needFilesHint')}
+              </p>
+            )}
             {analysisReady(session) && session.material.summary && (
               <div className="analysis-complete-card upload-wizard-analysis-card">
                 <div className="analysis-badge" aria-label={t('prepare.analyze.badge')}>

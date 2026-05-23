@@ -64,9 +64,19 @@ export async function startServerSession(): Promise<StartSessionResult | null> {
       body: {},
     });
     if (error) {
+      const ctx = (error as { context?: Response }).context;
+      let detail = '';
+      if (ctx && typeof ctx.json === 'function') {
+        try {
+          const body = (await ctx.json()) as { error?: string; detail?: string; hint?: string };
+          detail = [body.error, body.detail, body.hint].filter(Boolean).join(' — ');
+        } catch {
+          /* ignore */
+        }
+      }
       console.info(
-        '[billing] start-session unavailable — using client session limits. Deploy: supabase functions deploy start-session',
-        error,
+        '[billing] start-session unavailable — using client session limits.',
+        detail || error,
       );
       return null;
     }

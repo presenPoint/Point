@@ -29,7 +29,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const filename = `transcripts/${userId ?? 'unknown'}/${sessionId}.txt`;
 
     const blob = await put(filename, transcriptText, {
-      access: 'public',
+      access: 'private',
       contentType: 'text/plain; charset=utf-8',
       token,
     });

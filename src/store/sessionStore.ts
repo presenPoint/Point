@@ -123,6 +123,8 @@ type State = {
   setQaDifficulty: (d: QaDifficultyLevel) => void;
 
   resetSession: () => void;
+  /** 발표 자료 준비 마법사 진입 시 이전 자료·퀴즈 초기화 */
+  beginMaterialPrepare: () => void;
   transition: (to: SessionStatus) => void;
   /** 발표 시작 — plan에 맞는 max_duration_sec 박제 후 PRESENTING으로 전환. */
   startPresenting: () => Promise<void>;
@@ -214,6 +216,22 @@ export const useSessionStore = create<State>((set, get) => ({
       selectedPersona: null,
       qaDifficulty: 'standard',
     });
+  },
+
+  beginMaterialPrepare: () => {
+    const sid = get().session.session_id;
+    clearChunks(sid);
+    set((s) => ({
+      session: {
+        ...s.session,
+        session_id: crypto.randomUUID(),
+        status: 'IDLE',
+        material: emptyMaterial(),
+      },
+      preQuizAnswers: {},
+      error: null,
+      busy: null,
+    }));
   },
 
   transition: (to) =>

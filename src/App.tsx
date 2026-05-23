@@ -399,7 +399,10 @@ export default function App() {
 
         userBar={userBar}
 
-        onSelectWithMaterials={() => setPresentationMode('with-materials')}
+        onSelectWithMaterials={() => {
+          useSessionStore.getState().beginMaterialPrepare();
+          setPresentationMode('with-materials');
+        }}
 
       />
 

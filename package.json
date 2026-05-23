@@ -6,7 +6,10 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "supabase:login": "npx supabase login",
+    "deploy:start-session": "npx supabase functions deploy start-session --project-ref csaxusqovxuquvlalzld",
+    "deploy:functions": "npm run deploy:start-session && npx supabase functions deploy create-checkout-session --project-ref csaxusqovxuquvlalzld && npx supabase functions deploy delete-account --project-ref csaxusqovxuquvlalzld && npx supabase functions deploy stripe-webhook --no-verify-jwt --project-ref csaxusqovxuquvlalzld"
   },
   "dependencies": {
     "@mediapipe/tasks-vision": "^0.10.34",
@@ -28,6 +31,7 @@
     "@vitejs/plugin-react": "^4.3.4",
     "autoprefixer": "^10.4.20",
     "postcss": "^8.4.49",
+    "supabase": "^2.101.0",
     "tailwindcss": "^3.4.16",
     "typescript": "~5.6.2",
     "vite": "^5.4.11"

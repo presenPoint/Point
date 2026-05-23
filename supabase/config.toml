@@ -1,0 +1,6 @@
+# Supabase CLI — Edge Function 배포용
+project_id = "csaxusqovxuquvlalzld"
+
+# Stripe 웹훅만 JWT 검사 끔 (나머지 함수는 기본 verify_jwt)
+[functions.stripe-webhook]
+verify_jwt = false

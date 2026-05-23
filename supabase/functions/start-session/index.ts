@@ -24,6 +24,24 @@ function maxDurationFor(plan: string, status: string): number {
   return FREE_MAX_DURATION_SEC;
 }
 
+/** sessions.user_id FK — 클라이언트 ensureUserProfile 실패 시에도 서버에서 보장 */
+async function ensureUserRows(
+  admin: ReturnType<typeof createClient>,
+  userId: string,
+  email: string | undefined,
+): Promise<string | null> {
+  const mail = (email ?? '').trim() || `${userId}@users.local`;
+  const { error: userErr } = await admin.from('users').upsert({ id: userId, email: mail }, { onConflict: 'id' });
+  if (userErr) return userErr.message;
+
+  const { error: subErr } = await admin
+    .from('subscriptions')
+    .upsert({ user_id: userId, plan: 'free', status: 'active' }, { onConflict: 'user_id' });
+  if (subErr) return subErr.message;
+
+  return null;
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
@@ -57,8 +75,21 @@ Deno.serve(async (req) => {
   }
   const userId = userData.user.id;
 
-  // service role로 RLS 우회해서 안정적으로 plan 조회
   const admin = createClient(SUPABASE_URL, SERVICE_KEY);
+
+  const profileErr = await ensureUserRows(admin, userId, userData.user.email);
+  if (profileErr) {
+    console.error('[start-session] ensureUserRows failed', profileErr);
+    return new Response(
+      JSON.stringify({
+        error: 'profile_ensure_failed',
+        detail: profileErr,
+        hint: 'Run supabase/migrations/003_subscriptions.sql and 005_users_self_upsert.sql in SQL Editor.',
+      }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+    );
+  }
+
   const { data: sub } = await admin
     .from('subscriptions')
     .select('plan,status')
