@@ -14,7 +14,7 @@ import { buildPresentationTopicBlock } from '../../lib/presentationTopicContext'
 import { transcriptPlain } from '../../lib/transcriptScript';
 import { getPersonaPaceRange, type PaceRange } from '../../lib/speechRate';
 import { resolveLocaleForCurrentApp, type AppLocale } from '../../store/localeStore';
-import { aiOutputLanguageRule, sanitizeKoUserFacingDeep } from '../../lib/aiOutputLocale';
+import { aiOutputLanguageRule, deepLocaleOk, sanitizeKoUserFacingDeep } from '../../lib/aiOutputLocale';
 import { suggestTranscriptPolish } from '../transcriptPolishAgent';
 
 function tsToLabel(ts: number, sessionStart: number): string {
@@ -562,17 +562,18 @@ phrase_rewrites RULES (speaking manner / delivery only — NOT whole-structure r
 `
     : '';
 
-  const sys = `You are a world-class presentation coach trusted by Silicon Valley founders and executives.
+  const sys = `${aiOutputLanguageRule(locale)}
+
+You are a world-class presentation coach trusted by Silicon Valley founders and executives.
 Your job is to give ACTIONABLE coaching — not vague scores or abstract suggestions.
 
 Analyze this session data and produce JSON output.
 ${personaBlock}
-${aiOutputLanguageRule(locale)}
 
 RULES:
-- "strengths": 2-3 short sentences. Reference specific data AND timestamps (e.g., "At 1m20s you used a gesture perfectly aligned with 'API integration'").
+- "strengths": 2-3 short sentences. Reference specific data AND timestamps${locale === 'ko' ? ' (예: "1분 20초에 \'API 통합\'을 말할 때 제스처가 잘 맞았어요").' : ' (e.g., "At 1m20s you used a gesture perfectly aligned with API integration").'}
 - "improvements": Exactly 3 actionable coaching items. Each must follow this structure:
-  - "label": Short title in the output language (e.g. Korean: "자세 안정", English: "Posture Stability")
+  - "label": Short title — ${locale === 'ko' ? '한국어로만 (예: "자세 안정", "말 빠르기")' : 'in clear English (e.g., "Posture Stability", "Speech Pace")'}
   - "situation": What the data shows — MUST reference specific timestamps like "At 2m30s..." or "Between 1m00s–3m15s...". Quote the timeline data provided. (e.g., "At 2m30s your posture became unstable right when you were explaining the revenue model. This lasted until around 3m15s.")
   - "stop_doing": One concrete habit to STOP, referencing the moment (e.g., "At 2m30s you started shifting weight — stop doing this when transitioning between data points.")
   - "start_doing": One concrete behavior to START (e.g., "Plant both feet shoulder-width apart. At moments like 2m30s, take a 1-second pause before the transition instead of shuffling.")
@@ -606,9 +607,22 @@ ${personaStyleBlock}`;
     return buildFallbackNarrative(ctx, scores, persona, locale);
   }
 
-  const parsed = await chatJson<ReportNarrative>('gpt-4o', sys, 'The data is in the system message above.');
+  let parsed = await chatJson<ReportNarrative>('gpt-4o', sys, 'The data is in the system message above.');
   if (!parsed?.strengths?.length || !parsed?.improvements?.length) {
     return buildFallbackNarrative(ctx, scores, persona, locale);
+  }
+
+  if (!deepLocaleOk({ strengths: parsed.strengths, improvements: parsed.improvements }, locale)) {
+    const retryHint =
+      locale === 'ko'
+        ? '이전 응답이 영어로 작성됐어요. 모든 string 값을 한국어(존댓말)로 다시 작성해 주세요.'
+        : 'Previous reply was in the wrong language. Rewrite every JSON string value in clear English.';
+    try {
+      const retry = await chatJson<ReportNarrative>('gpt-4o', sys, retryHint);
+      if (retry?.strengths?.length && retry?.improvements?.length) parsed = retry;
+    } catch (e) {
+      console.warn('[report] locale retry failed', e);
+    }
   }
 
   if (persona) {

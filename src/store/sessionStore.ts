@@ -147,6 +147,8 @@ type State = {
   skipQaAndRunReport: () => Promise<void>;
 
   runReport: () => Promise<void>;
+  /** 기존 점수는 유지하고 narrative(텍스트)만 현재 언어로 다시 생성 */
+  regenerateReportNarrative: () => Promise<void>;
   persistSession: () => Promise<void>;
   setUserId: (id: string) => void;
 };
@@ -649,6 +651,50 @@ export const useSessionStore = create<State>((set, get) => ({
     }));
     feedbackQueue.clearQueue();
     await get().persistSession();
+  },
+
+  regenerateReportNarrative: async () => {
+    const ctx = get().session;
+    if (ctx.status !== 'DONE' && ctx.status !== 'REPORT') return;
+    const persona = get().selectedPersona ? PERSONAS[get().selectedPersona!] : null;
+    const locale = resolveLocaleForCurrentApp();
+    const paceRange = persona
+      ? getPersonaPaceRange(persona.config, locale)
+      : getDefaultPaceRange(locale);
+    set({ busy: 'qa.busy.generatingReport', error: null });
+    try {
+      const scoresWithContext = calcCompositeScore(ctx, paceRange);
+      let narrative: Awaited<ReturnType<typeof generateReportNarrative>>;
+      try {
+        narrative = await generateReportNarrative(
+          ctx,
+          scoresWithContext,
+          persona,
+          ctx.material.script_coverage ?? null,
+          locale,
+        );
+      } catch (e) {
+        console.error('regenerateReportNarrative failed', e);
+        narrative = buildFallbackNarrative(ctx, scoresWithContext, persona, locale);
+      }
+      const generated_at = new Date().toISOString();
+      set((s) => ({
+        session: {
+          ...s.session,
+          report: {
+            ...s.session.report,
+            strengths: narrative.strengths,
+            improvements: narrative.improvements,
+            persona_style_coaching: narrative.persona_style_coaching ?? s.session.report.persona_style_coaching,
+            generated_at,
+          },
+        },
+        busy: null,
+      }));
+      await get().persistSession();
+    } catch (e) {
+      set({ busy: null, error: e instanceof Error ? e.message : String(e) });
+    }
   },
 
   persistSession: async () => {

@@ -4919,6 +4919,28 @@ h1.login-logo {
 }
 .report-section-title::after { content:''; flex:1; height:1px; background:var(--border); }
 
+.report-regen-row {
+  display: flex;
+  justify-content: flex-end;
+  margin: 4px 0 -8px;
+}
+.report-regen-btn {
+  font-size: 12px;
+  color: var(--muted2);
+  border: 1px dashed var(--border);
+  background: transparent;
+  padding: 6px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+.report-regen-btn:hover:not(:disabled) {
+  color: var(--text);
+  border-color: var(--accent, #6b8cff);
+  background: rgba(107, 140, 255, 0.06);
+}
+.report-regen-btn:disabled { opacity: 0.55; cursor: default; }
+
 .report-persona-panel {
   background: linear-gradient(165deg, rgba(126, 156, 248, 0.08) 0%, var(--surface) 55%);
   border: 1px solid rgba(126, 156, 248, 0.2);

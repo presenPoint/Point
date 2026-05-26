@@ -363,6 +363,8 @@ const en = {
   'report.rewrites.emptyWithTranscript':
     'We captured about {chars} characters of speech but could not build line rewrites this time. Use “Polish transcript” in Session detail below, or try another run with the mic on.',
 
+  'report.regen.cta': 'Regenerate in current language',
+  'report.regen.busy': 'Regenerating…',
   'report.wentWell': 'Went well',
   'report.personaPackSummary': 'Coach note & next reps',
   'report.personaTryNext': 'Try next',
@@ -1015,6 +1017,8 @@ const ko: { [K in keyof typeof en]: string } = {
   'report.rewrites.emptyWithTranscript':
     '말은 약 {chars}자 정도 잡혔는데 이번엔 문장 리라이트를 만들지 못했어요. 아래 세션 상세의 전사 “다듬기”를 쓰거나, 마이크를 켠 채 짧게 한 번 더 연습해 보세요.',
 
+  'report.regen.cta': '현재 언어로 리포트 다시 만들기',
+  'report.regen.busy': '다시 만드는 중…',
   'report.wentWell': '잘한 점',
   'report.personaPackSummary': '코치 메모 · 다음 연습',
   'report.personaTryNext': '다음에 해볼 것',

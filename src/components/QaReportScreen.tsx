@@ -366,6 +366,19 @@ export function QaReportScreen() {
                   </>
                 )}
 
+                <div className="report-regen-row">
+                  <button
+                    type="button"
+                    className="btn-sm report-regen-btn"
+                    disabled={!!busy}
+                    onClick={() => void useSessionStore.getState().regenerateReportNarrative()}
+                  >
+                    {busy === 'qa.busy.generatingReport'
+                      ? t('report.regen.busy')
+                      : t('report.regen.cta')}
+                  </button>
+                </div>
+
                 <div className="report-section-title">{t('report.wentWell')}</div>
                 <div className="insight-list insight-list--tight">
                   {session.report.strengths.map((s, i) => (
