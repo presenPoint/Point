@@ -360,52 +360,22 @@ export function LiveSessionScreen() {
   const postureProg = posturePct;
 
   const startCamera = async () => {
-    /** 카메라+마이크 동시 요청은 마이크가 거부됐을 때 통째로 실패함 → 단계적으로 시도 */
-    const requestStream = async (constraints: MediaStreamConstraints) =>
-      navigator.mediaDevices.getUserMedia(constraints);
-
-    let stream: MediaStream | null = null;
-    let lastError: unknown = null;
     try {
-      stream = await requestStream({ video: true, audio: true });
-    } catch (e) {
-      lastError = e;
-      // 마이크가 거부됐을 가능성 — 비디오만 다시 시도
-      try {
-        stream = await requestStream({ video: true, audio: false });
-      } catch (e2) {
-        lastError = e2;
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      const v = videoRef.current;
+      if (v) {
+        v.srcObject = stream;
+        v.onloadeddata = () => startPoseTracking(v);
+        setCamOn(true);
       }
-    }
-
-    if (!stream) {
-      console.warn('[live] startCamera failed', lastError);
-      const err = lastError as DOMException | undefined;
-      const name = err?.name ?? '';
-      const msgKey: MessageKey =
-        name === 'NotAllowedError' || name === 'SecurityError'
-          ? 'live.toast.camDenied'
-          : name === 'NotFoundError' || name === 'OverconstrainedError'
-            ? 'live.toast.camNotFound'
-            : name === 'NotReadableError'
-              ? 'live.toast.camBusy'
-              : 'live.toast.camStartFail';
-      useToastStore.getState().showToast(t(msgKey));
+      mediaStreamRef.current = stream;
+      setMediaStream(stream);
+      restartLiveSpeechRecognition();
+    } catch {
       mediaStreamRef.current = null;
       setMediaStream(null);
       setCamOn(false);
-      return;
     }
-
-    const v = videoRef.current;
-    if (v) {
-      v.srcObject = stream;
-      v.onloadeddata = () => startPoseTracking(v);
-      setCamOn(true);
-    }
-    mediaStreamRef.current = stream;
-    setMediaStream(stream);
-    if (stream.getAudioTracks().length > 0) restartLiveSpeechRecognition();
   };
 
   /** 마이크만 요청 — 카메라 켜지 않고 권한 회복 시도 */
