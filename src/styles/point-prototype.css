@@ -81,6 +81,9 @@
   padding: 7px 16px;
   border-radius: 6px;
   cursor: none;
+  min-width: 92px;
+  text-align: center;
+  white-space: nowrap;
   transition: background 0.18s, border-color 0.18s;
 }
 
@@ -105,6 +108,9 @@
   padding: 6px 13px;
   border-radius: 7px;
   cursor: none;
+  min-width: 68px;
+  text-align: center;
+  white-space: nowrap;
   transition: color 0.15s, background 0.15s;
 }
 
@@ -10176,17 +10182,25 @@ textarea {
   flex-shrink: 0;
 }
 .lang-switcher-btn {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   font-family: inherit;
   font-size: 12px;
   font-weight: 600;
-  padding: 5px 11px;
+  padding: 5px 0;
+  width: 36px;
+  min-width: 36px;
+  height: 24px;
   border: none;
   border-radius: 6px;
   background: transparent;
   color: rgba(20, 18, 16, 0.5);
   cursor: pointer;
-  line-height: 1.2;
+  line-height: 1;
   letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
   transition: background 0.15s, color 0.15s, box-shadow 0.15s;
 }
 .lang-switcher-btn:hover:not(.lang-switcher-btn--active) {
@@ -10297,6 +10311,9 @@ textarea {
   padding: 6px 14px;
   border-radius: 8px;
   cursor: pointer;
+  min-width: 72px;
+  text-align: center;
+  white-space: nowrap;
   transition: color 0.15s, background 0.15s;
 }
 
