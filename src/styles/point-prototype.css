@@ -4012,6 +4012,41 @@ h1.login-logo {
 }
 .live-actions { display:flex; flex-wrap:wrap; gap:8px; align-items:center; justify-content:flex-end; }
 
+.live-stage-toggle {
+  display:inline-flex;
+  align-items:center;
+  gap:2px;
+  padding:2px;
+  border-radius:8px;
+  background:rgba(0,0,0,.06);
+  border:0.5px solid rgba(0,0,0,.1);
+  flex-shrink:0;
+}
+.live-stage-toggle-btn {
+  display:inline-flex;
+  align-items:center;
+  gap:5px;
+  border:none;
+  background:transparent;
+  color:rgba(20,18,16,.5);
+  border-radius:6px;
+  padding:5px 10px;
+  height:24px;
+  font-size:12px;
+  font-weight:600;
+  cursor:pointer;
+  line-height:1;
+  font-family:'Manrope','Noto Sans KR',sans-serif;
+  transition:color .15s, background .15s, box-shadow .15s;
+}
+.live-stage-toggle-btn:hover:not(.active) { color:rgba(20,18,16,.78); }
+.live-stage-toggle-btn.active {
+  background:#fff;
+  color:#141210;
+  box-shadow:0 1px 3px rgba(0,0,0,.12);
+}
+.live-stage-toggle-btn .stage-icon { font-size:13px; line-height:1; }
+
 .btn-end {
   background:var(--red-dim); border:1px solid rgba(232,112,112,.25); border-radius:8px;
   padding:7px 18px; font-size:12px; color:var(--red); cursor:pointer;

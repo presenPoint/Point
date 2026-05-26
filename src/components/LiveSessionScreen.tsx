@@ -4,10 +4,8 @@ import { useLivePresenting } from '../hooks/useLivePresenting';
 import { useVolumeAnalyzer } from '../hooks/useVolumeAnalyzer';
 import { cancelFeedbackSpeech, enqueueFeedback, onSpeakingChange, primeFeedbackAudio } from '../lib/feedbackTts';
 import { stopCoachQuestionSpeech } from '../lib/coachQuestionTts';
-import { buildReplaySubtitles } from '../lib/replaySubtitles';
 import { navigateBack } from '../lib/appNavigation';
 import { flushLiveTranscriptNow, restartLiveSpeechRecognition } from '../lib/liveTranscriptFlush';
-import type { ReplaySubtitleCue } from '../lib/replaySubtitles';
 import { saveTranscriptToBlob } from '../lib/transcriptStorage';
 import { PERSONAS } from '../constants/personas';
 import { getDefaultPaceRange, getPersonaPaceRange, isPaceInRange } from '../lib/speechRate';
@@ -17,7 +15,6 @@ import { useSessionStore } from '../store/sessionStore';
 import { useToastStore } from '../store/toastStore';
 import type { FeedbackItem, FeedbackLevel } from '../types/session';
 import { AnimatedPointLogo } from './AnimatedPointLogo';
-import { PracticeReplayPlayer } from './PracticeReplayPlayer';
 import { useT } from '../hooks/useT';
 import type { MessageKey } from '../locales/messages';
 
@@ -39,18 +36,6 @@ function sourceToCat(source: FeedbackItem['source']): { cls: string; labelKey: M
 }
 
 const LIVE_PRIVACY_STORAGE_KEY = 'point_live_privacy_ok_v1';
-
-function pickPracticeRecordMime(): string | undefined {
-  const candidates = [
-    'video/webm;codecs=vp9,opus',
-    'video/webm;codecs=vp8,opus',
-    'video/webm',
-  ];
-  for (const c of candidates) {
-    if (MediaRecorder.isTypeSupported(c)) return c;
-  }
-  return undefined;
-}
 
 /** Multipliers give each bar a different peak height for a natural wave look */
 const BAR_MULTS = [0.55, 0.85, 1.0, 0.9, 0.7, 0.5];
@@ -113,11 +98,8 @@ export function LiveSessionScreen() {
   const feedRef = useRef<HTMLDivElement>(null);
 
   const videoRef = useRef<HTMLVideoElement>(null);
-  const audienceVideoRef = useRef<HTMLVideoElement>(null);
-  /** `public/mpfff.mp4` — 없거나 로드 실패 시 실루엣 무대로 폴백 */
-  const [audienceVideoFailed, setAudienceVideoFailed] = useState(false);
   const [camOn, setCamOn] = useState(false);
-  /** 발표자 시점: 관객을 보며 연습(기본) — 카메라는 뒤에서 추적만. Self는 내 화면 확인용. */
+  /** 메인 무대 영상: 'audience' = 청중 영상(기본), 'self' = 내 카메라 */
   const [stageView, setStageView] = useState<'audience' | 'self'>('audience');
 
   const [privacyModalOpen, setPrivacyModalOpen] = useState(() => {
@@ -128,15 +110,6 @@ export function LiveSessionScreen() {
       return true;
     }
   });
-
-  const recorderRef = useRef<MediaRecorder | null>(null);
-  const recordChunksRef = useRef<BlobPart[]>([]);
-  /** 녹화 시작 시각(epoch ms) — 재생 자막 타임라인 기준 */
-  const recordingStartedAtRef = useRef(0);
-  const [recording, setRecording] = useState(false);
-  const [replayUrl, setReplayUrl] = useState<string | null>(null);
-  const replayUrlRef = useRef<string | null>(null);
-  const [replayCues, setReplayCues] = useState<ReplaySubtitleCue[]>([]);
 
   const [mediaStream, setMediaStream] = useState<MediaStream | null>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
@@ -180,15 +153,6 @@ export function LiveSessionScreen() {
     }));
     useSessionStore.getState().setLivePresentation({ volumeRms: rms });
   }, []);
-
-  const stopReplay = () => {
-    if (replayUrlRef.current) {
-      URL.revokeObjectURL(replayUrlRef.current);
-      replayUrlRef.current = null;
-    }
-    setReplayUrl(null);
-    setReplayCues([]);
-  };
 
   const acknowledgePrivacy = () => {
     try {
@@ -278,33 +242,13 @@ export function LiveSessionScreen() {
     feedRef.current?.scrollTo({ top: feedRef.current.scrollHeight, behavior: 'smooth' });
   }, [feed]);
 
-  useEffect(() => {
-    const v = audienceVideoRef.current;
-    if (!v || audienceVideoFailed) return;
-    const tryPlay = () => void v.play().catch(() => setAudienceVideoFailed(true));
-    v.addEventListener('canplay', tryPlay, { once: true });
-    return () => v.removeEventListener('canplay', tryPlay);
-  }, [audienceVideoFailed, stageView]);
-
-  useEffect(
-    () => () => {
-      stopCamera();
-      if (replayUrlRef.current) {
-        URL.revokeObjectURL(replayUrlRef.current);
-        replayUrlRef.current = null;
-      }
-      const r = recorderRef.current;
-      if (r && r.state === 'recording') {
-        try {
-          r.stop();
-        } catch {
-          /* ignore */
-        }
-      }
-      recorderRef.current = null;
-    },
-    [stopCamera],
-  );
+  // unmount 정리 — stopCamera는 ref로 잡아서 effect 자체는 한 번만 등록.
+  // 직접 [stopCamera]를 deps로 두면 매 렌더마다 cleanup이 실행돼 srcObject가
+  // 즉시 null로 초기화되는 버그가 있었음 (stopPoseTracking이 useLivePresenting
+  // 내부에서 매 렌더 새 함수로 생성되기 때문).
+  const stopCameraRef = useRef(stopCamera);
+  stopCameraRef.current = stopCamera;
+  useEffect(() => () => stopCameraRef.current(), []);
 
   const locale = useEffectiveLocale();
   const selectedPersona = useSessionStore((s) => s.selectedPersona);
@@ -349,91 +293,74 @@ export function LiveSessionScreen() {
   const postureProg = posturePct;
 
   const startCamera = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-      const v = videoRef.current;
-      if (v) {
-        v.srcObject = stream;
-        v.onloadeddata = () => startPoseTracking(v);
-        setCamOn(true);
+    if (!navigator.mediaDevices?.getUserMedia) {
+      useToastStore.getState().showToast(t('live.toast.camUnsupported'));
+      return;
+    }
+
+    const requestStream = async (): Promise<MediaStream | null> => {
+      // 1차: video + audio 동시 요청
+      try {
+        return await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      } catch {
+        // fall through to video-only fallback
       }
-      mediaStreamRef.current = stream;
-      setMediaStream(stream);
-      restartLiveSpeechRecognition();
-    } catch {
+
+      // 2차: 마이크 권한 거부/없음/사용 중일 수 있으므로 video-only로 폴백
+      // (마이크가 차단돼 있으면 video+audio 요청이 NotAllowedError를 즉시 던지므로
+      //  반드시 video-only 재시도가 필요함)
+      try {
+        const videoOnly = await navigator.mediaDevices.getUserMedia({ video: true });
+        useToastStore.getState().showToast(t('live.toast.camMicMissing'));
+        return videoOnly;
+      } catch (err2) {
+        const n2 = (err2 as DOMException | undefined)?.name ?? '';
+        if (n2 === 'NotAllowedError' || n2 === 'SecurityError') {
+          useToastStore.getState().showToast(t('live.toast.camDenied'));
+        } else if (n2 === 'NotFoundError' || n2 === 'OverconstrainedError') {
+          useToastStore.getState().showToast(t('live.toast.camMissing'));
+        } else if (n2 === 'NotReadableError') {
+          useToastStore.getState().showToast(t('live.toast.camBusy'));
+        } else {
+          useToastStore.getState().showToast(t('live.toast.camFailed'));
+        }
+        return null;
+      }
+    };
+
+    const stream = await requestStream();
+    if (!stream) {
       mediaStreamRef.current = null;
       setMediaStream(null);
       setCamOn(false);
+      return;
     }
-  };
 
-  const startPracticeRecording = () => {
     const v = videoRef.current;
-    const stream = v?.srcObject;
-    if (!stream || !(stream instanceof MediaStream)) {
-      useToastStore.getState().showToast(t('live.toast.recordNeedCam'));
+    if (!v) {
+      stream.getTracks().forEach((t) => t.stop());
       return;
     }
-    if (typeof MediaRecorder === 'undefined') {
-      useToastStore.getState().showToast(t('live.toast.recordUnsupported'));
-      return;
-    }
-    const mime = pickPracticeRecordMime();
-    if (!mime) {
-      useToastStore.getState().showToast(t('live.toast.recordNoFormat'));
-      return;
-    }
-    try {
-      stopReplay();
-      recordChunksRef.current = [];
-      recordingStartedAtRef.current = Date.now();
-      const rec = new MediaRecorder(stream, { mimeType: mime });
-      recorderRef.current = rec;
-      rec.ondataavailable = (e) => {
-        if (e.data.size > 0) recordChunksRef.current.push(e.data);
-      };
-      rec.onstop = () => {
-        setRecording(false);
-        recorderRef.current = null;
-        const endMs = Date.now();
-        const startMs = recordingStartedAtRef.current;
-        const { word_emphasis_log, transcript_log } = useSessionStore.getState().session.speech_coaching;
-        const cues = buildReplaySubtitles(startMs, endMs, word_emphasis_log, transcript_log);
-        setReplayCues(cues);
+    v.srcObject = stream;
 
-        const blob = new Blob(recordChunksRef.current, { type: mime.split(';')[0] });
-        recordChunksRef.current = [];
-        if (blob.size < 256) {
-          useToastStore.getState().showToast(t('live.toast.recordTooShort'));
-          setReplayCues([]);
-          return;
-        }
-        const url = URL.createObjectURL(blob);
-        replayUrlRef.current = url;
-        setReplayUrl(url);
-        useToastStore.getState().showToast(t('live.toast.recordReady'));
-      };
-      rec.start(1000);
-      setRecording(true);
-    } catch {
-      useToastStore.getState().showToast(t('live.toast.recordStartFail'));
-    }
-  };
+    let readyFired = false;
+    const handleReady = () => {
+      if (readyFired) return;
+      readyFired = true;
+      void v.play().catch(() => undefined);
+      startPoseTracking(v);
+    };
+    v.onloadeddata = handleReady;
+    // 안전망: 이미 readyState>=2 (HAVE_CURRENT_DATA) 면 loadeddata 이벤트가 안 올 수 있으니 즉시 실행
+    if (v.readyState >= 2) handleReady();
 
-  const stopPracticeRecording = () => {
-    const r = recorderRef.current;
-    if (r && r.state === 'recording') {
-      try {
-        r.stop();
-      } catch {
-        setRecording(false);
-      }
-    }
+    setCamOn(true);
+    mediaStreamRef.current = stream;
+    setMediaStream(stream);
+    if (stream.getAudioTracks().length > 0) restartLiveSpeechRecognition();
   };
 
   const leavePresentation = () => {
-    if (recording) stopPracticeRecording();
-    stopReplay();
     stopCamera();
     flushLiveTranscriptNow();
     cancelFeedbackSpeech();
@@ -442,8 +369,6 @@ export function LiveSessionScreen() {
   };
 
   const endSession = (reason: 'user' | 'time_limit' = 'user') => {
-    if (recording) stopPracticeRecording();
-    stopReplay();
     stopCamera();
     flushLiveTranscriptNow();
     const s = Math.round((Date.now() - presentingStartRef.current) / 1000);
@@ -554,17 +479,26 @@ export function LiveSessionScreen() {
           </div>
           <div className="live-actions">
             <LanguageSwitcher className="lang-switcher--topnav lang-switcher--live" />
-            {camOn && (
+            <div className="live-stage-toggle" role="group" aria-label={t('live.stageToggleAria')}>
               <button
                 type="button"
-                className={`btn-record${recording ? ' btn-record--active' : ''}`}
-                onClick={() => (recording ? stopPracticeRecording() : startPracticeRecording())}
-                disabled={!camOn}
-                title={t('live.recordTitle')}
+                className={`live-stage-toggle-btn${stageView === 'audience' ? ' active' : ''}`}
+                onClick={() => setStageView('audience')}
+                aria-pressed={stageView === 'audience'}
               >
-                {recording ? t('live.recordStop') : t('live.recordStart')}
+                <span className="stage-icon" aria-hidden="true">👥</span>
+                {t('live.stageAudience')}
               </button>
-            )}
+              <button
+                type="button"
+                className={`live-stage-toggle-btn${stageView === 'self' ? ' active' : ''}`}
+                onClick={() => setStageView('self')}
+                aria-pressed={stageView === 'self'}
+              >
+                <span className="stage-icon" aria-hidden="true">📹</span>
+                {t('live.stageSelf')}
+              </button>
+            </div>
             <button type="button" className="btn-end" onClick={() => endSession('user')}>
               {t('live.endSession')}
             </button>
@@ -574,50 +508,26 @@ export function LiveSessionScreen() {
         <div className="live-main">
           <div className="camera-area">
             <div className="camera-area-stack">
+              {/* 관객 영상: 항상 백그라운드에서 재생, stageView='self' 일 땐 숨김. 음성은 muted. */}
+              <video
+                className={`camera-feed${stageView !== 'audience' ? ' hidden' : ''}`}
+                src="/audience-stage.mp4"
+                autoPlay
+                muted
+                loop
+                playsInline
+              />
+              {/* 내 카메라: stageView='self' 이고 카메라 켜진 경우에만 표시. 단 video element 자체는 항상
+                  DOM에 존재해야 함 (videoRef 안정성 + MediaPipe 프레임 공급용). */}
               <video
                 ref={videoRef}
-                className={`camera-feed${!camOn ? ' hidden' : ''}${camOn && stageView === 'audience' ? ' camera-feed--pip-audience' : ''}`}
+                className={`camera-feed${!(stageView === 'self' && camOn) ? ' hidden' : ''}`}
                 autoPlay
                 muted
                 playsInline
               />
-              {stageView === 'audience' && (
-                <div
-                  className={`audience-stage${audienceVideoFailed ? ' audience-stage--fallback' : ''}`}
-                  aria-hidden="true"
-                >
-                  {!audienceVideoFailed && (
-                    <video
-                      ref={audienceVideoRef}
-                      className="audience-stage-video"
-                      src={`${import.meta.env.BASE_URL}mpfff.mp4`}
-                      autoPlay
-                      loop
-                      muted
-                      playsInline
-                      onError={() => setAudienceVideoFailed(true)}
-                    />
-                  )}
-                  <div className="audience-stage-vignette" />
-                  {audienceVideoFailed && (
-                    <div className="audience-row">
-                      {Array.from({ length: 7 }, (_, i) => (
-                        <div key={i} className={`audience-silhouette audience-silhouette--${i}`} />
-                      ))}
-                    </div>
-                  )}
-                  <div className="audience-stage-caption">
-                    <span className="audience-stage-title">{t('live.audienceTitle')}</span>
-                    <span className="audience-stage-sub">
-                      {camOn ? t('live.audienceSubCamOn') : t('live.audienceSubCamOff')}
-                    </span>
-                  </div>
-                </div>
-              )}
-              {!camOn && (
-                <div
-                  className={`cam-placeholder${stageView === 'audience' ? ' cam-placeholder--over-audience' : ''}`}
-                >
+              {stageView === 'self' && !camOn && (
+                <div className="cam-placeholder">
                   <div className="cam-icon" aria-hidden="true">📹</div>
                   <div className="cam-label">{t('live.camPlaceholder')}</div>
                   <div className="cam-action">
@@ -628,24 +538,6 @@ export function LiveSessionScreen() {
                 </div>
               )}
             </div>
-            {camOn && (
-              <div className="cam-perspective-toggle" role="group" aria-label={t('live.stageToggleAria')}>
-                <button
-                  type="button"
-                  className={`cam-perspective-btn${stageView === 'audience' ? ' active' : ''}`}
-                  onClick={() => setStageView('audience')}
-                >
-                  {t('live.stageAudience')}
-                </button>
-                <button
-                  type="button"
-                  className={`cam-perspective-btn${stageView === 'self' ? ' active' : ''}`}
-                  onClick={() => setStageView('self')}
-                >
-                  {t('live.stageSelf')}
-                </button>
-              </div>
-            )}
             <div className="scan-line" />
             <div className="corner-tl" />
             <div className="corner-tr" />
@@ -686,20 +578,6 @@ export function LiveSessionScreen() {
               </div>
             </div>
 
-            {replayUrl && (
-              <div className="live-replay-panel" role="region" aria-label={t('live.replayAria')}>
-                <div className="live-replay-head">
-                  <span className="live-replay-label">{t('live.replayLabel')}</span>
-                  <button type="button" className="btn-sm live-replay-close" onClick={stopReplay}>
-                    {t('live.replayClose')}
-                  </button>
-                </div>
-                <PracticeReplayPlayer src={replayUrl} cues={replayCues} />
-                <p className="live-replay-hint">
-                  {t('live.replayHint')}
-                </p>
-              </div>
-            )}
           </div>
 
           <div className="coaching-panel">
