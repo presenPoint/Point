@@ -316,17 +316,6 @@ export function LiveSessionScreen() {
 
   const interimText = live.interimText ?? '';
   const recognitionError = live.recognitionError ?? '';
-  /** 마이크 권한 거부/장치 없음 등 — 회복 가드 카드를 띄울 조건 */
-  const micBlocked = useMemo(() => {
-    const e = recognitionError.toLowerCase();
-    return (
-      e.includes('permission') ||
-      e.includes('denied') ||
-      e.includes('not-allowed') ||
-      e.includes('권한') ||
-      e.includes('마이크')
-    );
-  }, [recognitionError]);
   const wpm = live.wpm;
   const fillers = session.speech_coaching.filler_count || live.fillerCount;
   const gazePct = Math.round(session.nonverbal_coaching.gaze_rate * 100);
@@ -377,27 +366,6 @@ export function LiveSessionScreen() {
       setCamOn(false);
     }
   };
-
-  /** 마이크만 요청 — 카메라 켜지 않고 권한 회복 시도 */
-  const requestMicOnly = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      for (const track of stream.getTracks()) track.stop();
-      restartLiveSpeechRecognition();
-      useSessionStore.getState().setLivePresentation({ recognitionError: '' });
-      useToastStore.getState().showToast(t('live.toast.micReady'));
-    } catch {
-      useToastStore.getState().showToast(t('live.toast.micRetry'));
-    }
-  };
-
-  /** 라이브 전사: 최근 발화 한 줄 — 메인 영역에 크게 표시 */
-  const recentTranscriptLine = useMemo(() => {
-    const log = session.speech_coaching.transcript_log;
-    if (log.length === 0) return '';
-    return log[log.length - 1]?.text ?? '';
-  }, [session.speech_coaching.transcript_log]);
-  const scriptText = session.material.script_text.trim();
 
   const startPracticeRecording = () => {
     const v = videoRef.current;
@@ -648,78 +616,15 @@ export function LiveSessionScreen() {
               )}
               {!camOn && (
                 <div
-                  className={`cam-placeholder live-voicestage${stageView === 'audience' ? ' cam-placeholder--over-audience' : ''}`}
+                  className={`cam-placeholder${stageView === 'audience' ? ' cam-placeholder--over-audience' : ''}`}
                 >
-                  {micBlocked ? (
-                    <div className="live-mic-guard" role="alert">
-                      <div className="lmg-icon" aria-hidden="true">🎤</div>
-                      <div className="lmg-title">{t('live.micGuard.title')}</div>
-                      <p className="lmg-lead">{t('live.micGuard.lead')}</p>
-                      <ol className="lmg-steps">
-                        <li>{t('live.micGuard.s1')}</li>
-                        <li>{t('live.micGuard.s2')}</li>
-                        <li>{t('live.micGuard.s3')}</li>
-                      </ol>
-                      <div className="lmg-actions">
-                        <button type="button" className="btn-primary" onClick={() => void requestMicOnly()}>
-                          {t('live.micGuard.retry')}
-                        </button>
-                        <button type="button" className="btn-sm" onClick={() => window.location.reload()}>
-                          {t('live.micGuard.reload')}
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="live-voicestage-body">
-                      <div className="lvs-header">
-                        <span className="lvs-mic-dot" />
-                        <span className="lvs-mic-label">{t('live.voiceStage.listening')}</span>
-                        <button type="button" className="btn-sm lvs-cam-btn" onClick={startCamera}>
-                          {t('live.turnOnCamera')} →
-                        </button>
-                      </div>
-
-                      {scriptText ? (
-                        <div className="lvs-teleprompter">
-                          <div className="lvs-tp-label">{t('live.voiceStage.scriptLabel')}</div>
-                          <div className="lvs-tp-text">{scriptText.slice(0, 800)}{scriptText.length > 800 ? '…' : ''}</div>
-                        </div>
-                      ) : (
-                        <div className="lvs-transcript">
-                          {recentTranscriptLine ? (
-                            <p className="lvs-tx-recent">{recentTranscriptLine}</p>
-                          ) : null}
-                          {interimText ? (
-                            <p className="lvs-tx-interim">
-                              {interimText}
-                              <span className="lvs-tx-cursor" aria-hidden="true" />
-                            </p>
-                          ) : !recentTranscriptLine ? (
-                            <p className="lvs-tx-empty">{t('live.voiceStage.idle')}</p>
-                          ) : null}
-                        </div>
-                      )}
-
-                      <div className="lvs-stats">
-                        <div className="lvs-stat">
-                          <div className="lvs-stat-val">{wpm || '—'}</div>
-                          <div className="lvs-stat-lbl">{paceUnitLabel}</div>
-                        </div>
-                        <div className="lvs-stat lvs-stat--sep">
-                          <div className="lvs-stat-val">{fillers}</div>
-                          <div className="lvs-stat-lbl">{t('live.metricFillers')}</div>
-                        </div>
-                        <div className="lvs-stat lvs-stat--sep">
-                          <div className="lvs-stat-val">{formatMmSs(sec)}</div>
-                          <div className="lvs-stat-lbl">{t('live.voiceStage.elapsed')}</div>
-                        </div>
-                      </div>
-
-                      <LiveWaveBars stream={mediaStream} onSample={handleVolumeSample} />
-
-                      <p className="lvs-foot-hint">{t('live.camPlaceholder')}</p>
-                    </div>
-                  )}
+                  <div className="cam-icon" aria-hidden="true">📹</div>
+                  <div className="cam-label">{t('live.camPlaceholder')}</div>
+                  <div className="cam-action">
+                    <button type="button" className="btn-primary btn-cam" onClick={startCamera}>
+                      {t('live.turnOnCamera')}
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
