@@ -405,8 +405,6 @@ export function LiveSessionScreen() {
     }
     mediaStreamRef.current = stream;
     setMediaStream(stream);
-    /** 처음 카메라 켤 때는 본인 화면이 보이는 게 자연스러움 — 청중 시점은 토글로 전환 */
-    setStageView('self');
     if (stream.getAudioTracks().length > 0) restartLiveSpeechRecognition();
   };
 
