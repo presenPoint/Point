@@ -189,11 +189,11 @@ export function analyzeContext(ctx: SessionContext): ContextAnalysisResult {
     ? keywordGestureHits / totalKeywordMoments
     : 0.5;
 
-  const fidgetPenalty = Math.min(30, fillerFidgetCount * 8);
-  const freezePenalty = Math.min(20, freezeInsights.length * 10);
+  const fidgetPenalty = Math.min(20, fillerFidgetCount * 5);
+  const freezePenalty = Math.min(12, freezeInsights.length * 6);
 
   const stiffPenalty = dynamism_log.length > 10
-    ? Math.min(15, Math.round(dynamism_log.filter((d) => d.level === 'stiff').length / dynamism_log.length * 30))
+    ? Math.min(10, Math.round(dynamism_log.filter((d) => d.level === 'stiff').length / dynamism_log.length * 20))
     : 0;
 
   const contextScore = Math.max(0, Math.min(100, Math.round(

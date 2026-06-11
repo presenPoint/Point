@@ -15,6 +15,7 @@ import { transcriptPlain } from '../../lib/transcriptScript';
 import { getPersonaPaceRange, type PaceRange } from '../../lib/speechRate';
 import { resolveLocaleForCurrentApp, type AppLocale } from '../../store/localeStore';
 import { aiOutputLanguageRule, deepLocaleOk, sanitizeKoUserFacingDeep } from '../../lib/aiOutputLocale';
+import { liftReportScore, SCORE_TUNING } from '../../lib/scoreTuning';
 import { suggestTranscriptPolish } from '../transcriptPolishAgent';
 
 function tsToLabel(ts: number, sessionStart: number): string {
@@ -22,6 +23,18 @@ function tsToLabel(ts: number, sessionStart: number): string {
   const m = Math.floor(elapsed / 60);
   const s = elapsed % 60;
   return `${m}m${String(s).padStart(2, '0')}s`;
+}
+
+function calcCoherenceScore(sc: SessionContext['speech_coaching']): number {
+  const checks = sc.semantic_check_count ?? 0;
+  const passes = sc.coherence_pass_count ?? 0;
+  const breaks = sc.logic_break_log?.length ?? 0;
+  if (checks === 0) return 70;
+
+  const passRate = passes / checks;
+  const score = Math.round(passRate * 100);
+  const repeatPenalty = Math.min(35, breaks * SCORE_TUNING.logicBreakPenaltyPer);
+  return Math.max(0, score - repeatPenalty);
 }
 
 function calcPaceScore(paceLog: { wpm: number }[], paceRange?: PaceRange): number {
@@ -78,16 +91,16 @@ function calcGazeScore(gazeLog: { is_gazing: boolean; direction: 'center' | 'lef
   // 이상적 범위: 60–80%. 너무 낮으면(청중과 단절), 너무 높으면(불자연스러운 응시) 감점.
   const gazeRate = gazeLog.filter((e) => e.is_gazing).length / gazeLog.length;
   let rateScore: number;
-  if (gazeRate >= 0.60 && gazeRate <= 0.80) {
-    rateScore = 60;
-  } else if (gazeRate > 0.80 && gazeRate <= 0.92) {
-    rateScore = 60 - (gazeRate - 0.80) * 167; // 60→40
-  } else if (gazeRate > 0.92) {
-    rateScore = Math.max(20, 40 - (gazeRate - 0.92) * 250); // 로봇처럼 응시
-  } else if (gazeRate >= 0.40) {
-    rateScore = 20 + (gazeRate - 0.40) * 200; // 20→60
+  if (gazeRate >= 0.55 && gazeRate <= 0.85) {
+    rateScore = 58;
+  } else if (gazeRate > 0.85 && gazeRate <= 0.93) {
+    rateScore = 58 - (gazeRate - 0.85) * 140; // 58→47
+  } else if (gazeRate > 0.93) {
+    rateScore = Math.max(28, 47 - (gazeRate - 0.93) * 200);
+  } else if (gazeRate >= 0.35) {
+    rateScore = 24 + (gazeRate - 0.35) * 194; // 24→58
   } else {
-    rateScore = gazeRate * 50; // 40% 미만: 비례 감점
+    rateScore = gazeRate * 55;
   }
 
   // ── Component 2: 이탈 패턴 (0–20 pts) ────────────────────────────────────
@@ -95,11 +108,11 @@ function calcGazeScore(gazeLog: { is_gazing: boolean; direction: 'center' | 'lef
   const breaks = analyzeGazeBreaks(gazeLog);
   const longBreaks = breaks.filter((b) => b.durationMs > 5000);
   const veryLongBreaks = breaks.filter((b) => b.durationMs > 10000);
-  const excessBreaks = Math.max(0, breaks.length - 12); // 12회 초과 이탈
+  const excessBreaks = Math.max(0, breaks.length - 18);
 
-  const breakPenalty = Math.min(20,
-    longBreaks.length * 4 +
-    veryLongBreaks.length * 4 +
+  const breakPenalty = Math.min(16,
+    longBreaks.length * 3 +
+    veryLongBreaks.length * 3 +
     excessBreaks,
   );
   const breakScore = 20 - breakPenalty;
@@ -118,7 +131,7 @@ function calcGazeScore(gazeLog: { is_gazing: boolean; direction: 'center' | 'lef
     const balance = Math.min(leftCount, rightCount) / Math.max(leftCount, rightCount);
     dirScore = Math.round(balance * 10);
   } else {
-    dirScore = 0; // 한쪽만 바라봄
+    dirScore = 4; // 한쪽만 바라봄 — 완전 0점 대신 소폭 감점
   }
 
   // ── Component 4: 시간적 일관성 (0–10 pts) ────────────────────────────────
@@ -158,8 +171,8 @@ function calcPostureScore(
   const restlessRate = dynamismLog.filter((d) => d.level === 'restless').length / dynamismLog.length;
 
   const dynamismScore = Math.round(naturalRate * 100);
-  const stiffPenalty = Math.round(stiffRate * 30);
-  const restlessPenalty = Math.round(restlessRate * 20);
+  const stiffPenalty = Math.round(stiffRate * SCORE_TUNING.postureStiffPenaltyScale);
+  const restlessPenalty = Math.round(restlessRate * SCORE_TUNING.postureRestlessPenaltyScale);
 
   return Math.max(0, Math.min(100, Math.round(
     baseScore * 0.5 + dynamismScore * 0.5 - stiffPenalty - restlessPenalty
@@ -173,8 +186,8 @@ function calcGestureScore(
 ): number {
   const excess = gestureLog.filter((e) => e.type === 'excess').length;
 
-  const excessPenalty = Math.min(40, excess * 8);
-  const freezePenalty = durationSec > 60 && gestureLog.length === 0 ? 30 : 0;
+  const excessPenalty = Math.min(32, excess * SCORE_TUNING.gestureExcessPenaltyPer);
+  const freezePenalty = durationSec > 60 && gestureLog.length === 0 ? SCORE_TUNING.gestureFreezePenalty : 0;
 
   const base = Math.max(0, 100 - excessPenalty - freezePenalty);
   return Math.round(base * 0.6 + rhythmScore * 0.4);
@@ -187,13 +200,20 @@ export function calcCompositeScore(
   const contextAnalysis = analyzeContext(ctx);
 
   const wpmScore = calcPaceScore(ctx.speech_coaching.wpm_log, paceRange);
-  const fillerScore = Math.max(0, 100 - ctx.speech_coaching.filler_count * 5);
-  const offTopicScore = Math.max(0, 100 - ctx.speech_coaching.off_topic_log.length * 15);
-  const ambiguousScore = Math.max(0, 100 - ctx.speech_coaching.ambiguous_count * 3);
+  const fillerScore = Math.max(0, 100 - ctx.speech_coaching.filler_count * SCORE_TUNING.fillerPenaltyPer);
+  const offTopicScore = Math.max(0, 100 - ctx.speech_coaching.off_topic_log.length * SCORE_TUNING.offTopicPenaltyPer);
+  const ambiguousScore = Math.max(0, 100 - ctx.speech_coaching.ambiguous_count * SCORE_TUNING.ambiguousPenaltyPer);
 
-  const speechScore = Math.round(
-    wpmScore * 0.3 + fillerScore * 0.3 + offTopicScore * 0.25 + ambiguousScore * 0.15
+  const coherenceScore = calcCoherenceScore(ctx.speech_coaching);
+
+  const rawSpeechScore = Math.round(
+    wpmScore * 0.22 +
+      fillerScore * 0.22 +
+      offTopicScore * 0.18 +
+      ambiguousScore * 0.13 +
+      coherenceScore * 0.25
   );
+  const speechScore = liftReportScore(rawSpeechScore);
 
   const gazeScore = calcGazeScore(ctx.nonverbal_coaching.gaze_log);
   const postureScore = calcPostureScore(ctx.nonverbal_coaching.posture_log, ctx.nonverbal_coaching.dynamism_log);
@@ -203,8 +223,10 @@ export function calcCompositeScore(
     contextAnalysis.rhythmScore,
   );
 
-  const nonverbalBase = Math.round(gazeScore * 0.35 + postureScore * 0.25 + gestureScore * 0.2 + contextAnalysis.contextScore * 0.2);
-  const nonverbalScore = Math.max(0, Math.min(100, nonverbalBase));
+  const rawNonverbalScore = Math.round(
+    gazeScore * 0.35 + postureScore * 0.25 + gestureScore * 0.2 + contextAnalysis.contextScore * 0.2,
+  );
+  const nonverbalScore = liftReportScore(rawNonverbalScore);
 
   const qaSkipped = Boolean(ctx.qa_skipped);
   const qaScore = qaSkipped ? 0 : ctx.qa.final_score || 0;
@@ -515,6 +537,7 @@ export async function generateReportNarrative(
       : `Average speech rate: ${avgWpm} words/min`,
     `Filler words: ${ctx.speech_coaching.filler_count}`,
     `Off-topic moments: ${ctx.speech_coaching.off_topic_log.length} (${offExcerpts || 'none'})`,
+    `Logic/coherence breaks: ${ctx.speech_coaching.logic_break_log.length} (semantic windows: ${ctx.speech_coaching.semantic_check_count}, coherent: ${ctx.speech_coaching.coherence_pass_count})`,
     `Eye contact rate: ${Math.round(ctx.nonverbal_coaching.gaze_rate * 100)}%`,
     `Posture stability: ${scores.nonverbalScore}/100`,
     `Gesture count: excess=${ctx.nonverbal_coaching.gesture_log.filter(g => g.type === 'excess').length}, lack=${ctx.nonverbal_coaching.gesture_log.filter(g => g.type === 'lack').length}`,

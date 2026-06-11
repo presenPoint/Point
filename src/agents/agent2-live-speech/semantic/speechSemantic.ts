@@ -4,7 +4,15 @@
 import { chatJson, hasOpenAI } from '../../../lib/openai';
 import { searchSimilarChunks } from '../../../lib/scriptEmbedding';
 import { feedbackQueue } from '../../shared/feedbackQueue';
-import type { OffTopicEntry } from '../../../types/session';
+import type { LogicBreakEntry, OffTopicEntry } from '../../../types/session';
+
+export type SemanticAnalysisPayload = {
+  offTopic?: OffTopicEntry;
+  logicBreak?: LogicBreakEntry;
+  ambiguousDelta: number;
+  /** 해당 30초 창에서 논리·흐름이 유지됨 */
+  coherent: boolean;
+};
 
 type SemanticResult = {
   off_topic: boolean;
@@ -42,7 +50,9 @@ Response format:
 
 Rules:
 - feedback_message must be concise, under 20 characters
-- Be strict with off_topic judgment (true only when completely unrelated to the topic)
+- off_topic: true when speech is unrelated to the presentation topic or script
+- logic_break: true when ideas do not connect, the narrative jumps without transitions, sentences contradict each other, or the segment is rambling / hard to follow (even if words relate loosely to the topic)
+- Mark logic_break for word salad, non-sequiturs, or content with no clear point
 - If the speech closely matches the relevant script sections above, do NOT mark it off_topic
 - If the speech is too short to judge, return all values as false`;
 
@@ -56,7 +66,7 @@ export async function runSemanticAnalysis(
   recentText: string,
   materialSummary: string,
   offTopicLog: OffTopicEntry[],
-  onResult: (payload: { offTopic?: OffTopicEntry; ambiguousDelta: number }) => void,
+  onResult: (payload: SemanticAnalysisPayload) => void,
   personaPrompt?: string,
   sessionId?: string,
 ): Promise<void> {
@@ -108,16 +118,23 @@ export async function runSemanticAnalysis(
     });
   }
 
-  if (result.off_topic) {
-    onResult({
-      offTopic: {
-        timestamp: Date.now(),
-        excerpt: recentText.slice(0, 100),
-        reason: result.off_topic_reason || 'off_topic',
-      },
-      ambiguousDelta,
-    });
-  } else {
-    onResult({ ambiguousDelta });
-  }
+  const coherent = !result.logic_break;
+  onResult({
+    offTopic: result.off_topic
+      ? {
+          timestamp: Date.now(),
+          excerpt: recentText.slice(0, 100),
+          reason: result.off_topic_reason || 'off_topic',
+        }
+      : undefined,
+    logicBreak: result.logic_break
+      ? {
+          timestamp: Date.now(),
+          excerpt: recentText.slice(0, 100),
+          reason: result.logic_break_reason || 'logic_break',
+        }
+      : undefined,
+    ambiguousDelta,
+    coherent,
+  });
 }

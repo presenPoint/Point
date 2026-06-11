@@ -59,6 +59,9 @@ function createSession(userId: string): SessionContext {
       filler_count: 0,
       filler_timestamps: [],
       off_topic_log: [],
+      logic_break_log: [],
+      semantic_check_count: 0,
+      coherence_pass_count: 0,
       ambiguous_count: 0,
       total_duration_sec: 0,
       transcript_log: [],
@@ -108,7 +111,21 @@ type State = {
   appStarted: boolean;
   /** When true with `selectedPersona === null`, skip the style survey and use default coaching/scoring. */
   skipPersonaSurvey: boolean;
-  livePresentation: { wpm: number; fillerCount: number; volumeRms: number; interimText: string; recognitionError: string };
+  livePresentation: {
+    wpm: number;
+    fillerCount: number;
+    volumeRms: number;
+    interimText: string;
+    recognitionError: string;
+    /** false = 준비 화면(타이머·STT·코칭 미시작), true = Start 버튼 이후 */
+    liveActive: boolean;
+    /** Start 이후 일시정지 여부 */
+    livePaused: boolean;
+    /** 누적 일시정지 시간(ms) */
+    pausedAccumMs: number;
+    /** 현재 일시정지 시작 시각(ms) — livePaused일 때만 */
+    pausedAtMs: number | null;
+  };
   selectedPersona: PersonaType | null;
   /** Audience Q&A — 질문 난이도(프롬프트) */
   qaDifficulty: QaDifficultyLevel;
@@ -121,15 +138,33 @@ type State = {
   startWithDefaultCoaching: () => void;
   beginMaterialPrepare: () => void;
   setPresentationTopics: (keys: string[], custom: string) => void;
-  setLivePresentation: (p: Partial<{ wpm: number; fillerCount: number; volumeRms: number; interimText: string; recognitionError: string }>) => void;
+  setLivePresentation: (
+    p: Partial<{
+      wpm: number;
+      fillerCount: number;
+      volumeRms: number;
+      interimText: string;
+      recognitionError: string;
+      liveActive: boolean;
+      livePaused: boolean;
+      pausedAccumMs: number;
+      pausedAtMs: number | null;
+    }>,
+  ) => void;
   setPersona: (persona: PersonaType | null) => void;
   setQaDifficulty: (d: QaDifficultyLevel) => void;
   setCoachTtsVoiceOverride: (voiceId: string) => void;
 
   resetSession: () => void;
   transition: (to: SessionStatus) => void;
-  /** 발표 시작 — plan에 맞는 max_duration_sec 박제 후 PRESENTING으로 전환. */
+  /** 발표 준비 화면 진입 — plan에 맞는 max_duration_sec 박제 후 PRESENTING(대기)으로 전환. */
   startPresenting: () => Promise<void>;
+  /** 라이브 화면에서 Start 클릭 시 — 타이머·STT·코칭 실제 시작. */
+  beginLivePresentation: () => void;
+  /** 라이브 발표 일시정지 */
+  pauseLivePresentation: () => void;
+  /** 라이브 발표 재개 */
+  resumeLivePresentation: () => void;
   /** 발표 종료 사유 기록. */
   setEndedReason: (reason: 'user' | 'time_limit' | 'abandoned' | 'error') => void;
   setPreQuizAnswer: (id: number, text: string) => void;
@@ -160,6 +195,22 @@ const DEMO_USER = '00000000-0000-0000-0000-000000000001';
 
 let qaStartLock = false;
 
+/** 발표 경과 ms (일시정지 구간 제외) */
+export function presentationElapsedMs(
+  startedAtMs: number,
+  lp: {
+    pausedAccumMs: number;
+    pausedAtMs: number | null;
+    livePaused: boolean;
+  },
+): number {
+  let pauseExtra = lp.pausedAccumMs;
+  if (lp.livePaused && lp.pausedAtMs != null) {
+    pauseExtra += Date.now() - lp.pausedAtMs;
+  }
+  return Math.max(0, Date.now() - startedAtMs - pauseExtra);
+}
+
 export const useSessionStore = create<State>((set, get) => ({
   session: createSession(DEMO_USER),
   preQuizAnswers: {},
@@ -169,7 +220,17 @@ export const useSessionStore = create<State>((set, get) => ({
   error: null,
   appStarted: false,
   skipPersonaSurvey: false,
-  livePresentation: { wpm: 0, fillerCount: 0, volumeRms: 0, interimText: '', recognitionError: '' },
+  livePresentation: {
+    wpm: 0,
+    fillerCount: 0,
+    volumeRms: 0,
+    interimText: '',
+    recognitionError: '',
+    liveActive: false,
+    livePaused: false,
+    pausedAccumMs: 0,
+    pausedAtMs: null,
+  },
   selectedPersona: null,
   qaDifficulty: 'standard',
   coachTtsVoiceOverride: '',
@@ -226,7 +287,17 @@ export const useSessionStore = create<State>((set, get) => ({
       error: null,
       appStarted: false,
       skipPersonaSurvey: false,
-      livePresentation: { wpm: 0, fillerCount: 0, volumeRms: 0, interimText: '', recognitionError: '' },
+      livePresentation: {
+        wpm: 0,
+        fillerCount: 0,
+        volumeRms: 0,
+        interimText: '',
+        recognitionError: '',
+        liveActive: false,
+        livePaused: false,
+        pausedAccumMs: 0,
+        pausedAtMs: null,
+      },
       selectedPersona: null,
       qaDifficulty: 'standard',
       coachTtsVoiceOverride: '',
@@ -265,7 +336,49 @@ export const useSessionStore = create<State>((set, get) => ({
         max_duration_sec: maxSec,
         ended_reason: undefined,
       },
+      livePresentation: {
+        ...s.livePresentation,
+        liveActive: false,
+        livePaused: false,
+        pausedAccumMs: 0,
+        pausedAtMs: null,
+      },
     }));
+  },
+
+  beginLivePresentation: () => {
+    const now = new Date().toISOString();
+    set((s) => ({
+      livePresentation: {
+        ...s.livePresentation,
+        liveActive: true,
+        livePaused: false,
+        pausedAccumMs: 0,
+        pausedAtMs: null,
+      },
+      session: { ...s.session, started_at: now },
+    }));
+  },
+
+  pauseLivePresentation: () => {
+    const lp = get().livePresentation;
+    if (!lp.liveActive || lp.livePaused) return;
+    set({
+      livePresentation: { ...lp, livePaused: true, pausedAtMs: Date.now() },
+    });
+  },
+
+  resumeLivePresentation: () => {
+    const lp = get().livePresentation;
+    if (!lp.liveActive || !lp.livePaused || lp.pausedAtMs == null) return;
+    set({
+      livePresentation: {
+        ...lp,
+        livePaused: false,
+        pausedAccumMs: lp.pausedAccumMs + (Date.now() - lp.pausedAtMs),
+        pausedAtMs: null,
+      },
+    });
   },
 
   setEndedReason: (reason) =>

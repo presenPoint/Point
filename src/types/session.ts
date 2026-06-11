@@ -36,6 +36,12 @@ export interface OffTopicEntry {
   reason: string;
 }
 
+export interface LogicBreakEntry {
+  timestamp: number;
+  excerpt: string;
+  reason: string;
+}
+
 export interface GazeEntry {
   timestamp: number;
   is_gazing: boolean;
@@ -126,6 +132,11 @@ export interface SessionContext {
     filler_count: number;
     filler_timestamps: number[];
     off_topic_log: OffTopicEntry[];
+    logic_break_log: LogicBreakEntry[];
+    /** 의미 분석이 실행된 횟수(30초 창 기준) */
+    semantic_check_count: number;
+    /** logic_break이 없었던 창 수 — coherence 비율 계산용 */
+    coherence_pass_count: number;
     ambiguous_count: number;
     total_duration_sec: number;
     transcript_log: TranscriptEntry[];

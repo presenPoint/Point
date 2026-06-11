@@ -27,18 +27,24 @@ import {
   registerLiveTranscriptFlush,
 } from '../lib/liveTranscriptFlush';
 import { hadActiveSpeechVolume, type TranscriptCaptureHint } from '../lib/transcriptScript';
-import { useSessionStore } from '../store/sessionStore';
+import { presentationElapsedMs, useSessionStore } from '../store/sessionStore';
 import { resolveLocaleForCurrentApp } from '../store/localeStore';
 import { buildPresentationTopicSummaryLine } from '../lib/presentationTopicContext';
 import { buildWordVolumeProfile } from '../lib/liveCaptionEmphasis';
 import type { FillerEntry, TranscriptEntry } from '../types/session';
 
-export function useLivePresenting(captionResultRef?: CaptionResultRef) {
+export function useLivePresenting(captionResultRef?: CaptionResultRef, active = false, paused = false) {
   const presentingStartRef = useRef(Date.now());
   const poseTrackerRef = useRef<PoseTracker | null>(null);
+  const recognitionRef = useRef<SpeechRecognition | null>(null);
+  const startRecognitionRef = useRef<(() => void) | null>(null);
+  const wasPausedRef = useRef(false);
 
   useEffect(() => {
+    if (!active) return;
+
     let dead = false;
+    const isPaused = () => useSessionStore.getState().livePresentation.livePaused;
     let restartTimer: ReturnType<typeof setTimeout> | null = null;
     presentingStartRef.current = Date.now();
     feedbackQueue.clearQueue();
@@ -56,11 +62,11 @@ export function useLivePresenting(captionResultRef?: CaptionResultRef) {
     const fillerRef: FillerEntry[] = [];
     const lastWpmWarnRef = { current: 0 };
     const silenceTimerRef: { current: ReturnType<typeof setTimeout> | null } = { current: null };
-    /** interim í…ìŠ¤íŠ¸ ëˆ„ì (ë¸íƒ€ í•„ëŸ¬ìš©) */
+    /** interim ÿÿÿÿÿÿÿÿ ÿÿÿÿÿ(ÿÿÿ? ?ÿÿÿÿÿÿ) */
     const prevInterimRef = { current: '' };
-    /** í˜„ìž¬ interim ë°œí™”ì˜ WPM ì•µì»¤ ì‹œê° */
+    /** ÿÿÿÿÿÿ interim ÿÿ?ÿÿÿ WPM ?? ÿÿÿÿ */
     const interimStartRef = { current: null as number | null };
-    /** í™•ì •+ìž„ì‹œ ë°œí™” ë‹¨ìœ„ ëˆ„ì (ìŒì ˆ ë˜ëŠ” ë‹¨ì–´) */
+    /** ??+ÿÿÿÿÿ ÿÿ? ?ÿÿÿ ÿÿÿÿÿ(ÿÿÿÿÿ ÿÿÿÿÿÿ ??) */
     const cumulativeUnitsRef = { current: 0 };
     const speakingMsAccumRef = { current: 0 };
     const lastSpeechActivityRef = { current: 0 };
@@ -237,6 +243,7 @@ export function useLivePresenting(captionResultRef?: CaptionResultRef) {
     };
 
     const uiTick = window.setInterval(() => {
+      if (isPaused()) return;
       const instantWpm = recordPaceSample();
       const snap = () =>
         recentTranscriptPlain(
@@ -252,6 +259,7 @@ export function useLivePresenting(captionResultRef?: CaptionResultRef) {
     }, 120);
 
     const semanticId = window.setInterval(() => {
+      if (isPaused()) return;
       const text = transcriptForSemantic();
       const { session } = useSessionStore.getState();
       const topicLine = buildPresentationTopicSummaryLine(session);
@@ -261,7 +269,7 @@ export function useLivePresenting(captionResultRef?: CaptionResultRef) {
         text,
         summary,
         session.speech_coaching.off_topic_log,
-        ({ offTopic, ambiguousDelta }) => {
+        ({ offTopic, logicBreak, ambiguousDelta, coherent }) => {
           useSessionStore.setState((st) => {
             const sc = st.session.speech_coaching;
             return {
@@ -270,6 +278,9 @@ export function useLivePresenting(captionResultRef?: CaptionResultRef) {
                 speech_coaching: {
                   ...sc,
                   off_topic_log: offTopic ? [...sc.off_topic_log, offTopic] : sc.off_topic_log,
+                  logic_break_log: logicBreak ? [...sc.logic_break_log, logicBreak] : sc.logic_break_log,
+                  semantic_check_count: sc.semantic_check_count + 1,
+                  coherence_pass_count: sc.coherence_pass_count + (coherent ? 1 : 0),
                   ambiguous_count: sc.ambiguous_count + (ambiguousDelta ?? 0),
                 },
               },
@@ -282,6 +293,7 @@ export function useLivePresenting(captionResultRef?: CaptionResultRef) {
     }, SEMANTIC_INTERVAL_MS);
 
     const wpmLogId = window.setInterval(() => {
+      if (isPaused()) return;
       const wpm = recordPaceSample();
       const ts = Date.now();
       useSessionStore.setState((st) => ({
@@ -300,7 +312,7 @@ export function useLivePresenting(captionResultRef?: CaptionResultRef) {
         ? window.SpeechRecognition || window.webkitSpeechRecognition
         : undefined;
 
-    /** ê¶Œí•œ ê±°ë¶€ ë“± ë³µêµ¬ ë¶ˆê°€ ì˜¤ë¥˜ ë°œìƒ ì‹œ true â€” onendì—ì„œ ìž¬ì‹œìž‘í•˜ì§€ ì•ŠìŒ */
+    /** ÿÿÿÿ ?? ? ?? ÿÿ? ÿÿÿÿÿ ÿÿÿÿ ÿÿ true ÿ onendÿÿÿÿ ÿÿÿÿÿÿÿÿÿÿ? ÿÿÿÿÿ */
     let recognitionBlocked = false;
 
     function normalizeLang(raw: string): string {
@@ -311,11 +323,11 @@ export function useLivePresenting(captionResultRef?: CaptionResultRef) {
 
     let recognition: SpeechRecognition | null = null;
     const scheduleRecognitionRestart = () => {
-      if (dead || recognitionBlocked || !recognition) return;
+      if (dead || recognitionBlocked || !recognition || isPaused()) return;
       if (restartTimer) clearTimeout(restartTimer);
       restartTimer = setTimeout(() => {
         restartTimer = null;
-        if (dead || recognitionBlocked || !recognition) return;
+        if (dead || recognitionBlocked || !recognition || isPaused()) return;
         try {
           recognition.start();
         } catch {
@@ -337,16 +349,17 @@ export function useLivePresenting(captionResultRef?: CaptionResultRef) {
     }
 
     const startRecognition = () => {
-      if (dead || recognitionBlocked || !recognition) return;
+      if (dead || recognitionBlocked || !recognition || isPaused()) return;
       try {
         recognition.start();
       } catch {
         /* already running */
       }
     };
+    startRecognitionRef.current = startRecognition;
 
     const unregisterRestart = registerLiveSpeechRecognitionRestart(() => {
-      if (!recognition || recognitionBlocked || dead) return;
+      if (!recognition || recognitionBlocked || dead || isPaused()) return;
       try {
         recognition.stop();
       } catch {
@@ -366,6 +379,7 @@ export function useLivePresenting(captionResultRef?: CaptionResultRef) {
       rec.continuous = true;
       rec.interimResults = true;
       rec.onresult = (event: SpeechRecognitionEvent) => {
+        if (isPaused()) return;
         captionResultRef?.current?.(event);
         let text = '';
         let finalText = '';
@@ -393,6 +407,7 @@ export function useLivePresenting(captionResultRef?: CaptionResultRef) {
 
         if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
         silenceTimerRef.current = setTimeout(() => {
+          if (isPaused()) return;
           const log = useSessionStore.getState().session.speech_coaching.transcript_log;
           const tail = log
             .slice(-12)
@@ -523,7 +538,7 @@ export function useLivePresenting(captionResultRef?: CaptionResultRef) {
         if (sessionTranscriptDraftRef.current.trim()) {
           upsertSessionTranscript(sessionTranscriptDraftRef.current, true);
         }
-        if (dead) return;
+        if (dead || isPaused()) return;
         scheduleRecognitionRestart();
       };
     };
@@ -531,6 +546,7 @@ export function useLivePresenting(captionResultRef?: CaptionResultRef) {
     const bootRecognition = async () => {
       if (!RecCtor || dead) return;
       recognition = new RecCtor();
+      recognitionRef.current = recognition;
       wireRecognition(recognition);
 
       if (navigator.mediaDevices?.getUserMedia) {
@@ -564,8 +580,9 @@ export function useLivePresenting(captionResultRef?: CaptionResultRef) {
 
     void bootRecognition();
 
-    /** ë¸Œë¼ìš°ì €ê°€ finalì„ ì•ˆ ì£¼ëŠ” ê²½ìš°(ì—°ì† ì¸ì‹) â€” ìž„ì‹œ ìžë§‰ì„ ì£¼ê¸°ì ìœ¼ë¡œ í™•ì • ì €ìž¥ */
+    /** ÿÿÿÿÿÿÿÿ?? finalÿÿÿ ÿÿ ?ÿÿÿ ?ÿÿÿ(?ÿÿ ÿÿÿÿÿ) ÿ ÿÿÿÿÿ ÿÿÿ?ÿÿÿ ??ÿÿÿÿÿÿÿ ?? ?ÿÿÿ */
     const interimCommitId = window.setInterval(() => {
+      if (isPaused()) return;
       const interim =
         sessionTranscriptDraftRef.current.trim() || prevInterimRef.current.trim();
       if (interim.length < 4 || interim === lastPeriodicInterimRef.current) return;
@@ -574,9 +591,10 @@ export function useLivePresenting(captionResultRef?: CaptionResultRef) {
       lastPeriodicInterimRef.current = interim;
     }, 4_000);
 
-    // Monotone delivery check â€” runs every 30 s
+    // Monotone delivery check ÿ runs every 30 s
     let lastMonotoneWarn = 0;
     const monotoneId = window.setInterval(() => {
+      if (isPaused()) return;
       const samples = useSessionStore.getState().session.speech_coaching.volume_samples;
       if (samples.length < 20) return; // not enough data yet
       const recent = samples.slice(-30);
@@ -588,7 +606,7 @@ export function useLivePresenting(captionResultRef?: CaptionResultRef) {
         lastMonotoneWarn = now;
         feedbackQueue.push({
           level: 'INFO',
-          msg: 'Your delivery sounds flat â€” vary your volume to stress key words',
+          msg: 'Your delivery sounds flat ÿ vary your volume to stress key words',
           source: 'SPEECH_RULE',
           cooldown: 90_000,
         });
@@ -615,7 +633,10 @@ export function useLivePresenting(captionResultRef?: CaptionResultRef) {
       recognition?.stop();
       tracker.destroy();
       poseTrackerRef.current = null;
-      const sec = Math.round((Date.now() - presentingStartRef.current) / 1000);
+      const lp = useSessionStore.getState().livePresentation;
+      const sec = Math.round(
+        presentationElapsedMs(presentingStartRef.current, lp) / 1000,
+      );
       useSessionStore.setState((st) => {
         const sc = st.session.speech_coaching;
         const draft = (sc.transcript_live_draft ?? sessionTranscriptDraftRef.current).trim();
@@ -637,13 +658,45 @@ export function useLivePresenting(captionResultRef?: CaptionResultRef) {
               ...(hint ? { transcript_capture_hint: hint } : {}),
             },
           },
-          livePresentation: { wpm: 0, fillerCount: 0, volumeRms: 0, interimText: '', recognitionError: '' },
+          livePresentation: {
+            ...st.livePresentation,
+            wpm: 0,
+            fillerCount: 0,
+            volumeRms: 0,
+            interimText: '',
+            recognitionError: '',
+            liveActive: false,
+            livePaused: false,
+            pausedAccumMs: 0,
+            pausedAtMs: null,
+          },
         };
       });
     };
-  }, []);
+  }, [active]);
+
+  useEffect(() => {
+    if (!active) {
+      wasPausedRef.current = false;
+      recognitionRef.current = null;
+      startRecognitionRef.current = null;
+      return;
+    }
+    if (paused) {
+      try {
+        recognitionRef.current?.stop();
+      } catch {
+        /* ignore */
+      }
+      poseTrackerRef.current?.stop();
+    } else if (wasPausedRef.current) {
+      startRecognitionRef.current?.();
+    }
+    wasPausedRef.current = paused;
+  }, [active, paused]);
 
   const startPoseTracking = (video: HTMLVideoElement) => {
+    if (useSessionStore.getState().livePresentation.livePaused) return;
     const tracker = poseTrackerRef.current;
     if (!tracker) return;
     const personaType = useSessionStore.getState().selectedPersona;
@@ -689,39 +742,39 @@ export function useLivePresenting(captionResultRef?: CaptionResultRef) {
       });
 
       const gazeMsg: Record<string, string> = {
-        sharp: 'Eyes wandering â€” lock in on the audience',
+        sharp: 'Eyes wandering ÿ lock in on the audience',
         encouraging: 'Try connecting with the audience through eye contact',
-        precise: 'Eye contact below threshold â€” redirect gaze forward',
-        warm: 'Look at your audience â€” let them see you',
-        empowering: 'Own the room with your eyes â€” look at them',
+        precise: 'Eye contact below threshold ÿ redirect gaze forward',
+        warm: 'Look at your audience ÿ let them see you',
+        empowering: 'Own the room with your eyes ÿ look at them',
       };
       const postureMsg: Record<string, string> = {
-        sharp: 'Your posture is leaking credibility â€” straighten up',
+        sharp: 'Your posture is leaking credibility ÿ straighten up',
         encouraging: 'A small posture adjustment will boost your presence',
-        precise: 'Posture deviation detected â€” correct alignment',
-        warm: 'Stand tall â€” it helps you breathe and project confidence',
-        empowering: 'Command the stage â€” shoulders back, chin up',
+        precise: 'Posture deviation detected ÿ correct alignment',
+        warm: 'Stand tall ÿ it helps you breathe and project confidence',
+        empowering: 'Command the stage ÿ shoulders back, chin up',
       };
       const gestureExcessMsg: Record<string, string> = {
-        sharp: 'Too many gestures â€” each one should mean something',
-        encouraging: 'Dial back the gestures â€” let each one land',
-        precise: 'Gesture frequency exceeds optimal range â€” reduce',
-        warm: 'You\'re gesturing a lot â€” try letting a few moments be still',
-        empowering: 'Control is power â€” fewer gestures, bigger impact',
+        sharp: 'Too many gestures ÿ each one should mean something',
+        encouraging: 'Dial back the gestures ÿ let each one land',
+        precise: 'Gesture frequency exceeds optimal range ÿ reduce',
+        warm: 'You\'re gesturing a lot ÿ try letting a few moments be still',
+        empowering: 'Control is power ÿ fewer gestures, bigger impact',
       };
       const stiffMsg: Record<string, string> = {
-        sharp: 'You\'re frozen â€” movement is conviction',
-        encouraging: 'Loosen up a bit â€” small movements show confidence',
-        precise: 'Minimal body movement detected â€” add natural motion',
-        warm: 'You seem stiff â€” try natural small movements',
-        empowering: 'Break free â€” let your body match your energy',
+        sharp: 'You\'re frozen ÿ movement is conviction',
+        encouraging: 'Loosen up a bit ÿ small movements show confidence',
+        precise: 'Minimal body movement detected ÿ add natural motion',
+        warm: 'You seem stiff ÿ try natural small movements',
+        empowering: 'Break free ÿ let your body match your energy',
       };
       const restlessMsg: Record<string, string> = {
-        sharp: 'Stop fidgeting â€” stillness is strength',
-        encouraging: 'Try to settle your body â€” channel that energy into words',
-        precise: 'Excessive movement detected â€” stabilize',
-        warm: 'Too much body movement â€” try to settle down',
-        empowering: 'Rein it in â€” power needs control',
+        sharp: 'Stop fidgeting ÿ stillness is strength',
+        encouraging: 'Try to settle your body ÿ channel that energy into words',
+        precise: 'Excessive movement detected ÿ stabilize',
+        warm: 'Too much body movement ÿ try to settle down',
+        empowering: 'Rein it in ÿ power needs control',
       };
 
       if (!frame.gaze.isGazing) {
@@ -734,10 +787,10 @@ export function useLivePresenting(captionResultRef?: CaptionResultRef) {
         feedbackQueue.push({ level: 'WARN', msg: gestureExcessMsg[tone] ?? 'Too many gestures', source: 'NONVERBAL', cooldown: 60_000 });
       }
       if (frame.dynamism === 'stiff') {
-        feedbackQueue.push({ level: 'WARN', msg: stiffMsg[tone] ?? 'You seem stiff â€” try natural small movements', source: 'NONVERBAL', cooldown: 20_000 });
+        feedbackQueue.push({ level: 'WARN', msg: stiffMsg[tone] ?? 'You seem stiff ÿ try natural small movements', source: 'NONVERBAL', cooldown: 20_000 });
       }
       if (frame.dynamism === 'restless') {
-        feedbackQueue.push({ level: 'WARN', msg: restlessMsg[tone] ?? 'Too much body movement â€” try to settle down', source: 'NONVERBAL', cooldown: 20_000 });
+        feedbackQueue.push({ level: 'WARN', msg: restlessMsg[tone] ?? 'Too much body movement ÿ try to settle down', source: 'NONVERBAL', cooldown: 20_000 });
       }
     }, nvCfg);
   };

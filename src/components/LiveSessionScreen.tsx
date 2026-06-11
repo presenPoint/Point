@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { feedbackQueue } from '../agents';
 import { useLivePresenting } from '../hooks/useLivePresenting';
 import { useVolumeAnalyzer } from '../hooks/useVolumeAnalyzer';
-import { cancelFeedbackSpeech, enqueueFeedback, onSpeakingChange, primeFeedbackAudio } from '../lib/feedbackTts';
+import { cancelFeedbackSpeech } from '../lib/feedbackTts';
 import { stopCoachQuestionSpeech } from '../lib/coachQuestionTts';
 import { navigateBack } from '../lib/appNavigation';
 import { flushLiveTranscriptNow, restartLiveSpeechRecognition } from '../lib/liveTranscriptFlush';
@@ -11,28 +10,16 @@ import { PERSONAS } from '../constants/personas';
 import { getDefaultPaceRange, getPersonaPaceRange, isPaceInRange } from '../lib/speechRate';
 import { useEffectiveLocale } from '../hooks/useEffectiveLocale';
 import { LanguageSwitcher } from './LanguageSwitcher';
-import { useSessionStore } from '../store/sessionStore';
+import { presentationElapsedMs, useSessionStore } from '../store/sessionStore';
 import { useToastStore } from '../store/toastStore';
-import type { FeedbackItem, FeedbackLevel } from '../types/session';
 import { AnimatedPointLogo } from './AnimatedPointLogo';
+import { LiveKeynotePad } from './LiveKeynotePad';
 import { useT } from '../hooks/useT';
-import type { MessageKey } from '../locales/messages';
 
 function formatMmSs(sec: number): string {
   const m = String(Math.floor(sec / 60)).padStart(2, '0');
   const s = String(sec % 60).padStart(2, '0');
   return `${m}:${s}`;
-}
-
-function levelToFeedClass(level: FeedbackLevel): string {
-  if (level === 'CRITICAL') return 'type-alert';
-  if (level === 'WARN') return 'type-warn';
-  return 'type-info';
-}
-
-function sourceToCat(source: FeedbackItem['source']): { cls: string; labelKey: MessageKey } {
-  if (source === 'SPEECH_RULE' || source === 'SPEECH_SEMANTIC') return { cls: 'cat-voice', labelKey: 'live.feedVoice' };
-  return { cls: 'cat-gaze', labelKey: 'live.feedNonverbal' };
 }
 
 const LIVE_PRIVACY_STORAGE_KEY = 'point_live_privacy_ok_v1';
@@ -76,7 +63,16 @@ export function LiveSessionScreen() {
   const t = useT();
   const captionResultRef = useRef<((e: SpeechRecognitionEvent) => void) | null>(null);
 
-  const { presentingStartRef, startPoseTracking, stopPoseTracking } = useLivePresenting(captionResultRef);
+  const liveActive = useSessionStore((s) => s.livePresentation.liveActive);
+  const livePaused = useSessionStore((s) => s.livePresentation.livePaused);
+  const beginLivePresentation = useSessionStore((s) => s.beginLivePresentation);
+  const pauseLivePresentation = useSessionStore((s) => s.pauseLivePresentation);
+  const resumeLivePresentation = useSessionStore((s) => s.resumeLivePresentation);
+  const { presentingStartRef, startPoseTracking, stopPoseTracking } = useLivePresenting(
+    captionResultRef,
+    liveActive,
+    livePaused,
+  );
   const transition = useSessionStore((s) => s.transition);
   const setEndedReason = useSessionStore((s) => s.setEndedReason);
   const session = useSessionStore((s) => s.session);
@@ -84,22 +80,10 @@ export function LiveSessionScreen() {
   const maxDurationSec = session.max_duration_sec;
 
   const [sec, setSec] = useState(0);
-  const [feed, setFeed] = useState<FeedbackItem[]>([]);
-  const [coachVisual, setCoachVisual] = useState(true);
-  const [isSpeaking, setIsSpeaking] = useState(false);
-  const voiceFeedbackRef = useRef(false);
-  const [alertUi, setAlertUi] = useState<{
-    msg: string;
-    typeLabelKey: MessageKey;
-    color: string;
-  } | null>(null);
-  const lastAlertId = useRef<string | null>(null);
-  const alertT = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const feedRef = useRef<HTMLDivElement>(null);
-
   const videoRef = useRef<HTMLVideoElement>(null);
   const [camOn, setCamOn] = useState(false);
   const [prompterOpen, setPrompterOpen] = useState(false);
+  const [coachingOpen, setCoachingOpen] = useState(true);
   const [prompterAutoScroll, setPrompterAutoScroll] = useState(true);
   const prompterRef = useRef<HTMLDivElement>(null);
 
@@ -139,6 +123,8 @@ export function LiveSessionScreen() {
   }, [stopPoseTracking]);
 
   const handleVolumeSample = useCallback((rms: number) => {
+    const lp = useSessionStore.getState().livePresentation;
+    if (!lp.liveActive || lp.livePaused) return;
     const ts = Date.now();
     useSessionStore.setState((st) => ({
       session: {
@@ -162,8 +148,28 @@ export function LiveSessionScreen() {
       /* ignore */
     }
     setPrivacyModalOpen(false);
-    restartLiveSpeechRecognition();
     void startCamera();
+  };
+
+  const handleStartLive = () => {
+    beginLivePresentation();
+    if (camOn && videoRef.current) {
+      startPoseTracking(videoRef.current);
+    }
+  };
+
+  const handlePauseLive = () => {
+    pauseLivePresentation();
+    stopPoseTracking();
+    cancelFeedbackSpeech();
+  };
+
+  const handleResumeLive = () => {
+    resumeLivePresentation();
+    if (camOn && videoRef.current) {
+      startPoseTracking(videoRef.current);
+    }
+    restartLiveSpeechRecognition();
   };
 
   // 개인정보 동의가 이미 완료된 경우 마운트 시 바로 카메라 시작
@@ -176,11 +182,16 @@ export function LiveSessionScreen() {
   }, []);
 
   useEffect(() => {
-    const t = window.setInterval(() => {
-      setSec(Math.round((Date.now() - presentingStartRef.current) / 1000));
+    if (!liveActive) {
+      setSec(0);
+      return;
+    }
+    const tick = window.setInterval(() => {
+      const lp = useSessionStore.getState().livePresentation;
+      setSec(Math.round(presentationElapsedMs(presentingStartRef.current, lp) / 1000));
     }, 1000);
-    return () => clearInterval(t);
-  }, [presentingStartRef]);
+    return () => clearInterval(tick);
+  }, [liveActive, presentingStartRef]);
 
   /* ── 시간 제한 감시 (Free 5분, Pro 60분) ── */
   const warned30sRef = useRef(false);
@@ -189,7 +200,7 @@ export function LiveSessionScreen() {
   const endSessionRef = useRef<(reason: 'user' | 'time_limit') => void>(() => {});
 
   useEffect(() => {
-    if (maxDurationSec == null) return;
+    if (!liveActive || maxDurationSec == null) return;
     const remaining = maxDurationSec - sec;
     if (remaining <= 30 && remaining > 0 && !warned30sRef.current) {
       warned30sRef.current = true;
@@ -200,58 +211,9 @@ export function LiveSessionScreen() {
       showToast(t('live.toast.timeLimitEnd'));
       endSessionRef.current('time_limit');
     }
-  }, [sec, maxDurationSec, showToast, t]);
-
-  useEffect(() => onSpeakingChange(setIsSpeaking), []);
+  }, [liveActive, sec, maxDurationSec, showToast, t]);
 
   useEffect(() => () => stopCoachQuestionSpeech(), []);
-
-  useEffect(() => {
-    voiceFeedbackRef.current = !coachVisual;
-  }, [coachVisual]);
-
-  useEffect(() => {
-    if (coachVisual) cancelFeedbackSpeech();
-  }, [coachVisual]);
-
-  useEffect(() => {
-    const sync = () => {
-      setFeed([...feedbackQueue.getFeedHistory()]);
-      const items = feedbackQueue.getDisplayItems();
-      const top = items[0];
-      if (top && top.id !== lastAlertId.current) {
-        lastAlertId.current = top.id;
-        const color =
-          top.level === 'CRITICAL' ? 'var(--red)' : top.level === 'WARN' ? 'var(--amber)' : 'var(--cyan)';
-        const typeLabelKey: MessageKey =
-          top.source === 'NONVERBAL'
-            ? 'live.alert.nonverbal'
-            : top.level === 'CRITICAL'
-              ? 'live.alert.alert'
-              : 'live.alert.voiceCoach';
-        setAlertUi({ msg: top.msg, typeLabelKey, color });
-        if (alertT.current) clearTimeout(alertT.current);
-        alertT.current = setTimeout(() => setAlertUi(null), 3500);
-        if (voiceFeedbackRef.current) {
-          enqueueFeedback(top.msg, {
-            level: top.level,
-            preempt: top.level === 'CRITICAL',
-          });
-        }
-      }
-    };
-    sync();
-    const unsub = feedbackQueue.subscribe(sync);
-    return () => {
-      unsub();
-      if (alertT.current) clearTimeout(alertT.current);
-      cancelFeedbackSpeech();
-    };
-  }, []);
-
-  useEffect(() => {
-    feedRef.current?.scrollTo({ top: feedRef.current.scrollHeight, behavior: 'smooth' });
-  }, [feed]);
 
   // unmount 정리 — stopCamera는 ref로 잡아서 effect 자체는 한 번만 등록.
   // 직접 [stopCamera]를 deps로 두면 매 렌더마다 cleanup이 실행돼 srcObject가
@@ -360,7 +322,9 @@ export function LiveSessionScreen() {
       if (readyFired) return;
       readyFired = true;
       void v.play().catch(() => undefined);
-      startPoseTracking(v);
+      if (useSessionStore.getState().livePresentation.liveActive) {
+        startPoseTracking(v);
+      }
     };
     v.onloadeddata = handleReady;
     // 안전망: 이미 readyState>=2 (HAVE_CURRENT_DATA) 면 loadeddata 이벤트가 안 올 수 있으니 즉시 실행
@@ -369,7 +333,9 @@ export function LiveSessionScreen() {
     setCamOn(true);
     mediaStreamRef.current = stream;
     setMediaStream(stream);
-    if (stream.getAudioTracks().length > 0) restartLiveSpeechRecognition();
+    if (stream.getAudioTracks().length > 0 && useSessionStore.getState().livePresentation.liveActive) {
+      restartLiveSpeechRecognition();
+    }
   };
 
   const leavePresentation = () => {
@@ -383,7 +349,10 @@ export function LiveSessionScreen() {
   const endSession = (reason: 'user' | 'time_limit' = 'user') => {
     stopCamera();
     flushLiveTranscriptNow();
-    const s = Math.round((Date.now() - presentingStartRef.current) / 1000);
+    const lp = useSessionStore.getState().livePresentation;
+    const s = liveActive
+      ? Math.round(presentationElapsedMs(presentingStartRef.current, lp) / 1000)
+      : 0;
     useSessionStore.setState((st) => ({
       session: {
         ...st.session,
@@ -405,23 +374,11 @@ export function LiveSessionScreen() {
 
   endSessionRef.current = endSession;
 
-  const tickerItems = useMemo(
-    () => [
-      t('live.tickerSpeech', {
-        wpm: wpm || '—',
-        unit: paceUnitLabel,
-        min: paceRange.min,
-        max: paceRange.max,
-      }),
-      t('live.tickerEye', { pct: gazePct }),
-      t('live.tickerFillers', { n: fillers }),
-      t('live.tickerPosture', { pts: posturePct }),
-    ],
-    [wpm, gazePct, fillers, posturePct, paceRange, paceUnitLabel, t],
-  );
-
   return (
-    <div id="screen-live" className="point-screen">
+    <div
+      id="screen-live"
+      className={`point-screen${coachingOpen ? '' : ' live-coaching-closed'}`}
+    >
       {privacyModalOpen && (
         <div className="live-privacy-overlay" role="dialog" aria-modal="true" aria-labelledby="live-privacy-title">
           <div className="live-privacy-card">
@@ -439,20 +396,6 @@ export function LiveSessionScreen() {
           </div>
         </div>
       )}
-
-      <div className={`coaching-alert${alertUi ? ' visible' : ''}`}>
-        {alertUi && (
-          <>
-            <div className="ca-header">
-              <span className="ca-icon">⚡</span>
-              <span className="ca-type" style={{ color: alertUi.color }}>
-                {t(alertUi.typeLabelKey)}
-              </span>
-            </div>
-            <div className="ca-text">{alertUi.msg}</div>
-          </>
-        )}
-      </div>
 
       <div className="live-shell">
         <div className="live-topbar">
@@ -472,9 +415,23 @@ export function LiveSessionScreen() {
               />
             </div>
           </div>
-          <div className="rec-indicator">
+          <div
+            className={[
+              'rec-indicator',
+              !liveActive ? 'rec-indicator--ready' : '',
+              liveActive && livePaused ? 'rec-indicator--paused' : '',
+            ]
+              .filter(Boolean)
+              .join(' ')}
+          >
             <div className="rec-dot" />
-            <div className="rec-text">{t('live.sessionBadge')}</div>
+            <div className="rec-text">
+              {!liveActive
+                ? t('live.sessionBadgeReady')
+                : livePaused
+                  ? t('live.sessionBadgePaused')
+                  : t('live.sessionBadge')}
+            </div>
           </div>
           <div className="live-timer">
             {formatMmSs(sec)}
@@ -491,6 +448,16 @@ export function LiveSessionScreen() {
           </div>
           <div className="live-actions">
             <LanguageSwitcher className="lang-switcher--topnav lang-switcher--live" />
+            <button
+              type="button"
+              className={`live-coaching-toggle${coachingOpen ? ' active' : ''}`}
+              onClick={() => setCoachingOpen((o) => !o)}
+              aria-pressed={coachingOpen}
+              aria-expanded={coachingOpen}
+              aria-label={coachingOpen ? t('live.coaching.closeAria') : t('live.coaching.openAria')}
+            >
+              {t('live.coaching.toggle')}
+            </button>
             {scriptText.trim().length > 0 && (
               <button
                 type="button"
@@ -501,13 +468,23 @@ export function LiveSessionScreen() {
                 {t('live.prompter.toggle')}
               </button>
             )}
+            {liveActive && (
+              <button
+                type="button"
+                className={livePaused ? 'btn-resume' : 'btn-pause'}
+                onClick={livePaused ? handleResumeLive : handlePauseLive}
+                aria-label={livePaused ? t('live.resumeAria') : t('live.pauseAria')}
+              >
+                {livePaused ? t('live.resume') : t('live.pause')}
+              </button>
+            )}
             <button type="button" className="btn-end" onClick={() => endSession('user')}>
               {t('live.endSession')}
             </button>
           </div>
         </div>
 
-        <div className="live-main">
+        <div className={`live-main${coachingOpen ? '' : ' live-main--coaching-closed'}`}>
           <div className="camera-area">
             <div className="camera-area-stack">
               {/* 청중 영상: 항상 메인 화면으로 표시 */}
@@ -569,32 +546,46 @@ export function LiveSessionScreen() {
               </div>
             </div>
 
+            {!coachingOpen && (
+              <button
+                type="button"
+                className="coaching-panel-reopen"
+                onClick={() => setCoachingOpen(true)}
+                aria-label={t('live.coaching.openAria')}
+              >
+                <span className="coaching-panel-reopen-icon" aria-hidden="true">‹</span>
+                <span className="coaching-panel-reopen-label">{t('live.coaching.toggleShort')}</span>
+              </button>
+            )}
+
+            {!liveActive && !privacyModalOpen && (
+              <div className="live-ready-overlay" role="dialog" aria-modal="true" aria-labelledby="live-ready-title">
+                <div className="live-ready-card">
+                  <h2 id="live-ready-title" className="live-ready-title">
+                    {t('live.ready.title')}
+                  </h2>
+                  <p className="live-ready-sub">{t('live.ready.sub')}</p>
+                  <button type="button" className="btn-primary live-ready-start" onClick={handleStartLive}>
+                    {t('live.ready.start')}
+                  </button>
+                </div>
+              </div>
+            )}
+
           </div>
 
+          {coachingOpen && (
           <div className="coaching-panel">
             <div className="cp-header">
               <div className="cp-title">{t('live.coachingTitle')}</div>
-              <div className="cp-mode-toggle">
-                <button
-                  type="button"
-                  className={`mode-btn${coachVisual ? ' active' : ''}`}
-                  title={t('live.modeVisualTitle')}
-                  onClick={() => setCoachVisual(true)}
-                >
-                  {t('live.modeVisual')}
-                </button>
-                <button
-                  type="button"
-                  className={`mode-btn${!coachVisual ? ' active' : ''}${!coachVisual && isSpeaking ? ' speaking' : ''}`}
-                  title={t('live.modeVoiceTitle')}
-                  onClick={() => {
-                    primeFeedbackAudio();
-                    setCoachVisual(false);
-                  }}
-                >
-                  {t('live.modeVoice')}{!coachVisual && isSpeaking && <span className="speaking-dot" aria-label={t('live.voicePlaying')} />}
-                </button>
-              </div>
+              <button
+                type="button"
+                className="cp-collapse-btn"
+                onClick={() => setCoachingOpen(false)}
+                aria-label={t('live.coaching.closeAria')}
+              >
+                ›
+              </button>
             </div>
 
             <div className={`live-caption-bar${recognitionError ? ' live-caption-bar--error' : ''}`} aria-live="polite" aria-label={t('live.captionAria')}>
@@ -673,79 +664,9 @@ export function LiveSessionScreen() {
               </div>
             </div>
 
-            <div className="feedback-feed" ref={feedRef}>
-              <div className="fb-item type-info">
-                <div className="fb-header">
-                  <span className="fb-cat cat-content">{t('live.feedContent')}</span>
-                  <span className="fb-time">{formatMmSs(0)}</span>
-                </div>
-                <div className="fb-text">{t('live.feedStarted')}</div>
-              </div>
-              {feed.map((item) => {
-                const { cls, labelKey } = sourceToCat(item.source);
-                const msgTime = new Date(item.createdAt);
-                const time = `${String(msgTime.getMinutes()).padStart(2, '0')}:${String(msgTime.getSeconds()).padStart(2, '0')}`;
-                return (
-                  <div key={item.id} className={`fb-item ${levelToFeedClass(item.level)}`}>
-                    <div className="fb-header">
-                      <span className={`fb-cat ${cls}`}>{t(labelKey)}</span>
-                      <span className="fb-time">{time}</span>
-                    </div>
-                    <div className="fb-text">{item.msg}</div>
-                    {item.speechSnippet ? (
-                      <details className="fb-speech-snippet">
-                        <summary className="fb-speech-snippet-summary">{t('live.speechSnippetSummary')}</summary>
-                        <p className="fb-speech-snippet-body">{item.speechSnippet}</p>
-                      </details>
-                    ) : null}
-                    <div className="fb-actions">
-                      <button
-                        type="button"
-                        className="btn-sm fb-hear-coach-btn"
-                        aria-label={t('live.playMentorAria')}
-                        onClick={() => {
-                          primeFeedbackAudio();
-                          enqueueFeedback(item.msg, { level: item.level, preempt: true });
-                        }}
-                      >
-                        {t('live.playMentorVoice')}
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-
-            <div className="nonverbal-panel" aria-label={t('live.nvSummaryAria')}>
-              <div className="nv-title">{t('live.nvTitle')}</div>
-              <div className="nv-row">
-                <span className="nv-label">{t('live.nvEye')}</span>
-                <div className="nv-bar-wrap">
-                  <div className="nv-bar-fill nv-fill-green" style={{ width: `${gazePct}%` }} />
-                </div>
-                <span className="nv-score nv-score-green">{gazePct}</span>
-              </div>
-              <div className="nv-row">
-                <span className="nv-label">{t('live.nvPosture')}</span>
-                <div className="nv-bar-wrap">
-                  <div className="nv-bar-fill nv-fill-amber" style={{ width: `${posturePct}%` }} />
-                </div>
-                <span className="nv-score nv-score-amber">{posturePct}</span>
-              </div>
-              <div className="nv-row">
-                <span className="nv-label">{t('live.nvGestures')}</span>
-                <div className="nv-bar-wrap">
-                  <div
-                    className="nv-bar-fill nv-fill-violet"
-                    style={{ width: `${Math.min(100, session.nonverbal_coaching.gesture_log.length * 5)}%` }}
-                  />
-                </div>
-                <span className="nv-score nv-score-violet">
-                  {session.nonverbal_coaching.gesture_log.length}
-                </span>
-              </div>
-            </div>
+            <LiveKeynotePad sessionId={session.session_id} />
           </div>
+          )}
         </div>
 
         {/* ── Teleprompter panel ── */}
@@ -787,18 +708,6 @@ export function LiveSessionScreen() {
           </div>
         )}
 
-        <div className="live-ticker">
-          <div className="ticker-label">{t('live.tickerLabel')}</div>
-          <div className="ticker-track">
-            <div className="ticker-inner">
-              {[...tickerItems, ...tickerItems].map((text, i) => (
-                <span key={i} className="ticker-item">
-                  <span className="t-accent">{text}</span>
-                </span>
-              ))}
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   );

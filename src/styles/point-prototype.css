@@ -4078,6 +4078,93 @@ h1.login-logo {
   50% { opacity:0.82; }
 }
 
+.live-ready-overlay {
+  position:absolute;
+  inset:0;
+  z-index:12;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:24px;
+  background:rgba(10,11,16,.55);
+  backdrop-filter:blur(6px);
+  pointer-events:auto;
+}
+.live-ready-card {
+  max-width:420px;
+  width:100%;
+  padding:28px 26px 24px;
+  border-radius:16px;
+  background:var(--surface);
+  border:1px solid var(--border2);
+  box-shadow:0 20px 48px rgba(0,0,0,.35);
+  text-align:center;
+}
+.live-ready-title {
+  margin:0 0 10px;
+  font-size:20px;
+  font-weight:700;
+  color:var(--text);
+}
+.live-ready-sub {
+  margin:0 0 20px;
+  font-size:13px;
+  line-height:1.55;
+  color:var(--muted2);
+}
+.live-ready-start {
+  font-size:14px;
+  padding:12px 32px;
+  min-width:160px;
+}
+.rec-indicator--ready .rec-dot {
+  background:var(--muted2);
+  animation:none;
+  opacity:.65;
+}
+.rec-indicator--ready .rec-text {
+  color:var(--muted2);
+}
+.rec-indicator--paused {
+  background:rgba(245,158,11,.12);
+  border-color:rgba(245,158,11,.28);
+}
+.rec-indicator--paused .rec-dot {
+  background:#f59e0b;
+  animation:none;
+}
+.rec-indicator--paused .rec-text {
+  color:#d97706;
+}
+
+.btn-pause {
+  background:rgba(245,158,11,.12);
+  border:1px solid rgba(245,158,11,.32);
+  border-radius:8px;
+  padding:7px 16px;
+  font-size:12px;
+  font-weight:600;
+  color:#d97706;
+  cursor:pointer;
+  font-family:'Manrope','Noto Sans KR',sans-serif;
+  transition:background .2s, border-color .2s;
+}
+.btn-pause:hover { background:rgba(245,158,11,.2); }
+
+.btn-resume {
+  background:rgba(34,197,94,.14);
+  border:1px solid rgba(34,197,94,.35);
+  border-radius:8px;
+  padding:7px 16px;
+  font-size:12px;
+  font-weight:600;
+  color:#16a34a;
+  cursor:pointer;
+  font-family:'Manrope','Noto Sans KR',sans-serif;
+  transition:background .2s, border-color .2s;
+}
+.btn-resume:hover { background:rgba(34,197,94,.22); }
+
 .live-privacy-overlay {
   position:fixed;
   inset:0;
@@ -4219,6 +4306,74 @@ h1.login-logo {
 .prs-dot--low  { background:rgba(255,255,255,.22); }
 
 .live-main { display:grid; grid-template-columns:1fr 340px; overflow:hidden; }
+.live-main--coaching-closed {
+  grid-template-columns:1fr !important;
+  grid-template-rows:1fr !important;
+}
+
+.live-coaching-toggle {
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted, rgba(255,255,255,0.6));
+  background: transparent;
+  border: 0.5px solid var(--border, rgba(255,255,255,0.15));
+  border-radius: 7px;
+  padding: 5px 12px;
+  cursor: pointer;
+  transition: color 0.14s, background 0.14s, border-color 0.14s;
+  white-space: nowrap;
+}
+.live-coaching-toggle:hover,
+.live-coaching-toggle.active {
+  color: var(--text, #fff);
+  background: var(--accent-dim, rgba(96,200,224,0.1));
+  border-color: var(--accent, #60c8e0);
+}
+
+.coaching-panel-reopen {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  z-index: 11;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 6px 10px 8px;
+  border: 1px solid var(--border2);
+  border-right: none;
+  border-radius: 10px 0 0 10px;
+  background: rgba(22,23,30,.92);
+  color: var(--text);
+  cursor: pointer;
+  backdrop-filter: blur(8px);
+  box-shadow: -4px 0 16px rgba(0,0,0,.2);
+  transition: background .15s, border-color .15s;
+}
+.coaching-panel-reopen:hover {
+  background: var(--surface);
+  border-color: var(--accent);
+}
+.coaching-panel-reopen-icon {
+  font-size: 18px;
+  line-height: 1;
+  color: var(--accent);
+  font-weight: 700;
+}
+.coaching-panel-reopen-label {
+  writing-mode: vertical-rl;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  color: var(--muted2);
+}
+
+#screen-live.live-coaching-closed .coaching-alert {
+  right: 16px;
+  max-width: min(320px, calc(100vw - 48px));
+}
 
 .camera-area {
   position:relative; background:var(--bg); display:flex; align-items:center; justify-content:center; overflow:hidden;
@@ -4414,8 +4569,36 @@ h1.login-logo {
 .cp-header {
   padding:14px 18px; border-bottom:1px solid var(--border);
   display:flex; align-items:center; justify-content:space-between;
+  gap: 8px;
 }
-.cp-title { font-size:14px; font-weight:700; color:var(--text); }
+.cp-title { font-size:14px; font-weight:700; color:var(--text); flex-shrink:0; }
+.cp-header-actions {
+  display:flex;
+  align-items:center;
+  gap:6px;
+  min-width:0;
+}
+.cp-collapse-btn {
+  flex-shrink:0;
+  width:28px;
+  height:28px;
+  border:1px solid var(--border);
+  border-radius:6px;
+  background:var(--surface2);
+  color:var(--muted2);
+  font-size:16px;
+  line-height:1;
+  cursor:pointer;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  transition:color .15s, border-color .15s, background .15s;
+}
+.cp-collapse-btn:hover {
+  color:var(--text);
+  border-color:var(--border2);
+  background:var(--surface3);
+}
 
 .cp-mode-toggle {
   display:flex; background:var(--surface2); border:1px solid var(--border); border-radius:8px; padding:3px; gap:2px;
@@ -4494,6 +4677,117 @@ h1.login-logo {
 
 .metrics-grid {
   display:grid; grid-template-columns:1fr 1fr; gap:8px; padding:14px; border-bottom:1px solid var(--border);
+  flex-shrink:0;
+}
+
+/* Live keynote pad — typing & drawing below metrics */
+.live-keynote-pad {
+  flex:1;
+  min-height:0;
+  display:flex;
+  flex-direction:column;
+  overflow:hidden;
+}
+.live-keynote-toolbar {
+  display:flex;
+  align-items:center;
+  gap:8px;
+  padding:8px 12px 6px;
+  flex-shrink:0;
+}
+.live-keynote-label {
+  font-size:11px;
+  font-weight:700;
+  letter-spacing:0.04em;
+  color:var(--muted2);
+  flex-shrink:0;
+}
+.live-keynote-mode {
+  display:inline-flex;
+  gap:2px;
+  padding:2px;
+  border-radius:7px;
+  background:var(--surface2);
+  border:1px solid var(--border);
+}
+.live-keynote-mode-btn {
+  border:none;
+  background:transparent;
+  color:var(--muted2);
+  font-size:11px;
+  font-weight:600;
+  padding:4px 10px;
+  border-radius:5px;
+  cursor:pointer;
+  font-family:'Manrope','Noto Sans KR',sans-serif;
+  transition:background .15s, color .15s;
+}
+.live-keynote-mode-btn.active {
+  background:var(--surface3);
+  color:var(--text);
+}
+.live-keynote-clear {
+  margin-left:auto;
+  border:1px solid var(--border);
+  background:transparent;
+  color:var(--muted2);
+  font-size:10px;
+  font-weight:600;
+  padding:4px 10px;
+  border-radius:6px;
+  cursor:pointer;
+  font-family:'Manrope','Noto Sans KR',sans-serif;
+}
+.live-keynote-clear:hover { color:var(--text); border-color:var(--border2); }
+.live-keynote-body {
+  flex:1;
+  min-height:120px;
+  margin:0 10px 10px;
+  position:relative;
+  border-radius:8px;
+  border:1px solid var(--border);
+  background-color:#fffef9;
+  background-image:repeating-linear-gradient(
+    to bottom,
+    transparent 0,
+    transparent calc(2rem - 1px),
+    rgba(70,120,180,0.09) calc(2rem - 1px),
+    rgba(70,120,180,0.09) 2rem
+  );
+  background-size:100% 2rem;
+  overflow:hidden;
+}
+.live-keynote-textarea {
+  position:absolute;
+  inset:0;
+  width:100%;
+  height:100%;
+  border:none;
+  background:transparent;
+  resize:none;
+  padding:10px 12px;
+  font-size:13px;
+  line-height:2rem;
+  color:var(--text);
+  font-family:'Manrope','Noto Sans KR',sans-serif;
+  outline:none;
+}
+.live-keynote-textarea::placeholder { color:var(--muted2); opacity:0.75; }
+.live-keynote-textarea--hidden {
+  pointer-events:none;
+  opacity:0;
+}
+.live-keynote-canvas {
+  position:absolute;
+  inset:0;
+  width:100%;
+  height:100%;
+  touch-action:none;
+  cursor:crosshair;
+}
+.live-keynote-canvas--hidden {
+  pointer-events:none;
+  opacity:0;
 }
 .metric-card {
   background:var(--surface2); border:1px solid var(--border); border-radius:10px; padding:12px; transition:border-color .2s;
@@ -8635,6 +8929,26 @@ body {
 .mc-label {
   color: #5c544a !important;
 }
+
+.live-keynote-label { color: #5c544a !important; }
+.live-keynote-mode {
+  background: rgba(42, 38, 32, 0.04) !important;
+  border-color: rgba(55, 45, 35, 0.12) !important;
+}
+.live-keynote-mode-btn { color: #5c544a !important; }
+.live-keynote-mode-btn.active {
+  background: rgba(42, 38, 32, 0.08) !important;
+  color: #2a2620 !important;
+}
+.live-keynote-clear {
+  border-color: rgba(55, 45, 35, 0.12) !important;
+  color: #5c544a !important;
+}
+.live-keynote-body {
+  background-color: #fffef9 !important;
+  border-color: rgba(55, 45, 35, 0.1) !important;
+}
+.live-keynote-textarea { color: #2a2620 !important; }
 
 .fb-item {
   background: #faf6ef !important;
