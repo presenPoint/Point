@@ -62,12 +62,7 @@ export function pushFillersFromText(
   if (recent.length >= FILLER_THRESHOLD) {
     feedbackQueue.push({
       level: 'WARN',
-      msg:
-        config.feedbackTone === 'sharp'
-          ? 'Too many fillers — every "um" costs you credibility'
-          : config.feedbackTone === 'warm'
-            ? 'I\'m hearing some filler words — try pausing instead'
-            : 'Filler words are being repeated',
+      msg: fillerMsg(config.feedbackTone, config.locale),
       source: 'SPEECH_RULE',
       cooldown: 30_000,
       speechSnippet: speechSnap(),
@@ -113,6 +108,21 @@ export function onInterimSpeechTick(
   if (suffix.trim()) {
     pushFillersFromText(suffix, fillerHistory, config, speechSnap);
   }
+}
+
+function fillerMsg(tone: string, locale: AppLocale): string {
+  if (locale === 'ko') {
+    const ko: Record<string, string> = {
+      sharp: '필러가 너무 많아요 — "음"·"어" 하나하나가 신뢰를 깎아요',
+      warm: '필러가 들려요 — 대신 잠깐 멈춰 보세요',
+    };
+    return ko[tone] ?? '필러 단어가 반복되고 있어요';
+  }
+  const en: Record<string, string> = {
+    sharp: 'Too many fillers — every "um" costs you credibility',
+    warm: 'I\'m hearing some filler words — try pausing instead',
+  };
+  return en[tone] ?? 'Filler words are being repeated';
 }
 
 function toneMsg(tone: string, tooFast: boolean, locale: AppLocale): string {

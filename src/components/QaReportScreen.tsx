@@ -12,8 +12,9 @@ import { ReportTranscriptSection } from './ReportTranscriptSection';
 import { VolumeTimelineChart } from './VolumeTimelineChart';
 import { WordEmphasisSection } from './WordEmphasisSection';
 import { transcriptStats } from '../lib/transcriptScript';
-
 import { navigateBack } from '../lib/appNavigation';
+import { EditableBlock } from './EditableBlock';
+import { useEditableContent } from '../hooks/useEditableContent';
 import { AnimatedPointLogo } from './AnimatedPointLogo';
 import { useT } from '../hooks/useT';
 import { LanguageSwitcher } from './LanguageSwitcher';
@@ -97,6 +98,7 @@ export function QaReportScreen() {
   const setQaDifficulty = useSessionStore((s) => s.setQaDifficulty);
   const selectedPersona = useSessionStore((s) => s.selectedPersona);
   const qaCurrentQuestion = useSessionStore((s) => s.qaCurrentQuestion);
+  const setQaCurrentQuestion = useSessionStore((s) => s.setQaCurrentQuestion);
   const busy = useSessionStore((s) => s.busy);
   const startQa = useSessionStore((s) => s.startQa);
   const submitQaAnswer = useSessionStore((s) => s.submitQaAnswer);
@@ -107,6 +109,23 @@ export function QaReportScreen() {
   const [pdfExporting, setPdfExporting] = useState(false);
   const qaInit = useRef(false);
   const reportPdfRootRef = useRef<HTMLDivElement>(null);
+
+  // Editable AI questions — keyed by turn number
+  const editableQuestions = useEditableContent<number>('ai');
+
+  // TTS 재생 중인 버블 식별자 (turn number, or 'current' for qaCurrentQuestion)
+  const [playingTurn, setPlayingTurn] = useState<number | 'current' | null>(null);
+
+  const playTurn = (text: string, turn: number | 'current') => {
+    setPlayingTurn(turn);
+    primeFeedbackAudio();
+    void speakCoachQuestion(text, selectedPersona).finally(() => setPlayingTurn(null));
+  };
+
+  const stopTts = () => {
+    stopCoachQuestionSpeech();
+    setPlayingTurn(null);
+  };
 
   const done = session.status === 'DONE';
   const reporting = session.status === 'REPORT';
@@ -196,13 +215,17 @@ export function QaReportScreen() {
 
   useEffect(() => {
     if (done || showGenerating || busy || !qaCurrentQuestion?.trim()) {
-      if (!qaCurrentQuestion?.trim() && !busy) stopCoachQuestionSpeech();
+      if (!qaCurrentQuestion?.trim() && !busy) { stopCoachQuestionSpeech(); setPlayingTurn(null); }
       return undefined;
     }
-    const t = window.setTimeout(() => void speakCoachQuestion(qaCurrentQuestion, selectedPersona), 500);
+    const timer = window.setTimeout(() => {
+      setPlayingTurn('current');
+      void speakCoachQuestion(qaCurrentQuestion, selectedPersona).finally(() => setPlayingTurn(null));
+    }, 500);
     return () => {
-      window.clearTimeout(t);
+      window.clearTimeout(timer);
       stopCoachQuestionSpeech();
+      setPlayingTurn(null);
     };
   }, [qaCurrentQuestion, selectedPersona, busy, done, showGenerating]);
 
@@ -489,7 +512,7 @@ export function QaReportScreen() {
               <div className="qa-generating-card">
                 <div className="quiz-grading-spinner" aria-hidden />
                 <p className="qa-generating-title">{generatingTitle}</p>
-                <p className="qa-generating-sub">{busy ? t(busy) : t('qa.generating.wait')}</p>
+                <p className="qa-generating-sub">{busy ? t(busy as Parameters<typeof t>[0]) : t('qa.generating.wait')}</p>
               </div>
             </div>
           ) : done ? (
@@ -562,25 +585,62 @@ export function QaReportScreen() {
                     </div>
                     <div className="msg-meta">{t('qa.msg.metaAi')}</div>
                   </div>
-                  {session.qa.exchanges.map((ex) => (
-                    <div key={ex.turn}>
-                      <div className="msg ai">
-                        <div className="msg-bubble">{ex.question}</div>
-                        <div className="msg-meta">{t('qa.msg.metaAiTurn', { turn: ex.turn })}</div>
+                  {session.qa.exchanges.map((ex) => {
+                    const qEntry = editableQuestions.get(ex.turn, ex.question);
+                    const isThisPlaying = playingTurn === ex.turn;
+                    return (
+                      <div key={ex.turn}>
+                        <div className="msg ai">
+                          <div className="msg-bubble">
+                            <button
+                              type="button"
+                              className={`qa-tts-btn${isThisPlaying ? ' qa-tts-btn--playing' : ''}`}
+                              title={isThisPlaying ? 'Stop audio' : 'Play question'}
+                              onClick={() => isThisPlaying ? stopTts() : playTurn(qEntry.current, ex.turn)}
+                            >
+                              {isThisPlaying ? '⏹' : '🔊'}
+                            </button>
+                            <EditableBlock
+                              content={qEntry.current}
+                              source={qEntry.source}
+                              label={`Question ${ex.turn}`}
+                              compact
+                              onSave={(newText) => editableQuestions.save(ex.turn, newText)}
+                            />
+                          </div>
+                          <div className={`msg-meta${ex.is_followup ? ' msg-meta--followup' : ''}`}>
+                            {t('qa.msg.metaAiTurn', { turn: ex.turn })}
+                          </div>
+                        </div>
+                        <div className="msg user">
+                          <div className="msg-bubble">{ex.answer}</div>
+                          <div className="msg-meta">{t('qa.msg.metaYou')}</div>
+                        </div>
                       </div>
-                      <div className="msg user">
-                        <div className="msg-bubble">{ex.answer}</div>
-                        <div className="msg-meta">{t('qa.msg.metaYou')}</div>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                   {!showGenerating &&
                     !busy &&
                     qaCurrentQuestion &&
-                    session.qa.exchanges.length < (session.qa.planned_rounds ?? 5) &&
                     session.qa.exchanges.at(-1)?.question !== qaCurrentQuestion && (
                       <div className="msg ai">
-                        <div className="msg-bubble">{qaCurrentQuestion}</div>
+                        <div className="msg-bubble">
+                          <button
+                            type="button"
+                            className={`qa-tts-btn${playingTurn === 'current' ? ' qa-tts-btn--playing' : ''}`}
+                            title={playingTurn === 'current' ? 'Stop audio' : 'Play question'}
+                            onClick={() => playingTurn === 'current' ? stopTts() : playTurn(qaCurrentQuestion, 'current')}
+                          >
+                            {playingTurn === 'current' ? '⏹' : '🔊'}
+                          </button>
+                          <EditableBlock
+                            content={qaCurrentQuestion}
+                            source="ai"
+                            label={`Question ${session.qa.exchanges.length + 1}`}
+                            compact
+                            onSave={(newText) => setQaCurrentQuestion(newText)}
+                          />
+                        </div>
                         <div className="msg-meta">{t('qa.msg.metaAi')}</div>
                       </div>
                     )}

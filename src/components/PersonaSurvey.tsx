@@ -11,6 +11,7 @@ import { LanguageSwitcher } from './LanguageSwitcher';
 
 interface SurveyOptionDef {
   labelKey: MessageKey;
+  exampleKey: MessageKey;
   weights: Partial<Record<PersonaType, number>>;
 }
 
@@ -27,9 +28,9 @@ const SURVEY_QUESTIONS: SurveyQuestionDef[] = [
     titleKey: 'survey.q1.title',
     subtitleKey: 'survey.q1.subtitle',
     options: [
-      { labelKey: 'survey.q1.opt0', weights: { visionary: 3, orator: 1 } },
-      { labelKey: 'survey.q1.opt1', weights: { orator: 3, connector: 1 } },
-      { labelKey: 'survey.q1.opt2', weights: { connector: 3, visionary: 1 } },
+      { labelKey: 'survey.q1.opt0', exampleKey: 'survey.q1.opt0.example', weights: { visionary: 3, orator: 1 } },
+      { labelKey: 'survey.q1.opt1', exampleKey: 'survey.q1.opt1.example', weights: { orator: 3, connector: 1 } },
+      { labelKey: 'survey.q1.opt2', exampleKey: 'survey.q1.opt2.example', weights: { connector: 3, visionary: 1 } },
     ],
   },
   {
@@ -37,9 +38,9 @@ const SURVEY_QUESTIONS: SurveyQuestionDef[] = [
     titleKey: 'survey.q2.title',
     subtitleKey: 'survey.q2.subtitle',
     options: [
-      { labelKey: 'survey.q2.opt0', weights: { visionary: 3, orator: 1 } },
-      { labelKey: 'survey.q2.opt1', weights: { orator: 3, connector: 1 } },
-      { labelKey: 'survey.q2.opt2', weights: { connector: 3, orator: 1 } },
+      { labelKey: 'survey.q2.opt0', exampleKey: 'survey.q2.opt0.example', weights: { visionary: 3, orator: 1 } },
+      { labelKey: 'survey.q2.opt1', exampleKey: 'survey.q2.opt1.example', weights: { orator: 3, connector: 1 } },
+      { labelKey: 'survey.q2.opt2', exampleKey: 'survey.q2.opt2.example', weights: { connector: 3, orator: 1 } },
     ],
   },
   {
@@ -47,9 +48,9 @@ const SURVEY_QUESTIONS: SurveyQuestionDef[] = [
     titleKey: 'survey.q3.title',
     subtitleKey: 'survey.q3.subtitle',
     options: [
-      { labelKey: 'survey.q3.opt0', weights: { visionary: 3, orator: 1 } },
-      { labelKey: 'survey.q3.opt1', weights: { orator: 3, connector: 1 } },
-      { labelKey: 'survey.q3.opt2', weights: { connector: 3, visionary: 1 } },
+      { labelKey: 'survey.q3.opt0', exampleKey: 'survey.q3.opt0.example', weights: { visionary: 3, orator: 1 } },
+      { labelKey: 'survey.q3.opt1', exampleKey: 'survey.q3.opt1.example', weights: { orator: 3, connector: 1 } },
+      { labelKey: 'survey.q3.opt2', exampleKey: 'survey.q3.opt2.example', weights: { connector: 3, visionary: 1 } },
     ],
   },
 ];
@@ -215,7 +216,10 @@ export function PersonaSurvey() {
               onClick={() => selectOption(i)}
             >
               <span className="so-indicator">{String.fromCharCode(65 + i)}</span>
-              <span className="so-text">{t(opt.labelKey)}</span>
+              <span className="so-body">
+                <span className="so-text">{t(opt.labelKey)}</span>
+                <span className="so-example">{t(opt.exampleKey)}</span>
+              </span>
             </button>
           ))}
         </div>

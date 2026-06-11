@@ -4,6 +4,8 @@
 import { chatJson, hasOpenAI } from '../../lib/openai';
 import type { QuizItem, SessionContext } from '../../types/session';
 import { buildPresentationTopicBlock } from '../../lib/presentationTopicContext';
+import { resolveLocaleForCurrentApp } from '../../store/localeStore';
+import { aiOutputLanguageRule, sanitizeKoUserFacingDeep } from '../../lib/aiOutputLocale';
 
 type AnalyzeResponse = {
   summary: string;
@@ -96,6 +98,9 @@ export async function analyzeMaterial(
 ): Promise<AnalyzeResponse> {
   if (!hasOpenAI()) return mockAnalyze(rawText);
 
+  const locale = resolveLocaleForCurrentApp();
+  const systemPrompt = `${SYSTEM_ANALYZE}\n${aiOutputLanguageRule(locale)}`;
+
   const topicIntro =
     topicContextBlock?.trim().length ?? 0
       ? `[Presenter-declared themes — infer audience & on-topic scope]\n${topicContextBlock!.trim()}\n\n`
@@ -109,7 +114,7 @@ export async function analyzeMaterial(
 
   const parsed = await chatJson<AnalyzeResponse>(
     'gpt-4o',
-    SYSTEM_ANALYZE,
+    systemPrompt,
     userContent
   );
   if (!parsed?.quiz?.length) return mockAnalyze(rawText);
@@ -134,6 +139,7 @@ export async function gradePreQuiz(
   ctx: SessionContext,
   answers: Record<number, string>
 ): Promise<GradePreQuizResult> {
+  const locale = resolveLocaleForCurrentApp();
   const topicBlock = buildPresentationTopicBlock(ctx);
   const payload = {
     material_summary: ctx.material.summary,
@@ -158,7 +164,7 @@ export async function gradePreQuiz(
 
   const g = await chatJson<GradeResponse>(
     'gpt-4o-mini',
-    SYSTEM_GRADE,
+    `${SYSTEM_GRADE}\n${aiOutputLanguageRule(locale)}`,
     JSON.stringify(payload, null, 2)
   );
   if (!g) {
@@ -181,9 +187,9 @@ export async function gradePreQuiz(
             pq[i]?.feedback ??
             'Could not generate feedback.',
         }));
-  return {
+  return sanitizeKoUserFacingDeep({
     score: g.total_score,
     weak_areas: g.weak_areas ?? [],
     per_question,
-  };
+  }, locale);
 }

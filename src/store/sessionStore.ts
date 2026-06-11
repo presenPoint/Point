@@ -4,7 +4,6 @@ import {
   gradePreQuiz,
   buildFallbackNarrative,
   calcCompositeScore,
-  enrichPhraseRewritesIfMissing,
   generateReportNarrative,
   gradeQaExchanges,
   qaNextQuestion,
@@ -21,8 +20,7 @@ import {
 } from '../lib/scriptEmbedding';
 import type { SessionContext, SessionStatus, QaDifficultyLevel, PersonaStyleCoaching, TranscriptEntry, ActionableFeedback } from '../types/session';
 import { buildPresentationTopicBlock } from '../lib/presentationTopicContext';
-import { resolveLocaleForCurrentApp } from './localeStore';
-import { getDefaultPaceRange, getPersonaPaceRange } from '../lib/speechRate';
+import { getPersonaPaceRange } from '../lib/speechRate';
 
 function emptyMaterial(): SessionContext['material'] {
   return {
@@ -103,8 +101,9 @@ type State = {
   session: SessionContext;
   preQuizAnswers: Record<number, string>;
   qaCurrentQuestion: string;
-  busy: import('../locales/messages').MessageKey | null;
-  /** i18n key (prepare.* / qa.*) or raw error string */
+  /** True when the currently displayed Q&A question is a follow-up (not a new main question) */
+  qaCurrentIsFollowUp: boolean;
+  busy: string | null;
   error: string | null;
   appStarted: boolean;
   /** When true with `selectedPersona === null`, skip the style survey and use default coaching/scoring. */
@@ -113,18 +112,21 @@ type State = {
   selectedPersona: PersonaType | null;
   /** Audience Q&A — 질문 난이도(프롬프트) */
   qaDifficulty: QaDifficultyLevel;
+  /** OpenAI TTS voice 오버라이드 — 빈 문자열이면 페르소나 기본 */
+  coachTtsVoiceOverride: string;
 
+  setQaCurrentQuestion: (q: string) => void;
   setAppStarted: (v: boolean) => void;
   startPersonaStyleQuiz: () => void;
   startWithDefaultCoaching: () => void;
+  beginMaterialPrepare: () => void;
   setPresentationTopics: (keys: string[], custom: string) => void;
   setLivePresentation: (p: Partial<{ wpm: number; fillerCount: number; volumeRms: number; interimText: string; recognitionError: string }>) => void;
   setPersona: (persona: PersonaType | null) => void;
   setQaDifficulty: (d: QaDifficultyLevel) => void;
+  setCoachTtsVoiceOverride: (voiceId: string) => void;
 
   resetSession: () => void;
-  /** 발표 자료 준비 마법사 진입 시 이전 자료·퀴즈 초기화 */
-  beginMaterialPrepare: () => void;
   transition: (to: SessionStatus) => void;
   /** 발표 시작 — plan에 맞는 max_duration_sec 박제 후 PRESENTING으로 전환. */
   startPresenting: () => Promise<void>;
@@ -137,6 +139,7 @@ type State = {
 
   runMaterialAnalysis: () => Promise<void>;
   submitPreQuiz: () => Promise<void>;
+  regenerateReportNarrative: () => Promise<void>;
 
   patchSpeech: (partial: Partial<SessionContext['speech_coaching']>) => void;
   patchNonverbal: (partial: Partial<SessionContext['nonverbal_coaching']>) => void;
@@ -147,8 +150,6 @@ type State = {
   skipQaAndRunReport: () => Promise<void>;
 
   runReport: () => Promise<void>;
-  /** 기존 점수는 유지하고 narrative(텍스트)만 현재 언어로 다시 생성 */
-  regenerateReportNarrative: () => Promise<void>;
   persistSession: () => Promise<void>;
   setUserId: (id: string) => void;
 };
@@ -163,6 +164,7 @@ export const useSessionStore = create<State>((set, get) => ({
   session: createSession(DEMO_USER),
   preQuizAnswers: {},
   qaCurrentQuestion: '',
+  qaCurrentIsFollowUp: false,
   busy: null,
   error: null,
   appStarted: false,
@@ -170,6 +172,9 @@ export const useSessionStore = create<State>((set, get) => ({
   livePresentation: { wpm: 0, fillerCount: 0, volumeRms: 0, interimText: '', recognitionError: '' },
   selectedPersona: null,
   qaDifficulty: 'standard',
+  coachTtsVoiceOverride: '',
+
+  setQaCurrentQuestion: (q) => set({ qaCurrentQuestion: q }),
 
   setAppStarted: (v) =>
     set({
@@ -188,6 +193,11 @@ export const useSessionStore = create<State>((set, get) => ({
       selectedPersona: null,
       skipPersonaSurvey: true,
     }),
+  beginMaterialPrepare: () =>
+    set({
+      appStarted: true,
+      skipPersonaSurvey: false,
+    }),
   setPresentationTopics: (keys, custom) =>
     set((s) => ({
       session: {
@@ -198,6 +208,7 @@ export const useSessionStore = create<State>((set, get) => ({
     })),
   setPersona: (persona) => set({ selectedPersona: persona }),
   setQaDifficulty: (d) => set({ qaDifficulty: d }),
+  setCoachTtsVoiceOverride: (voiceId) => set({ coachTtsVoiceOverride: voiceId }),
   setLivePresentation: (p) =>
     set((s) => ({
       livePresentation: { ...s.livePresentation, ...p },
@@ -210,6 +221,7 @@ export const useSessionStore = create<State>((set, get) => ({
       session: createSession(DEMO_USER),
       preQuizAnswers: {},
       qaCurrentQuestion: '',
+      qaCurrentIsFollowUp: false,
       busy: null,
       error: null,
       appStarted: false,
@@ -217,23 +229,8 @@ export const useSessionStore = create<State>((set, get) => ({
       livePresentation: { wpm: 0, fillerCount: 0, volumeRms: 0, interimText: '', recognitionError: '' },
       selectedPersona: null,
       qaDifficulty: 'standard',
+      coachTtsVoiceOverride: '',
     });
-  },
-
-  beginMaterialPrepare: () => {
-    const sid = get().session.session_id;
-    clearChunks(sid);
-    set((s) => ({
-      session: {
-        ...s.session,
-        session_id: crypto.randomUUID(),
-        status: 'IDLE',
-        material: emptyMaterial(),
-      },
-      preQuizAnswers: {},
-      error: null,
-      busy: null,
-    }));
   },
 
   transition: (to) =>
@@ -379,11 +376,12 @@ export const useSessionStore = create<State>((set, get) => ({
     const raw = get().session.material.raw_text.trim();
     if (raw.length < 20) {
       set({
-        error: 'prepare.error.materialTooShort',
+        error:
+          'Please add materials in the file submission area, save them, and then analyze. (The saved text must be at least 20 characters.)',
       });
       return;
     }
-    set({ busy: 'prepare.busy.analyzing', error: null });
+    set({ busy: 'Analyzing materials...', error: null });
     try {
       const scriptText = get().session.material.script_text.trim() || undefined;
       const topicBlock = buildPresentationTopicBlock(get().session);
@@ -413,11 +411,11 @@ export const useSessionStore = create<State>((set, get) => ({
     const { session, preQuizAnswers } = get();
     for (const q of session.material.quiz) {
       if (!preQuizAnswers[q.id]?.trim()) {
-        set({ error: 'prepare.error.answerAllQuiz' });
+        set({ error: 'Please answer all quiz questions.' });
         return;
       }
     }
-    set({ busy: 'prepare.busy.grading', error: null });
+    set({ busy: 'Grading...', error: null });
     try {
       const graded = await gradePreQuiz(session, preQuizAnswers);
       set((s) => ({
@@ -457,7 +455,7 @@ export const useSessionStore = create<State>((set, get) => ({
     if (qaStartLock || get().qaCurrentQuestion) return;
     if (get().session.qa_skipped) return;
     qaStartLock = true;
-    set({ busy: 'qa.busy.preparing', error: null });
+    set({ busy: 'Preparing Q&A…', error: null });
     try {
       const q = await qaNextQuestion(get().session, [], { pressure: get().qaDifficulty });
       if (get().session.qa_skipped) return;
@@ -483,6 +481,7 @@ export const useSessionStore = create<State>((set, get) => ({
         },
       },
       qaCurrentQuestion: '',
+      qaCurrentIsFollowUp: false,
       error: null,
     }));
     await get().runReport();
@@ -491,10 +490,11 @@ export const useSessionStore = create<State>((set, get) => ({
   submitQaAnswer: async (answer) => {
     if (get().session.qa_skipped) return;
     const { session, qaCurrentQuestion } = get();
+    const isCurrentFollowUp = get().qaCurrentIsFollowUp;
     const turn = session.qa.exchanges.length + 1;
     const nextExchanges = [
       ...session.qa.exchanges,
-      { turn, question: qaCurrentQuestion, answer },
+      { turn, question: qaCurrentQuestion, answer, is_followup: isCurrentFollowUp },
     ];
 
     set((s) => ({
@@ -502,14 +502,15 @@ export const useSessionStore = create<State>((set, get) => ({
     }));
 
     const planned = session.qa.planned_rounds ?? 5;
-    if (nextExchanges.length >= planned) {
-      set({ busy: 'qa.busy.gradingQa' });
+    const mainCount = nextExchanges.filter((e) => !e.is_followup).length;
+    // Follow-up can only be asked after a main question answer, not after another follow-up
+    const canAskFollowUp = !isCurrentFollowUp;
+
+    // All main questions answered and no follow-up pending → grade immediately
+    if (mainCount >= planned && !canAskFollowUp) {
+      set({ busy: 'Grading Q&A…' });
       const grade = await gradeQaExchanges(nextExchanges);
-      const g = grade ?? {
-        final_score: 0,
-        best_answer_turn: 1,
-        worst_answer_turn: 1,
-      };
+      const g = grade ?? { final_score: 0, best_answer_turn: 1, worst_answer_turn: 1 };
       set((s) => ({
         session: {
           ...s.session,
@@ -522,38 +523,60 @@ export const useSessionStore = create<State>((set, get) => ({
           },
         },
         qaCurrentQuestion: '',
+        qaCurrentIsFollowUp: false,
         busy: null,
       }));
       await get().runReport();
       return;
     }
 
-    set({ busy: 'qa.busy.nextQuestion' });
-    const q = await qaNextQuestion(get().session, nextExchanges, { pressure: get().qaDifficulty });
-    set({
-      qaCurrentQuestion: q.text,
-      busy: null,
+    set({ busy: 'Generating next question…' });
+    const q = await qaNextQuestion(get().session, nextExchanges, {
+      pressure: get().qaDifficulty,
+      followUpAllowed: canAskFollowUp,
     });
+
+    if (q.isFollowUp) {
+      set({ qaCurrentQuestion: q.text, qaCurrentIsFollowUp: true, busy: null });
+    } else if (mainCount >= planned) {
+      // AI decided not to follow up and all main questions are done → grade
+      set({ busy: 'Grading Q&A…' });
+      const grade = await gradeQaExchanges(nextExchanges);
+      const g = grade ?? { final_score: 0, best_answer_turn: 1, worst_answer_turn: 1 };
+      set((s) => ({
+        session: {
+          ...s.session,
+          qa: {
+            ...s.session.qa,
+            exchanges: nextExchanges,
+            final_score: g.final_score,
+            best_answer_turn: g.best_answer_turn,
+            worst_answer_turn: g.worst_answer_turn,
+          },
+        },
+        qaCurrentQuestion: '',
+        qaCurrentIsFollowUp: false,
+        busy: null,
+      }));
+      await get().runReport();
+    } else {
+      set({ qaCurrentQuestion: q.text, qaCurrentIsFollowUp: false, busy: null });
+    }
   },
 
   runReport: async () => {
-    const { flushLiveTranscriptNow } = await import('../lib/liveTranscriptFlush');
-    flushLiveTranscriptNow();
     set((s) => ({
       session: { ...s.session, status: 'REPORT' },
-      busy: 'qa.busy.generatingReport',
+      busy: 'Generating report…',
       error: null,
     }));
     const ctx = get().session;
     const persona = get().selectedPersona ? PERSONAS[get().selectedPersona!] : null;
-    const locale = resolveLocaleForCurrentApp();
-    const paceRange = persona
-      ? getPersonaPaceRange(persona.config, locale)
-      : getDefaultPaceRange(locale);
+    const wpmRange = persona ? getPersonaPaceRange(persona.config, 'en') : undefined;
 
     let scoresWithContext: ReturnType<typeof calcCompositeScore>;
     try {
-      scoresWithContext = calcCompositeScore(ctx, paceRange);
+      scoresWithContext = calcCompositeScore(ctx, wpmRange);
     } catch (e) {
       console.error('calcCompositeScore failed', e);
       const msg = e instanceof Error ? e.message : String(e);
@@ -570,14 +593,14 @@ export const useSessionStore = create<State>((set, get) => ({
             nonverbal_score: 0,
             qa_score: 0,
             strengths: [
-              'An error occurred while calculating scores. Session data may be incomplete.',
+              '점수 산출 단계에서 오류가 발생했습니다. 세션 데이터가 불완전할 수 있습니다.',
             ],
             improvements: [
               {
-                label: 'What to do next',
+                label: '복구 안내',
                 situation: msg,
                 stop_doing: '',
-                start_doing: 'Refresh the app and try again, or start a new session if the problem persists.',
+                start_doing: '앱을 새로고침한 뒤 다시 시도하거나, 문제가 계속되면 새 세션을 시작해 주세요.',
                 expected_impact: '',
                 time_markers: [],
               },
@@ -608,22 +631,11 @@ export const useSessionStore = create<State>((set, get) => ({
     let narrative: Awaited<ReturnType<typeof generateReportNarrative>>;
     let reportError: string | null = null;
     try {
-      narrative = await generateReportNarrative(ctx, scoresWithContext, persona, scriptCoverage, locale);
+      narrative = await generateReportNarrative(ctx, scoresWithContext, persona, scriptCoverage);
     } catch (e) {
       console.error('generateReportNarrative failed', e);
       reportError = e instanceof Error ? e.message : String(e);
-      narrative = buildFallbackNarrative(ctx, scoresWithContext, persona, locale);
-    }
-
-    if (persona && narrative.persona_style_coaching) {
-      narrative = {
-        ...narrative,
-        persona_style_coaching: await enrichPhraseRewritesIfMissing(
-          narrative.persona_style_coaching,
-          persona,
-          ctx,
-        ),
-      };
+      narrative = buildFallbackNarrative(ctx, scoresWithContext, persona);
     }
 
     const generated_at = new Date().toISOString();
@@ -654,47 +666,8 @@ export const useSessionStore = create<State>((set, get) => ({
   },
 
   regenerateReportNarrative: async () => {
-    const ctx = get().session;
-    if (ctx.status !== 'DONE' && ctx.status !== 'REPORT') return;
-    const persona = get().selectedPersona ? PERSONAS[get().selectedPersona!] : null;
-    const locale = resolveLocaleForCurrentApp();
-    const paceRange = persona
-      ? getPersonaPaceRange(persona.config, locale)
-      : getDefaultPaceRange(locale);
-    set({ busy: 'qa.busy.generatingReport', error: null });
-    try {
-      const scoresWithContext = calcCompositeScore(ctx, paceRange);
-      let narrative: Awaited<ReturnType<typeof generateReportNarrative>>;
-      try {
-        narrative = await generateReportNarrative(
-          ctx,
-          scoresWithContext,
-          persona,
-          ctx.material.script_coverage ?? null,
-          locale,
-        );
-      } catch (e) {
-        console.error('regenerateReportNarrative failed', e);
-        narrative = buildFallbackNarrative(ctx, scoresWithContext, persona, locale);
-      }
-      const generated_at = new Date().toISOString();
-      set((s) => ({
-        session: {
-          ...s.session,
-          report: {
-            ...s.session.report,
-            strengths: narrative.strengths,
-            improvements: narrative.improvements,
-            persona_style_coaching: narrative.persona_style_coaching ?? s.session.report.persona_style_coaching,
-            generated_at,
-          },
-        },
-        busy: null,
-      }));
-      await get().persistSession();
-    } catch (e) {
-      set({ busy: null, error: e instanceof Error ? e.message : String(e) });
-    }
+    if (get().session.status !== 'DONE') return;
+    await get().runReport();
   },
 
   persistSession: async () => {

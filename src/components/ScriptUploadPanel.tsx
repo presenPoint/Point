@@ -16,8 +16,9 @@ import { useSessionStore } from '../store/sessionStore';
 import type { ScriptEmbeddingStatus } from '../types/session';
 import { useT } from '../hooks/useT';
 import type { MessageKey } from '../locales/messages';
+import { generatePresentationScript } from '../lib/generatePresentationScript';
 
-type InputMode = 'upload' | 'type';
+type InputMode = 'upload' | 'type' | 'generate';
 
 const MAX_FILE_BYTES = 2 * 1024 * 1024; // 2 MB
 const ALLOWED_EXTS   = ['.txt', '.md', '.pdf', '.docx'];
@@ -110,6 +111,12 @@ export function ScriptUploadPanel() {
   const [draft, setDraft]       = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // AI Generate state
+  const [genTopic, setGenTopic]     = useState('');
+  const [genDuration, setGenDuration] = useState<3 | 5 | 10>(5);
+  const [genLoading, setGenLoading] = useState(false);
+  const [genError, setGenError]     = useState<string | null>(null);
+
   const hasScript = scriptText.trim().length > 0;
 
   // Auto-trigger embedding whenever script text changes to non-empty
@@ -182,6 +189,22 @@ export function ScriptUploadPanel() {
   const switchMode = (m: InputMode) => {
     setMode(m);
     setErrorKey(null);
+    setGenError(null);
+  };
+
+  const handleGenerate = async () => {
+    if (!genTopic.trim()) { setGenError(t('prepare.scriptPanel.gen.topicRequired')); return; }
+    setGenError(null);
+    setGenLoading(true);
+    try {
+      const text = await generatePresentationScript(genTopic.trim(), genDuration);
+      setScriptText(text);
+      setFileName(null);
+    } catch {
+      setGenError(t('prepare.scriptPanel.gen.error'));
+    } finally {
+      setGenLoading(false);
+    }
   };
 
   return (
@@ -197,21 +220,20 @@ export function ScriptUploadPanel() {
       {/* Mode tabs — only shown when no script loaded */}
       {!hasScript && (
         <div className="sup-mode-tabs" role="tablist">
-          <button
-            type="button" role="tab"
-            aria-selected={mode === 'upload'}
+          <button type="button" role="tab" aria-selected={mode === 'upload'}
             className={`sup-mode-tab${mode === 'upload' ? ' sup-tab-active' : ''}`}
-            onClick={() => switchMode('upload')}
-          >
+            onClick={() => switchMode('upload')}>
             📁 {t('prepare.scriptPanel.tabUpload')}
           </button>
-          <button
-            type="button" role="tab"
-            aria-selected={mode === 'type'}
+          <button type="button" role="tab" aria-selected={mode === 'type'}
             className={`sup-mode-tab${mode === 'type' ? ' sup-tab-active' : ''}`}
-            onClick={() => switchMode('type')}
-          >
+            onClick={() => switchMode('type')}>
             ✍️ {t('prepare.scriptPanel.tabType')}
+          </button>
+          <button type="button" role="tab" aria-selected={mode === 'generate'}
+            className={`sup-mode-tab sup-mode-tab--ai${mode === 'generate' ? ' sup-tab-active' : ''}`}
+            onClick={() => switchMode('generate')}>
+            {t('prepare.scriptPanel.tabGenerate')}
           </button>
         </div>
       )}
@@ -253,6 +275,51 @@ export function ScriptUploadPanel() {
           <StyleCard />
 
           <p className="sup-penalty-notice">⚠ {t('prepare.scriptPanel.penalty')}</p>
+        </div>
+
+      ) : mode === 'generate' ? (
+        <div className="sup-gen-area">
+          <p className="sup-gen-hint">{t('prepare.scriptPanel.gen.hint')}</p>
+          <label className="sup-gen-label" htmlFor="sup-gen-topic">
+            {t('prepare.scriptPanel.gen.topicLabel')}
+          </label>
+          <input
+            id="sup-gen-topic"
+            type="text"
+            className="sup-gen-input"
+            placeholder={t('prepare.scriptPanel.gen.topicPlaceholder')}
+            value={genTopic}
+            onChange={(e) => setGenTopic(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') void handleGenerate(); }}
+            disabled={genLoading}
+          />
+          <div className="sup-gen-duration-row">
+            <span className="sup-gen-label">{t('prepare.scriptPanel.gen.durationLabel')}</span>
+            <div className="sup-gen-duration-btns">
+              {([3, 5, 10] as const).map((d) => (
+                <button
+                  key={d}
+                  type="button"
+                  className={`sup-gen-dur-btn${genDuration === d ? ' active' : ''}`}
+                  onClick={() => setGenDuration(d)}
+                  disabled={genLoading}
+                >
+                  {t(`prepare.scriptPanel.gen.duration${d}` as Parameters<typeof t>[0])}
+                </button>
+              ))}
+            </div>
+          </div>
+          {genError && <p className="sup-error" role="alert">{genError}</p>}
+          <button
+            type="button"
+            className="sup-btn-generate"
+            disabled={genLoading || !genTopic.trim()}
+            onClick={() => void handleGenerate()}
+          >
+            {genLoading
+              ? t('prepare.scriptPanel.gen.generating')
+              : t('prepare.scriptPanel.gen.cta')}
+          </button>
         </div>
 
       ) : mode === 'upload' ? (
