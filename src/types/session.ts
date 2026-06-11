@@ -64,6 +64,8 @@ export interface QaExchange {
   question: string;
   answer: string;
   score?: number;
+  /** True when this exchange is a follow-up clarification on the previous main question */
+  is_followup?: boolean;
 }
 
 // ── Script RAG types ────────────────────────────────────────────────────────

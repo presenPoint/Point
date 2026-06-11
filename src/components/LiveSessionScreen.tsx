@@ -99,8 +99,9 @@ export function LiveSessionScreen() {
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const [camOn, setCamOn] = useState(false);
-  /** 메인 무대 영상: 'audience' = 청중 영상(기본), 'self' = 내 카메라 */
-  const [stageView, setStageView] = useState<'audience' | 'self'>('audience');
+  const [prompterOpen, setPrompterOpen] = useState(false);
+  const [prompterAutoScroll, setPrompterAutoScroll] = useState(true);
+  const prompterRef = useRef<HTMLDivElement>(null);
 
   const [privacyModalOpen, setPrivacyModalOpen] = useState(() => {
     if (typeof window === 'undefined') return false;
@@ -162,7 +163,17 @@ export function LiveSessionScreen() {
     }
     setPrivacyModalOpen(false);
     restartLiveSpeechRecognition();
+    void startCamera();
   };
+
+  // 개인정보 동의가 이미 완료된 경우 마운트 시 바로 카메라 시작
+  useEffect(() => {
+    if (!privacyModalOpen) {
+      void startCamera();
+    }
+    // startCamera는 ref 기반이 아니라 직접 함수이므로 eslint-disable 처리
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     const t = window.setInterval(() => {
@@ -252,6 +263,7 @@ export function LiveSessionScreen() {
 
   const locale = useEffectiveLocale();
   const selectedPersona = useSessionStore((s) => s.selectedPersona);
+  const scriptText = useSessionStore((s) => s.session.material.script_text);
   const paceRange = useMemo(() => {
     const p = selectedPersona ? PERSONAS[selectedPersona] : null;
     return p ? getPersonaPaceRange(p.config, locale) : getDefaultPaceRange(locale);
@@ -479,26 +491,16 @@ export function LiveSessionScreen() {
           </div>
           <div className="live-actions">
             <LanguageSwitcher className="lang-switcher--topnav lang-switcher--live" />
-            <div className="live-stage-toggle" role="group" aria-label={t('live.stageToggleAria')}>
+            {scriptText.trim().length > 0 && (
               <button
                 type="button"
-                className={`live-stage-toggle-btn${stageView === 'audience' ? ' active' : ''}`}
-                onClick={() => setStageView('audience')}
-                aria-pressed={stageView === 'audience'}
+                className={`live-prompter-toggle${prompterOpen ? ' active' : ''}`}
+                onClick={() => setPrompterOpen((o) => !o)}
+                aria-pressed={prompterOpen}
               >
-                <span className="stage-icon" aria-hidden="true">👥</span>
-                {t('live.stageAudience')}
+                {t('live.prompter.toggle')}
               </button>
-              <button
-                type="button"
-                className={`live-stage-toggle-btn${stageView === 'self' ? ' active' : ''}`}
-                onClick={() => setStageView('self')}
-                aria-pressed={stageView === 'self'}
-              >
-                <span className="stage-icon" aria-hidden="true">📹</span>
-                {t('live.stageSelf')}
-              </button>
-            </div>
+            )}
             <button type="button" className="btn-end" onClick={() => endSession('user')}>
               {t('live.endSession')}
             </button>
@@ -508,35 +510,24 @@ export function LiveSessionScreen() {
         <div className="live-main">
           <div className="camera-area">
             <div className="camera-area-stack">
-              {/* 관객 영상: 항상 백그라운드에서 재생, stageView='self' 일 땐 숨김. 음성은 muted. */}
+              {/* 청중 영상: 항상 메인 화면으로 표시 */}
               <video
-                className={`camera-feed${stageView !== 'audience' ? ' hidden' : ''}`}
+                className="camera-feed"
                 src="/audience-stage.mp4"
                 autoPlay
                 muted
                 loop
                 playsInline
               />
-              {/* 내 카메라: stageView='self' 이고 카메라 켜진 경우에만 표시. 단 video element 자체는 항상
-                  DOM에 존재해야 함 (videoRef 안정성 + MediaPipe 프레임 공급용). */}
+              {/* selfcam PIP: 카메라 켜지면 하단 우측에 자동 표시.
+                  video element는 항상 DOM에 존재해야 MediaPipe 프레임 공급이 가능. */}
               <video
                 ref={videoRef}
-                className={`camera-feed${!(stageView === 'self' && camOn) ? ' hidden' : ''}`}
+                className={`camera-feed--pip-audience${camOn ? '' : ' hidden'}`}
                 autoPlay
                 muted
                 playsInline
               />
-              {stageView === 'self' && !camOn && (
-                <div className="cam-placeholder">
-                  <div className="cam-icon" aria-hidden="true">📹</div>
-                  <div className="cam-label">{t('live.camPlaceholder')}</div>
-                  <div className="cam-action">
-                    <button type="button" className="btn-primary btn-cam" onClick={startCamera}>
-                      {t('live.turnOnCamera')}
-                    </button>
-                  </div>
-                </div>
-              )}
             </div>
             <div className="scan-line" />
             <div className="corner-tl" />
@@ -756,6 +747,45 @@ export function LiveSessionScreen() {
             </div>
           </div>
         </div>
+
+        {/* ── Teleprompter panel ── */}
+        {prompterOpen && (
+          <div
+            className="live-prompter"
+            role="region"
+            aria-label={t('live.prompter.aria')}
+          >
+            <div className="live-prompter-bar">
+              <button
+                type="button"
+                className={`live-prompter-autoscroll${prompterAutoScroll ? ' active' : ''}`}
+                onClick={() => setPrompterAutoScroll((a) => !a)}
+              >
+                {t('live.prompter.autoScroll')}
+              </button>
+              <button
+                type="button"
+                className="live-prompter-close"
+                onClick={() => setPrompterOpen(false)}
+                aria-label={t('live.prompter.close')}
+              >
+                ✕
+              </button>
+            </div>
+            <div
+              ref={prompterRef}
+              className="live-prompter-scroll"
+              onMouseEnter={() => setPrompterAutoScroll(false)}
+              onMouseLeave={() => setPrompterAutoScroll(true)}
+            >
+              {scriptText.trim() ? (
+                <p className="live-prompter-text">{scriptText}</p>
+              ) : (
+                <p className="live-prompter-empty">{t('live.prompter.noScript')}</p>
+              )}
+            </div>
+          </div>
+        )}
 
         <div className="live-ticker">
           <div className="ticker-label">{t('live.tickerLabel')}</div>
