@@ -674,6 +674,33 @@ export const useSessionStore = create<State>((set, get) => ({
     const ctx = get().session;
     if (!supabase) return;
     try {
+      // ── 세부 분석 지표 계산 ─────────────────────────────────────────
+      const wpmLog = ctx.speech_coaching.wpm_log;
+      const wpm_avg =
+        wpmLog.length > 0
+          ? Math.round(wpmLog.reduce((s, e) => s + e.wpm, 0) / wpmLog.length)
+          : null;
+
+      const postureLog = ctx.nonverbal_coaching.posture_log;
+      const posture_score =
+        postureLog.length > 0
+          ? Math.round((postureLog.filter((e) => e.is_ok).length / postureLog.length) * 100)
+          : null;
+
+      const gazeLog = ctx.nonverbal_coaching.gaze_log;
+      const gaze_score =
+        gazeLog.length > 0
+          ? Math.round((gazeLog.filter((e) => e.is_gazing).length / gazeLog.length) * 100)
+          : null;
+
+      const gestureLog = ctx.nonverbal_coaching.gesture_log;
+      const gesture_score =
+        gestureLog.length > 0
+          ? Math.max(0, 100 - gestureLog.length * 5)
+          : null;
+
+      const persona = get().selectedPersona;
+
       await supabase.from('sessions').upsert({
         session_id: ctx.session_id,
         user_id: ctx.user_id,
@@ -689,6 +716,14 @@ export const useSessionStore = create<State>((set, get) => ({
         persona_style_coaching: ctx.report.persona_style_coaching ?? null,
         transcript_log: ctx.speech_coaching.transcript_log,
         status: ctx.status,
+        // 세부 분석 지표
+        wpm_avg,
+        filler_count: ctx.speech_coaching.filler_count || null,
+        off_topic_count: ctx.speech_coaching.off_topic_log.length || null,
+        posture_score,
+        gaze_score,
+        gesture_score,
+        persona_used: persona ?? null,
       });
       set({ error: null });
     } catch (e) {
