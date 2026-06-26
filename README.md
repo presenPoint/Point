@@ -92,6 +92,21 @@ Upload → Quiz → Presentation → Real-time Coaching → Q&A → Report
 
 ---
 
+## 📊 Analytics Dashboard
+
+Session performance data visualized in Tableau Online — tracking score trends, performance tier distribution, and speech vs. nonverbal correlation across all sessions.
+
+[![Tableau Dashboard](public/dashboard-preview.png)](https://10ay.online.tableau.com/#/site/botw461-20fa7fc994/views/Point_A/1_1)
+
+> 📎 [View live dashboard →](https://10ay.online.tableau.com/#/site/botw461-20fa7fc994/views/Point_A/1_1) *(Tableau Online login required)*
+
+**Charts included:**
+- **사용자 결과 추세** — Session count by performance tier (Excellent / Good / Fair / Needs Work)
+- **이용자 별 언어적 비언어적 추세** — Speech Score vs. Nonverbal Score scatter plot, colored by tier
+- **상위 4명 이용자 점수 추이** — Composite score trend over time per user
+
+---
+
 ## ⚙️ Getting Started
 
 ```
